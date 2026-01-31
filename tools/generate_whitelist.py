@@ -5,6 +5,7 @@ import re
 import sys
 from pathlib import Path
 
+
 # Env
 FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
 ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")

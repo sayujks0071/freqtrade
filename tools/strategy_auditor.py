@@ -12,8 +12,8 @@ def audit_file(filepath):  # noqa: C901
 
     try:
         tree = ast.parse(source)
-    except SyntaxError as e:
-        print(f"FAIL: Syntax Error in {filepath}: {e}")
+    except SyntaxError as exc:
+        print(f"FAIL: Syntax Error in {filepath}: {exc}")
         return False
 
     errors = []
@@ -41,9 +41,7 @@ def audit_file(filepath):  # noqa: C901
                     # This is loose, matches any .now()
                     # Check if it has arguments (timezone)
                     if not node.args and not node.keywords:
-                        errors.append(
-                            f"Potential naive datetime.now() usage at line {node.lineno}"
-                        )
+                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
     has_class = False

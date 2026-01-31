@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+
 # DB Path
 DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
 

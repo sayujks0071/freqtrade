@@ -6,6 +6,7 @@ from freqtrade.constants import Config, LongShort
 from freqtrade.persistence import Trade
 from freqtrade.plugins.protections import IProtection, ProtectionReturn
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,9 +26,7 @@ class DailyLossLimit(IProtection):
         self._max_daily_loss_abs = protection_config.get("max_daily_loss_abs", 0.0)
 
     def short_desc(self) -> str:
-        return (
-            f"{self.name} - Stop trading if daily loss > {self._max_daily_loss * 100}%."
-        )
+        return f"{self.name} - Stop trading if daily loss > {self._max_daily_loss * 100}%."
 
     def _check_daily_loss(self, date_now: datetime) -> ProtectionReturn | None:
         # Calculate start of day (UTC)
@@ -40,7 +39,7 @@ class DailyLossLimit(IProtection):
             return None
 
         # Calculate daily realized PnL (sum of close_profit_abs)
-        daily_profit_abs = sum(t.close_profit_abs for t in trades)
+        daily_profit_abs = sum(t.close_profit_abs or 0.0 for t in trades)
 
         # Check absolute limit if set
         if (
@@ -62,7 +61,7 @@ class DailyLossLimit(IProtection):
 
         # Check percentage limit
         # Fallback to dry_run_wallet if we can't find balance.
-        current_balance = self.config.get("dry_run_wallet", 1000)
+        current_balance = self._config.get("dry_run_wallet", 1000)
 
         if daily_profit_abs < 0 and abs(daily_profit_abs) > (
             current_balance * self._max_daily_loss
@@ -81,9 +80,7 @@ class DailyLossLimit(IProtection):
 
         return None
 
-    def global_stop(
-        self, date_now: datetime, side: LongShort
-    ) -> ProtectionReturn | None:
+    def global_stop(self, date_now: datetime, side: LongShort) -> ProtectionReturn | None:
         return self._check_daily_loss(date_now)
 
     def stop_per_pair(

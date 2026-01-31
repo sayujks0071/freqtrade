@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import requests
+
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
@@ -27,10 +28,8 @@ def search_github(query):
 def score_repo(repo):
     score = 0
     # Recency
-    updated_at = datetime.strptime(repo["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
-        tzinfo=timezone.utc
-    )
-    days_since_update = (datetime.now(timezone.utc) - updated_at).days
+    updated_at = datetime.strptime(repo["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    days_since_update = (datetime.now(UTC) - updated_at).days
     if days_since_update < 30:
         score += 3
     elif days_since_update < 90:
@@ -68,7 +67,7 @@ def main():
 
     scored_repos.sort(key=lambda x: x[0], reverse=True)
 
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     report_file = f"user_data/reports/strategy_shortlist_{date_str}.md"
 
     with Path(report_file).open("w") as f:
@@ -77,9 +76,7 @@ def main():
         f.write("|---|---|---|---|---|---|\n")
 
         for score, repo in scored_repos:
-            license_name = (
-                repo["license"]["name"] if repo.get("license") else "None"
-            )
+            license_name = repo["license"]["name"] if repo.get("license") else "None"
             f.write(
                 f"| {score} | {repo['name']} | {repo['stargazers_count']} | "
                 f"{repo['updated_at'][:10]} | {license_name} | {repo['html_url']} |\n"

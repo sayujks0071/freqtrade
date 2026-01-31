@@ -6,6 +6,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+
 # Configuration
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
@@ -59,7 +60,13 @@ def validate_schema(data):
         # Volume check (if strict)
         # Assuming volume might be in 'info' or direct fields depending on exchange
         # Freqtrade dump usually standardizes some fields.
-        pass
+        if "volume" in m:
+            vol = m.get("volume")
+            if vol is not None and vol < 1000 and STRICT_VOLUME:
+                errors.append(f"Low volume for {symbol}: {vol}")
+        else:
+            # Volume data often not in list-markets, only tickers
+            pass
 
     if errors:
         fail(
