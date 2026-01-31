@@ -24,6 +24,41 @@ def warn(message):
     print(f"WARN: {message}")
 
 
+def validate_market_structure(i, m, errors):
+    # Required fields
+    for f in REQUIRED_FIELDS:
+        if f not in m:
+            errors.append(f"Item {i} missing field '{f}'")
+
+    symbol = m.get("symbol", "")
+    if not symbol:
+        errors.append(f"Item {i} has empty symbol")
+        return None
+    return symbol
+
+
+def validate_symbol_format(symbol, errors):
+    # Symbol format: BASE/QUOTE:SETTLE for futures usually
+    # Reject whitespace/lowercase
+    if re.search(r"\s", symbol):
+        errors.append(f"Symbol '{symbol}' contains whitespace")
+    if symbol != symbol.upper():
+        errors.append(f"Symbol '{symbol}' is not uppercase")
+
+
+def validate_volume(m, symbol, errors):
+    # Volume check (if strict)
+    # Assuming volume might be in 'info' or direct fields depending on exchange
+    # Freqtrade dump usually standardizes some fields.
+    if "volume" in m:
+        vol = m.get("volume")
+        if vol is not None and vol < 1000 and STRICT_VOLUME:
+            errors.append(f"Low volume for {symbol}: {vol}")
+    else:
+        # Volume data often not in list-markets, only tickers
+        pass
+
+
 def validate_schema(data):
     if not isinstance(data, list):
         fail("Root must be a list of markets")
@@ -35,38 +70,18 @@ def validate_schema(data):
     errors = []
 
     for i, m in enumerate(data):
-        # Required fields
-        for f in REQUIRED_FIELDS:
-            if f not in m:
-                errors.append(f"Item {i} missing field '{f}'")
-
-        symbol = m.get("symbol", "")
+        symbol = validate_market_structure(i, m, errors)
         if not symbol:
-            errors.append(f"Item {i} has empty symbol")
             continue
 
-        # Symbol format: BASE/QUOTE:SETTLE for futures usually
-        # Reject whitespace/lowercase
-        if re.search(r"\s", symbol):
-            errors.append(f"Symbol '{symbol}' contains whitespace")
-        if symbol != symbol.upper():
-            errors.append(f"Symbol '{symbol}' is not uppercase")
+        validate_symbol_format(symbol, errors)
 
         # Uniqueness
         if symbol in symbols:
             errors.append(f"Duplicate symbol '{symbol}'")
         symbols.add(symbol)
 
-        # Volume check (if strict)
-        # Assuming volume might be in 'info' or direct fields depending on exchange
-        # Freqtrade dump usually standardizes some fields.
-        if "volume" in m:
-            vol = m.get("volume")
-            if vol is not None and vol < 1000 and STRICT_VOLUME:
-                errors.append(f"Low volume for {symbol}: {vol}")
-        else:
-            # Volume data often not in list-markets, only tickers
-            pass
+        validate_volume(m, symbol, errors)
 
     if errors:
         fail(
