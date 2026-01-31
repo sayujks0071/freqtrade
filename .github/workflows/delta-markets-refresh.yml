@@ -15,57 +15,48 @@ on:
         required: true
         default: 'perps_usdt'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   refresh_markets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
         with:
           python-version: '3.10'
 
       - name: Install dependencies
         run: |
           pip install requests pandas
-          # We need freqtrade or docker.
-          # Installing freqtrade via pip is heavy.
-          # Using docker compose in GH actions is possible.
 
       - name: Create basic .env
         run: |
           cp .env.example .env
-          # We don't need real API keys for list-markets usually,
-          # but if we do, we should inject them from secrets.
-          # Delta public API for markets usually doesn't need keys.
 
       - name: Update Markets & Whitelist
         env:
           DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
           FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
-          # Mock docker command if we don't want to pull image?
-          # The script uses 'docker compose run'.
-          # We should probably pull the image.
         run: |
-          # Create user_data folders
           ./scripts/bootstrap.sh
-
-          # We need to pull the image or install freqtrade.
-          # Docker is pre-installed on ubuntu-latest.
           docker compose pull freqtrade
-
-          # Run the script
           ./scripts/update_markets_and_whitelist.sh
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
         with:
           name: markets-reports
           path: user_data/reports/
 
       - name: Check for changes and Create PR
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38 # v5.0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update delta markets"
