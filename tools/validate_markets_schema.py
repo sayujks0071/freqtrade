@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import json
-import sys
 import os
 import re
-from datetime import datetime, timezone
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 # Configuration
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
@@ -12,12 +13,15 @@ STRICT_VOLUME = os.environ.get("STRICT_VOLUME", "false").lower() == "true"
 
 REQUIRED_FIELDS = ["symbol", "base", "quote", "active"]
 
+
 def fail(message):
     print(f"FAIL: {message}")
     sys.exit(2)
 
+
 def warn(message):
     print(f"WARN: {message}")
+
 
 def validate_schema(data):
     if not isinstance(data, list):
@@ -58,20 +62,26 @@ def validate_schema(data):
         pass
 
     if errors:
-        fail(f"Schema errors:\n" + "\n".join(errors[:10]) + (f"\n...and {len(errors)-10} more" if len(errors) > 10 else ""))
+        fail(
+            "Schema errors:\n"
+            + "\n".join(errors[:10])
+            + (f"\n...and {len(errors) - 10} more" if len(errors) > 10 else "")
+        )
 
     return symbols
 
+
 def validate_drift(current_symbols, previous_path):
-    if not previous_path or not os.path.exists(previous_path):
+    prev_path_obj = Path(previous_path)
+    if not previous_path or not prev_path_obj.exists():
         print("No previous dump found. Skipping drift check.")
         return
 
     try:
-        with open(previous_path, 'r') as f:
+        with prev_path_obj.open() as f:
             prev_data = json.load(f)
             # Handle if previous dump is also list of dicts
-            prev_symbols = {m['symbol'] for m in prev_data if 'symbol' in m}
+            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
         return
@@ -84,11 +94,16 @@ def validate_drift(current_symbols, previous_path):
     print(f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})")
 
     if removal_ratio > MAX_REMOVAL_RATIO:
-        fail(f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO}). Unsafe drift!")
+        fail(
+            f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO "
+            f"({MAX_REMOVAL_RATIO}). Unsafe drift!"
+        )
+
 
 def write_report(path, message):
-    with open(path, 'w') as f:
+    with Path(path).open("w") as f:
         f.write(message)
+
 
 def main():
     if len(sys.argv) < 2:
@@ -101,14 +116,13 @@ def main():
     print(f"Validating {current_path}...")
 
     try:
-        with open(current_path, 'r') as f:
+        with Path(current_path).open() as f:
             data = json.load(f)
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key or just a list
-    # The prompt implies "list-markets futures json dump". Freqtrade `list-markets` prints a table or json.
-    # If it's `{"markets": [...]}` handle it.
+    # Depending on freqtrade version, list-markets might output a dict with "markets" key
+    # or just a list. The prompt implies "list-markets futures json dump".
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
 
@@ -118,13 +132,14 @@ def main():
         validate_drift(symbols, prev_path)
 
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {datetime.now(UTC).isoformat()}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now or create a report file
-    report_file = f"user_data/reports/markets_schema_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.md"
+    # We could write this report to a file if needed, but stdout is fine for now
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
         write_report(report_file, report)
         print(f"Report written to {report_file}")
@@ -132,6 +147,7 @@ File: {current_path}
         warn(f"Could not write report: {e}")
 
     print("VALIDATION PASS")
+
 
 if __name__ == "__main__":
     main()
