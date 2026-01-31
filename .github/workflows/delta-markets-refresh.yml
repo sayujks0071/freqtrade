@@ -1,0 +1,80 @@
+name: Delta Markets Refresh
+
+on:
+  schedule:
+    # 06:30 IST is 01:00 UTC
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      DELTA_ENV:
+        description: 'Environment (india_prod, global_prod)'
+        required: true
+        default: 'india_prod'
+      FILTER_MODE:
+        description: 'Filter Mode'
+        required: true
+        default: 'perps_usdt'
+
+jobs:
+  refresh_markets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install requests pandas
+          # We need freqtrade or docker.
+          # Installing freqtrade via pip is heavy.
+          # Using docker compose in GH actions is possible.
+
+      - name: Create basic .env
+        run: |
+          cp .env.example .env
+          # We don't need real API keys for list-markets usually,
+          # but if we do, we should inject them from secrets.
+          # Delta public API for markets usually doesn't need keys.
+
+      - name: Update Markets & Whitelist
+        env:
+          DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
+          FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
+          # Mock docker command if we don't want to pull image?
+          # The script uses 'docker compose run'.
+          # We should probably pull the image.
+        run: |
+          # Create user_data folders
+          ./scripts/bootstrap.sh
+
+          # We need to pull the image or install freqtrade.
+          # Docker is pre-installed on ubuntu-latest.
+          docker compose pull freqtrade
+
+          # Run the script
+          ./scripts/update_markets_and_whitelist.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: markets-reports
+          path: user_data/reports/
+
+      - name: Check for changes and Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update delta markets"
+          branch: "chore/delta-markets-refresh"
+          title: "Daily Delta Markets Refresh"
+          body: |
+            Updates whitelist and market dump.
+            See attached reports for drift analysis.
+          add-paths: |
+            user_data/pairlists/
+            user_data/reports/markets_*.json
+            user_data/reports/whitelist_diff_*.md
