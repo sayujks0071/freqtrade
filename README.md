@@ -231,3 +231,19 @@ To run this bot we recommend you a cloud instance with a minimum of:
 - [TA-Lib](https://ta-lib.github.io/ta-lib-python/)
 - [virtualenv](https://virtualenv.pypa.io/en/stable/installation.html) (Recommended)
 - [Docker](https://www.docker.com/products/docker) (Recommended)
+
+## Strategy Audit & Delta Exchange Guide
+
+### How to choose pairs on Delta
+When configuring pairs for Delta Exchange, **never hand-type pairs blindly**.
+1. Run `freqtrade list-markets --exchange delta` to see the list of available markets.
+2. Look for the `Pair` column in the output. It will be in the format `BTC/USDT:USDT`.
+3. Copy this string exactly into your `pair_whitelist` in `config.json`.
+4. Consult `user_data/reports/symbol_mapping_2026-01-31.md` for more details on symbology.
+
+### How to interpret logs
+This stack includes an **Audit Layer** that logs every trade decision.
+- **Location**: Logs are found in standard Freqtrade logs (console or file).
+- **Format**: Look for lines starting with `AUDIT_SIGNAL`.
+  - Example: `AUDIT_SIGNAL: timestamp=2026-01-31T12:00:00+00:00 pair=BTC/USDT:USDT side=long reason='RSI Cross & TEMA below BB' indicators={...}`
+- **Usage**: Use these logs to verify *why* a trade was entered or exited. The `reason` field explains the specific sub-conditions that triggered the signal.
