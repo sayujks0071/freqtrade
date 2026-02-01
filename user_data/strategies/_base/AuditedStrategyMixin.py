@@ -5,7 +5,6 @@ Mixin class for strategies to enforce audit logging and safety checks.
 import logging
 from datetime import UTC, datetime
 from typing import Any, Dict
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
