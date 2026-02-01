@@ -18,6 +18,7 @@ from typing import Any
 
 import requests
 
+
 # Constants
 GITHUB_API_URL = "https://api.github.com"
 SEARCH_QUERIES = [
@@ -66,7 +67,7 @@ class StrategyScout:
 
     def search_github(self):
         print("Searching GitHub...")
-        found_repos = {}  # Dedup by full_name
+        found_repos: dict[str, Any] = {}  # Dedup by full_name
         self._search_queries(found_repos)
         self._add_known_sources(found_repos)
         # Convert to list
@@ -80,7 +81,13 @@ class StrategyScout:
 
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+            # Explicitly type the dict values to avoid mypy issues with requests stubs
+            params: dict[str, str | int] = {
+                "q": query,
+                "sort": "stars",
+                "order": "desc",
+                "per_page": 20,
+            }
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=10
@@ -265,9 +272,7 @@ class StrategyScout:
                     # Use download_url to avoid base64 decoding if possible?
                     # Actually download_url usually points to raw.githubusercontent.com
                     # which does not use API quota!
-                    content_resp = requests.get(
-                        strat_file["download_url"], timeout=10
-                    )
+                    content_resp = requests.get(strat_file["download_url"], timeout=10)
                     if content_resp.status_code == 200:
                         self._inspect_content(repo, content_resp.text)
 
@@ -437,9 +442,7 @@ class StrategyScout:
                                 r = requests.get(raw_url, timeout=10)
                                 if r.status_code == 200:
                                     # Save file
-                                    with (vendor_dir / file_info["name"]).open(
-                                        "w"
-                                    ) as f:
+                                    with (vendor_dir / file_info["name"]).open("w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
