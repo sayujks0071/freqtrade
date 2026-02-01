@@ -1,0 +1,544 @@
+🚀 Starting Master Optimization Pipeline
+========================================
+
+⚔️  Processing Strategy: MomentumVolumeTrend
+----------------------------------------
+📊 1. Initial Backtest (2 Years)...
+time="2026-02-01T12:49:32+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:49:36+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-2537d20e1135 Creating 
+ Container ft_userdata-freqtrade-run-2537d20e1135 Created 
+2026-02-01 07:19:48,266 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:19:50,318 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:20:08,228 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:20:08,335 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:20:08,337 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:20:08,339 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:20:08,354 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:20:08,359 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:20:08,360 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:20:08,370 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20240101-20260131 ...
+2026-02-01 07:20:09,889 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:20:10,002 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:20:10,004 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/MomentumVolumeTrend_initial.json ...
+2026-02-01 07:20:10,006 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:20:10,007 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:20:10,010 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20240101-20260131
+2026-02-01 07:20:10,068 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:20:10,439 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:20:10,442 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:20:10,449 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:20:10,488 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:20:10,532 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:20:10,534 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:20:10,536 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:20:10,624 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:20:10,711 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:20:28,417 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🔧 2. Hyperparameter Optimization (30 Epochs)...
+time="2026-02-01T12:50:54+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:50:55+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-9eaa65af07a4 Creating 
+ Container ft_userdata-freqtrade-run-9eaa65af07a4 Created 
+usage: freqtrade [-h] [-V]
+                 {trade,create-userdir,new-config,show-config,new-strategy,download-data,convert-data,convert-trade-data,trades-to-ohlcv,list-data,backtesting,backtesting-show,backtesting-analysis,edge,hyperopt,hyperopt-list,hyperopt-show,list-exchanges,list-markets,list-pairs,list-strategies,list-hyperoptloss,list-freqaimodels,list-timeframes,show-trades,test-pairlist,convert-db,install-ui,plot-dataframe,plot-profit,webserver,strategy-updater,lookahead-analysis,recursive-analysis} ...
+freqtrade: error: unrecognized arguments: --export-filename user_data/hyperopt_results/MomentumVolumeTrend_optimized.json
+
+✅ 3. Out-of-Sample Validation...
+time="2026-02-01T12:51:03+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:51:03+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-99f21baad153 Creating 
+ Container ft_userdata-freqtrade-run-99f21baad153 Created 
+2026-02-01 07:21:09,007 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:21:11,748 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:21:23,031 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:21:23,273 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:21:23,275 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:21:23,295 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:21:23,324 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:21:23,325 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:21:23,327 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:21:23,327 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20251101-20260131 ...
+2026-02-01 07:21:25,207 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:21:25,319 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:21:25,323 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/MomentumVolumeTrend_validation.json ...
+2026-02-01 07:21:25,325 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:21:25,326 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:21:25,331 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20251101-20260131
+2026-02-01 07:21:25,364 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:21:25,782 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:21:25,790 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:21:25,794 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:21:25,930 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:21:25,980 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:21:25,981 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:21:25,995 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:21:26,140 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:21:26,335 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:21:37,476 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🎉 MomentumVolumeTrend Cycle Complete
+
+⚔️  Processing Strategy: BollingerRSI
+----------------------------------------
+📊 1. Initial Backtest (2 Years)...
+time="2026-02-01T12:51:59+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:51:59+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-f4d7b79748e2 Creating 
+ Container ft_userdata-freqtrade-run-f4d7b79748e2 Created 
+2026-02-01 07:22:10,311 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:22:15,225 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:22:32,192 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:22:32,228 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:22:32,229 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:22:32,232 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:22:32,244 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:22:32,246 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:22:32,246 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:22:32,247 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20240101-20260131 ...
+2026-02-01 07:22:32,804 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:22:32,811 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:22:32,812 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/BollingerRSI_initial.json ...
+2026-02-01 07:22:32,813 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:22:32,814 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:22:32,816 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20240101-20260131
+2026-02-01 07:22:32,829 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:22:33,038 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:22:33,041 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:22:33,047 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:22:33,078 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:22:33,092 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:22:33,094 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:22:33,095 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:22:33,182 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:22:33,431 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:22:45,312 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🔧 2. Hyperparameter Optimization (30 Epochs)...
+time="2026-02-01T12:52:59+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:53:01+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-9a97c5be505f Creating 
+ Container ft_userdata-freqtrade-run-9a97c5be505f Created 
+usage: freqtrade [-h] [-V]
+                 {trade,create-userdir,new-config,show-config,new-strategy,download-data,convert-data,convert-trade-data,trades-to-ohlcv,list-data,backtesting,backtesting-show,backtesting-analysis,edge,hyperopt,hyperopt-list,hyperopt-show,list-exchanges,list-markets,list-pairs,list-strategies,list-hyperoptloss,list-freqaimodels,list-timeframes,show-trades,test-pairlist,convert-db,install-ui,plot-dataframe,plot-profit,webserver,strategy-updater,lookahead-analysis,recursive-analysis} ...
+freqtrade: error: unrecognized arguments: --export-filename user_data/hyperopt_results/BollingerRSI_optimized.json
+
+✅ 3. Out-of-Sample Validation...
+time="2026-02-01T12:53:13+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:53:14+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-3fc40f817552 Creating 
+ Container ft_userdata-freqtrade-run-3fc40f817552 Created 
+2026-02-01 07:23:19,970 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:23:22,661 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:23:36,463 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:23:36,510 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:23:36,512 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:23:36,513 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:23:36,516 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:23:36,517 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:23:36,522 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:23:36,523 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20251101-20260131 ...
+2026-02-01 07:23:37,051 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:23:37,072 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:23:37,076 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/BollingerRSI_validation.json ...
+2026-02-01 07:23:37,077 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:23:37,079 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:23:37,080 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20251101-20260131
+2026-02-01 07:23:37,093 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:23:37,166 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:23:37,167 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:23:37,174 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:23:37,196 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:23:37,207 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:23:37,251 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:23:37,501 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:23:37,833 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:23:37,922 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:23:46,676 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🎉 BollingerRSI Cycle Complete
+
+⚔️  Processing Strategy: VolatilityBreakout
+----------------------------------------
+📊 1. Initial Backtest (2 Years)...
+time="2026-02-01T12:53:59+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:54:00+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-6f22329affe6 Creating 
+ Container ft_userdata-freqtrade-run-6f22329affe6 Created 
+2026-02-01 07:24:19,913 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:24:33,224 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:24:52,421 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:24:52,495 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:24:52,499 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:24:52,500 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:24:52,505 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:24:52,507 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:24:52,509 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:24:52,519 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20240101-20260131 ...
+2026-02-01 07:24:52,789 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:24:52,794 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:24:52,802 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/VolatilityBreakout_initial.json ...
+2026-02-01 07:24:52,803 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:24:52,804 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:24:52,807 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20240101-20260131
+2026-02-01 07:24:52,822 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:24:52,935 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:24:52,940 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:24:52,944 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:24:52,993 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:24:53,005 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:24:53,008 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:24:53,018 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:24:53,119 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:24:53,258 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:24:59,613 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🔧 2. Hyperparameter Optimization (30 Epochs)...
+time="2026-02-01T12:55:31+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:55:32+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-d064dcefbc9f Creating 
+ Container ft_userdata-freqtrade-run-d064dcefbc9f Created 
+usage: freqtrade [-h] [-V]
+                 {trade,create-userdir,new-config,show-config,new-strategy,download-data,convert-data,convert-trade-data,trades-to-ohlcv,list-data,backtesting,backtesting-show,backtesting-analysis,edge,hyperopt,hyperopt-list,hyperopt-show,list-exchanges,list-markets,list-pairs,list-strategies,list-hyperoptloss,list-freqaimodels,list-timeframes,show-trades,test-pairlist,convert-db,install-ui,plot-dataframe,plot-profit,webserver,strategy-updater,lookahead-analysis,recursive-analysis} ...
+freqtrade: error: unrecognized arguments: --export-filename user_data/hyperopt_results/VolatilityBreakout_optimized.json
+
+✅ 3. Out-of-Sample Validation...
+time="2026-02-01T12:55:43+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:55:44+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-738885fd5522 Creating 
+ Container ft_userdata-freqtrade-run-738885fd5522 Created 
+2026-02-01 07:25:48,973 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:25:51,116 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:26:01,240 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:26:01,291 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:26:01,292 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:26:01,293 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:26:01,296 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:26:01,296 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:26:01,297 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:26:01,300 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20251101-20260131 ...
+2026-02-01 07:26:01,602 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:26:01,605 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:26:01,605 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/VolatilityBreakout_validation.json ...
+2026-02-01 07:26:01,606 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:26:01,607 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:26:01,608 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20251101-20260131
+2026-02-01 07:26:01,611 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:26:01,712 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:26:01,714 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:26:01,722 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:26:01,746 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:26:01,754 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:26:01,755 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:26:01,756 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:26:01,810 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:26:01,845 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:26:09,587 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🎉 VolatilityBreakout Cycle Complete
+
+⚔️  Processing Strategy: MLPredictor
+----------------------------------------
+📊 1. Initial Backtest (2 Years)...
+time="2026-02-01T12:56:54+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:56:55+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-3b7ebe5b6c4e Creating 
+ Container ft_userdata-freqtrade-run-3b7ebe5b6c4e Created 
+2026-02-01 07:26:59,948 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:27:01,374 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:27:12,107 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:27:12,179 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:27:12,180 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:27:12,182 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:27:12,200 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:27:12,205 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:27:12,207 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:27:12,208 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20240101-20260131 ...
+2026-02-01 07:27:12,793 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:27:12,799 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:27:12,801 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/MLPredictor_initial.json ...
+2026-02-01 07:27:12,805 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:27:12,807 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:27:12,809 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20240101-20260131
+2026-02-01 07:27:12,814 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:27:12,933 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:27:12,941 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:27:12,943 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:27:12,967 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:27:12,993 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:27:12,995 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:27:12,998 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:27:13,135 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:27:13,247 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:27:21,440 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🔧 2. Hyperparameter Optimization (30 Epochs)...
+time="2026-02-01T12:57:40+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:57:42+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-a1f71ea8cd92 Creating 
+ Container ft_userdata-freqtrade-run-a1f71ea8cd92 Created 
+usage: freqtrade [-h] [-V]
+                 {trade,create-userdir,new-config,show-config,new-strategy,download-data,convert-data,convert-trade-data,trades-to-ohlcv,list-data,backtesting,backtesting-show,backtesting-analysis,edge,hyperopt,hyperopt-list,hyperopt-show,list-exchanges,list-markets,list-pairs,list-strategies,list-hyperoptloss,list-freqaimodels,list-timeframes,show-trades,test-pairlist,convert-db,install-ui,plot-dataframe,plot-profit,webserver,strategy-updater,lookahead-analysis,recursive-analysis} ...
+freqtrade: error: unrecognized arguments: --export-filename user_data/hyperopt_results/MLPredictor_optimized.json
+
+✅ 3. Out-of-Sample Validation...
+time="2026-02-01T12:57:50+05:30" level=warning msg="No services to build"
+time="2026-02-01T12:57:50+05:30" level=warning msg="No services to build"
+ Container ft_userdata-freqtrade-run-136f17dc15ae Creating 
+ Container ft_userdata-freqtrade-run-136f17dc15ae Created 
+2026-02-01 07:27:55,392 - freqtrade - INFO - freqtrade 2026.1
+2026-02-01 07:27:57,613 - numexpr.utils - INFO - NumExpr defaulting to 8 threads.
+2026-02-01 07:28:11,115 - freqtrade.configuration.load_config - INFO - Using config: user_data/config_backtest.json ...
+2026-02-01 07:28:11,153 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-01 07:28:11,154 - freqtrade.loggers - INFO - Logfile configured
+2026-02-01 07:28:11,155 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-01 07:28:11,164 - freqtrade.configuration.configuration - WARNING - `force_entry_enable` RPC message enabled.
+2026-02-01 07:28:11,165 - freqtrade.configuration.configuration - INFO - Parameter -i/--timeframe detected ... Using timeframe: 5m ...
+2026-02-01 07:28:11,166 - freqtrade.configuration.configuration - INFO - Using max_open_trades: 3 ...
+2026-02-01 07:28:11,166 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20251101-20260131 ...
+2026-02-01 07:28:11,497 - freqtrade.configuration.configuration - INFO - Using user-data directory: /freqtrade/user_data ...
+2026-02-01 07:28:11,501 - freqtrade.configuration.configuration - INFO - Using data directory: /freqtrade/user_data/data/binance ...
+2026-02-01 07:28:11,502 - freqtrade.configuration.configuration - INFO - Storing backtest results to user_data/backtest_results/MLPredictor_validation.json ...
+2026-02-01 07:28:11,503 - freqtrade.configuration.configuration - INFO - Parameter --export detected: trades ...
+2026-02-01 07:28:11,504 - freqtrade.configuration.configuration - INFO - Parameter --cache=day detected ...
+2026-02-01 07:28:11,505 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20251101-20260131
+2026-02-01 07:28:11,515 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-01 07:28:11,612 - freqtrade.exchange.check_exchange - INFO - Exchange "binance" is officially supported by the Freqtrade development team.
+2026-02-01 07:28:11,614 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-01 07:28:11,616 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-01 07:28:11,654 - freqtrade.commands.optimize_commands - INFO - Starting freqtrade in Backtesting mode
+2026-02-01 07:28:11,680 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-01 07:28:11,682 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-01 07:28:11,684 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:28:11,770 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'enableRateLimit': True}
+2026-02-01 07:28:11,849 - freqtrade.exchange.exchange - INFO - Using Exchange "Binance"
+2026-02-01 07:28:24,535 - freqtrade - ERROR - Fatal exception!
+Traceback (most recent call last):
+  File "/freqtrade/freqtrade/main.py", line 53, in main
+    return_code = args["func"](args)
+  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 60, in start_backtesting
+    backtesting = Backtesting(config)
+  File "/freqtrade/freqtrade/optimize/backtesting.py", line 143, in __init__
+    exchange = ExchangeResolver.load_exchange(self.config, load_leverage_tiers=True)
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 44, in load_exchange
+    exchange = ExchangeResolver._load_exchange(
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🎉 MLPredictor Cycle Complete
+
+========================================
+🏆 All Strategies Optimized!
+Review results in user_data/backtest_results/
+        exchange_name,
+    ...<5 lines>...
+        },
+    )
+  File "/freqtrade/freqtrade/resolvers/exchange_resolver.py", line 77, in _load_exchange
+    exchange = ex_class(**kwargs)
+  File "/freqtrade/freqtrade/exchange/binance.py", line 81, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 300, in __init__
+    self.validate_config(self._config)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/freqtrade/freqtrade/exchange/exchange.py", line 354, in validate_config
+    self.validate_pricing(config["exit_pricing"])
+                          ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'exit_pricing'
+
+🎉 MLPredictor Cycle Complete
+
+========================================
+🏆 All Strategies Optimized!
+Review results in user_data/backtest_results/
