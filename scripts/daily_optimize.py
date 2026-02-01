@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -357,7 +351,7 @@ def commit_and_push(args, strategy_name, strategy_json, avg_profit_pct, backup_j
             ["git", "rev-parse", "--verify", target_branch],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if check_result.returncode == 0:
             # Branch exists, just switch to it
@@ -385,7 +379,7 @@ def commit_and_push(args, strategy_name, strategy_json, avg_profit_pct, backup_j
         print(f"  - Create/update remote branch: {target_branch}")
         print("\nYou can then create a pull request to review and merge these changes.")
         response = input("\nProceed with push? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
+        if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
             print(f"You can manually push later with: git push origin {target_branch}")
             if backup_json.exists():
@@ -423,26 +417,23 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
+        ),
     )
     parser.add_argument(
-        "--yes", "-y",
-        action="store_true",
-        help="Skip confirmation prompts before pushing"
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
@@ -472,9 +463,7 @@ Examples:
         sys.exit(1)
 
     # 3. Evaluation
-    improved, avg_profit_pct = evaluate_results(
-        worst_strategy, current_sharpe, current_drawdown
-    )
+    improved, avg_profit_pct = evaluate_results(worst_strategy, current_sharpe, current_drawdown)
 
     if improved:
         commit_and_push(args, worst_strategy, strategy_json, avg_profit_pct, backup_json)

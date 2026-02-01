@@ -4,6 +4,7 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -79,8 +80,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:

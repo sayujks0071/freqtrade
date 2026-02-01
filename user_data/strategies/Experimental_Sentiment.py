@@ -56,7 +56,7 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         # Use Volume as a seed for pseudo-randomness to avoid repainting
         # (volume is consistent for closed candles)
         # We take the volume, multiply by a prime, and take modulo to get a 0-1 score
-        dataframe["sentiment_score"] = ((dataframe["volume"] * 0.123456789) % 1)
+        dataframe["sentiment_score"] = (dataframe["volume"] * 0.123456789) % 1
 
         return dataframe
 
@@ -67,8 +67,8 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         # Entry logic based on Sentiment
         dataframe.loc[
             (
-                (dataframe["sentiment_score"] > 0.8) &  # High sentiment -> Buy
-                (dataframe["volume"] > 0)
+                (dataframe["sentiment_score"] > 0.8)  # High sentiment -> Buy
+                & (dataframe["volume"] > 0)
             ),
             "enter_long",
         ] = 1
@@ -79,8 +79,8 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         # Exit logic based on Sentiment
         dataframe.loc[
             (
-                (dataframe["sentiment_score"] < 0.2) &  # Low sentiment -> Sell
-                (dataframe["volume"] > 0)
+                (dataframe["sentiment_score"] < 0.2)  # Low sentiment -> Sell
+                & (dataframe["volume"] > 0)
             ),
             "exit_long",
         ] = 1
@@ -95,7 +95,7 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
