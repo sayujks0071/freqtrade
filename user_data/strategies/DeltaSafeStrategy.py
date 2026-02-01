@@ -2,17 +2,11 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
-import sys
-from pathlib import Path
+from freqtrade.strategy import IStrategy
+from pandas import DataFrame
+import talib.abstract as ta
 
-# Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))
-
-import talib.abstract as ta  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
-from pandas import DataFrame  # noqa: E402
-
-from freqtrade.strategy import IStrategy  # noqa: E402
+from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):

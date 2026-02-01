@@ -4,15 +4,17 @@ Strategy Scout for Freqtrade
 Automatically discovers and shortlists the best open-source Python crypto trading strategies.
 """
 
-import os
-import sys
-import requests
-import datetime
 import argparse
-import time
 import base64
+import datetime
+import os
 import re
-from typing import List, Dict, Any, Optional
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import requests
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -250,7 +252,7 @@ class StrategyScout:
         top_10 = self.candidates[:10]
         rest_candidates = self.candidates[10:]
 
-        with open(filename, "w") as f:
+        with Path(filename).open("w") as f:
             f.write(f"# Freqtrade Strategy Scout Report - {date_str}\n\n")
             f.write("## Top 10 Candidates\n\n")
 
@@ -338,12 +340,12 @@ class StrategyScout:
                                 r = requests.get(raw_url)
                                 if r.status_code == 200:
                                     # Save file
-                                    with open(f"{vendor_dir}/{file_info['name']}", "w") as f:
+                                    with (Path(vendor_dir) / file_info['name']).open("w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
                     # Create LICENSE_NOTE.md
-                    with open(f"{vendor_dir}/LICENSE_NOTE.md", "w") as f:
+                    with (Path(vendor_dir) / "LICENSE_NOTE.md").open("w") as f:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
