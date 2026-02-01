@@ -11,9 +11,10 @@ from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
 
+
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
