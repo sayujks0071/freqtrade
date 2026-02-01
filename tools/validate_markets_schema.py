@@ -14,19 +14,13 @@ DEFAULT_MAX_REMOVAL_RATIO = 0.25
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Validate markets schema and check for drift."
-    )
+    parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
     parser.add_argument("--markets", required=True, help="Path to markets JSON file")
-    parser.add_argument(
-        "--env", required=True, help="Delta Environment (e.g., india_prod)"
-    )
+    parser.add_argument("--env", required=True, help="Delta Environment (e.g., india_prod)")
     parser.add_argument(
         "--prev-whitelist", help="Path to previous whitelist file (for drift check)"
     )
-    parser.add_argument(
-        "--out-report", required=True, help="Path to write the Markdown report"
-    )
+    parser.add_argument("--out-report", required=True, help="Path to write the Markdown report")
     return parser.parse_args()
 
 
@@ -38,9 +32,7 @@ def load_json(path):
 def get_config_vars():
     return {
         "MIN_MARKETS": int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS)),
-        "MAX_REMOVAL_RATIO": float(
-            os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)
-        ),
+        "MAX_REMOVAL_RATIO": float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)),
         "STRICT_VOLUME": os.environ.get("STRICT_VOLUME", "false").lower() == "true",
         "FILTER_MODE": os.environ.get("FILTER_MODE", "perps_usdt"),
         "ALLOWLIST_REGEX": os.environ.get("ALLOWLIST_REGEX", ".*"),
@@ -139,13 +131,9 @@ def check_numeric_sanity(m, idx, errors, config):
                 min_amt = amt.get("min")
                 max_amt = amt.get("max")
                 if isinstance(min_amt, (int, float)) and min_amt < 0:
-                    errors.append(
-                        f"Market {symbol}: Negative min amount limit ({min_amt})"
-                    )
+                    errors.append(f"Market {symbol}: Negative min amount limit ({min_amt})")
                 if isinstance(max_amt, (int, float)) and max_amt < 0:
-                    errors.append(
-                        f"Market {symbol}: Negative max amount limit ({max_amt})"
-                    )
+                    errors.append(f"Market {symbol}: Negative max amount limit ({max_amt})")
                 if (
                     isinstance(min_amt, (int, float))
                     and isinstance(max_amt, (int, float))
@@ -195,9 +183,7 @@ def main():  # noqa: C901
     elif isinstance(data, dict) and "markets" in data:
         markets = data["markets"]
     else:
-        print(
-            "FAIL: Invalid markets JSON structure (not a list or dict with 'markets')"
-        )
+        print("FAIL: Invalid markets JSON structure (not a list or dict with 'markets')")
         sys.exit(2)
 
     # Validation Results
@@ -207,9 +193,7 @@ def main():  # noqa: C901
 
     # A) Count Check
     if len(markets) < config["MIN_MARKETS"]:
-        errors.append(
-            f"Total markets count {len(markets)} < MIN_MARKETS ({config['MIN_MARKETS']})"
-        )
+        errors.append(f"Total markets count {len(markets)} < MIN_MARKETS ({config['MIN_MARKETS']})")
 
     # B, C, D) Per-market validation
     for i, m in enumerate(markets):
@@ -257,9 +241,7 @@ def main():  # noqa: C901
             removed = prev_set - curr_set
             added = curr_set - prev_set
 
-            removal_ratio = (
-                len(removed) / len(prev_set) if len(prev_set) > 0 else 0.0
-            )
+            removal_ratio = len(removed) / len(prev_set) if len(prev_set) > 0 else 0.0
 
             drift_stats["added"] = sorted(list(added))
             drift_stats["removed"] = sorted(list(removed))
@@ -316,13 +298,9 @@ def main():  # noqa: C901
         report_lines.append(f"- Removed: {len(drift_stats['removed'])}")
         report_lines.append(f"- Removal Ratio: {drift_stats['ratio']:.2%}")
         if drift_stats["removed"]:
-            report_lines.append(
-                f"- Sample Removed: {', '.join(drift_stats['removed'][:5])}"
-            )
+            report_lines.append(f"- Sample Removed: {', '.join(drift_stats['removed'][:5])}")
         if drift_stats["format_changed"]:
-            report_lines.append(
-                f"- Format Changes: {', '.join(drift_stats['format_changed'][:5])}"
-            )
+            report_lines.append(f"- Format Changes: {', '.join(drift_stats['format_changed'][:5])}")
         report_lines.append("")
 
     if errors:
