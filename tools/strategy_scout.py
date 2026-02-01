@@ -58,6 +58,14 @@ class StrategyScout:
         print("Searching GitHub...")
         found_repos = {}  # Dedup by full_name
 
+        self._search_queries(found_repos)
+        self._add_known_sources(found_repos)
+
+        # Convert to list
+        self.candidates = list(found_repos.values())
+        print(f"Total unique candidates found: {len(self.candidates)}")
+
+    def _search_queries(self, found_repos):
         # 1. Search Queries
         for query in SEARCH_QUERIES:
             if not self.check_rate_limit():
@@ -81,6 +89,7 @@ class StrategyScout:
             except Exception as e:
                 print(f"Exception during search: {e}")
 
+    def _add_known_sources(self, found_repos):
         # 2. Add Known Sources
         for source in KNOWN_SOURCES:
             if source not in found_repos:
@@ -92,10 +101,6 @@ class StrategyScout:
                         found_repos[source] = resp.json()
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
-
-        # Convert to list
-        self.candidates = list(found_repos.values())
-        print(f"Total unique candidates found: {len(self.candidates)}")
 
     def filter_and_score(self):
         print("Filtering and Scoring...")
