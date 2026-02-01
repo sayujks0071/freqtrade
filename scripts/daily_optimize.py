@@ -12,6 +12,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -287,9 +288,7 @@ def handle_commit_and_push(args, strategy_name, avg_profit_pct, strategy_file):
         return True
 
     # Determine target branch
-    target_branch = (
-        args.branch if args.branch else f"optimize-{datetime.now().strftime('%Y%m%d')}"
-    )
+    target_branch = args.branch if args.branch else f"optimize-{datetime.now().strftime('%Y%m%d')}"
     current_branch = get_current_branch()
 
     # Create and switch to feature branch if not already on it
@@ -400,10 +399,7 @@ def evaluate_and_commit(
         )
         print("Evaluation PASSED. Committing changes.")
 
-        if (
-            handle_commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json)
-            is False
-        ):
+        if handle_commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json) is False:
             print("Reverting changes due to git error...")
             if not created_new:
                 shutil.move(backup_json, strategy_json)

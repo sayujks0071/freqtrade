@@ -106,7 +106,7 @@ class StrategyScout:
     def _calculate_score(self, repo) -> tuple[int, list[str], str]:
         """Calculates a preliminary score for a repository."""
         score = 0
-        notes = []
+        notes: list[str] = []
         full_name = repo["full_name"]
         pushed_at = repo.get("pushed_at")
         license_data = repo.get("license")

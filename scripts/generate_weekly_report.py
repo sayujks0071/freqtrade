@@ -26,11 +26,7 @@ def run_command(cmd, capture=True):
 
 def get_git_commits(days=7):
     since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-    cmd = [
-        "git", "log",
-        f"--since={since}",
-        "--pretty=format:%s"
-    ]
+    cmd = ["git", "log", f"--since={since}", "--pretty=format:%s"]
     result = run_command(cmd)
     if result.returncode == 0:
         return result.stdout.splitlines()
