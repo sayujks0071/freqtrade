@@ -11,6 +11,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -42,7 +43,7 @@ def get_latest_backtest_file():
         return None
     last_result_file = BACKTEST_RESULTS_DIR / ".last_result.json"
     if last_result_file.exists():
-        with open(last_result_file, "r") as f:
+        with open(last_result_file) as f:
             data = json.load(f)
             filename = data.get("latest_backtest")
             if filename:
@@ -74,7 +75,7 @@ def read_backtest_result(filepath):
                 with z.open(target_file) as f:
                     data = json.load(f)
     else:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
     return data
 
@@ -107,6 +108,16 @@ def find_available_strategy():
         if f.stem != "__init__" and not f.stem.startswith("_"):
             return f.stem
     return None
+
+
+def rollback_strategy_changes(created_new, strategy_json, backup_json):
+    """
+    Rollback strategy changes by restoring from backup or removing newly created file.
+    """
+    if not created_new:
+        shutil.move(backup_json, strategy_json)
+    elif created_new and strategy_json.exists():
+        strategy_json.unlink()
 
 
 def run_backtest_job(strategy_name):
@@ -161,6 +172,62 @@ def extract_hyperopt_params(output: str) -> dict:
                 except json.JSONDecodeError:
                     continue  # Keep looking if this wasn't valid JSON or not the right one
     return {}
+
+
+def verify_git_state():
+    """
+    Verifies the repository is in a valid state for pushing changes.
+    Returns (success: bool, error_message: str)
+    """
+    # Check if we're on the main branch
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return False, "Failed to determine current branch"
+
+    current_branch = result.stdout.strip()
+    if current_branch != "main":
+        return False, f"Not on main branch (currently on '{current_branch}')"
+
+    # Check if repository is in a clean state (no uncommitted changes before our changes)
+    result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return False, "Failed to check repository status"
+
+    # Fetch latest changes from origin to check if we're up-to-date
+    print("Fetching latest changes from origin...")
+    result = subprocess.run(["git", "fetch", "origin", "main"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return False, f"Failed to fetch from origin: {result.stderr}"
+
+    # Check if branch is up-to-date with origin/main
+    result = subprocess.run(
+        ["git", "rev-list", "--left-right", "--count", "HEAD...origin/main"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False, "Failed to compare with origin/main"
+
+    counts = result.stdout.strip().split()
+    if len(counts) == 2:
+        _, behind = int(counts[0]), int(counts[1])
+        if behind > 0:
+            return (
+                False,
+                f"Branch is {behind} commit(s) behind origin/main. "
+                "Please pull latest changes first.",
+            )
+
+    # Check for potential merge conflicts
+    result = subprocess.run(
+        ["git", "merge-base", "HEAD", "origin/main"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return False, "Failed to find merge base with origin/main"
+
+    return True, ""
 
 
 def main():
@@ -235,10 +302,7 @@ def main():
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
         print(result_hyperopt.stderr)  # Print stderr on failure
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
+        rollback_strategy_changes(created_new, strategy_json, backup_json)
         sys.exit(1)
 
     # Apply new parameters
@@ -254,10 +318,7 @@ def main():
         # But if no file written, verification will use default/old params.
 
         # If capture failed to get json, we should probably revert and exit
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
+        rollback_strategy_changes(created_new, strategy_json, backup_json)
         sys.exit(1)
 
     # 3. Evaluation (Verification Backtest)
@@ -266,10 +327,7 @@ def main():
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
+        rollback_strategy_changes(created_new, strategy_json, backup_json)
         sys.exit(1)
 
     new_stats = new_backtest_data["strategy"][worst_strategy]
@@ -294,6 +352,15 @@ def main():
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
+        # Verify git state before committing and pushing
+        print("Verifying git repository state...")
+        success, error_msg = verify_git_state()
+        if not success:
+            print(f"Git state verification failed: {error_msg}")
+            print("Cannot push changes. Please resolve the issue and run again.")
+            rollback_strategy_changes(created_new, strategy_json, backup_json)
+            sys.exit(1)
+
         # Use -f to force add in case user_data is gitignored
         run_command(["git", "add", "-f", str(strategy_json)])
         run_command(["git", "commit", "-m", msg])
@@ -304,11 +371,7 @@ def main():
 
     else:
         print("Evaluation FAILED. Reverting changes.")
-        if not created_new:
-            shutil.move(backup_json, strategy_json)
-        else:
-            if strategy_json.exists():
-                strategy_json.unlink()
+        rollback_strategy_changes(created_new, strategy_json, backup_json)
 
 
 if __name__ == "__main__":
