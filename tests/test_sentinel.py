@@ -1,9 +1,9 @@
-import unittest
-from unittest.mock import MagicMock, patch
-import json
-import time
 import sys
+import time
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 
 # Add scripts to path so we can import Sentinel
 sys.path.append(str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -11,6 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent / "scripts"))
 sys.path.append(str(Path(__file__).resolve().parent.parent / "ft_client"))
 
 from sentinel import Sentinel
+
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
@@ -20,7 +21,7 @@ class TestSentinel(unittest.TestCase):
                 "listen_ip_address": "127.0.0.1",
                 "listen_port": 8080,
                 "username": "user",
-                "password": "pass"
+                "password": "pass",
             }
         }
 
@@ -31,7 +32,7 @@ class TestSentinel(unittest.TestCase):
         mock_load_config.return_value = self.config_content
         mock_client = MagicMock()
         mock_init_client.return_value = mock_client
-        mock_load_history.return_value = [] # Start empty
+        mock_load_history.return_value = []  # Start empty
 
         # Instantiate
         sentinel = Sentinel("config.json", 300, True, "BTC/USDT")
@@ -41,7 +42,7 @@ class TestSentinel(unittest.TestCase):
         now = time.time()
         sentinel.balance_history = [
             {"ts": now - 1800, "balance": 1000.0},
-            {"ts": now, "balance": 940.0}
+            {"ts": now, "balance": 940.0},
         ]
 
         self.assertTrue(sentinel.check_drawdown())
@@ -49,7 +50,7 @@ class TestSentinel(unittest.TestCase):
         # Test no drop
         sentinel.balance_history = [
             {"ts": now - 1800, "balance": 1000.0},
-            {"ts": now, "balance": 990.0}
+            {"ts": now, "balance": 990.0},
         ]
         self.assertFalse(sentinel.check_drawdown())
 
@@ -69,8 +70,8 @@ class TestSentinel(unittest.TestCase):
         # High was 50000, now 44000 (12% drop)
         # Using 1h candles, so 3600*1000 ms per candle
         candles = [
-            [now_ms - 3600000, 50000, 50000, 49000, 49500, 100], # 1h ago
-            [now_ms, 49500, 49600, 44000, 44000, 100]  # Current
+            [now_ms - 3600000, 50000, 50000, 49000, 49500, 100],  # 1h ago
+            [now_ms, 49500, 49600, 44000, 44000, 100],  # Current
         ]
         mock_client.pair_candles.return_value = candles
 
@@ -79,7 +80,7 @@ class TestSentinel(unittest.TestCase):
         # No crash
         candles_ok = [
             [now_ms - 3600000, 50000, 50000, 49000, 49500, 100],
-            [now_ms, 49500, 49600, 49000, 49000, 100]
+            [now_ms, 49500, 49600, 49000, 49000, 100],
         ]
         mock_client.pair_candles.return_value = candles_ok
         self.assertFalse(sentinel.check_btc_crash())
@@ -87,7 +88,9 @@ class TestSentinel(unittest.TestCase):
     @patch("sentinel.Sentinel._load_config")
     @patch("sentinel.Sentinel._init_client")
     @patch("sentinel.Sentinel._load_history")
-    def test_trigger_emergency(self, mock_load_history, mock_init_client, mock_load_config):
+    def test_trigger_emergency(
+        self, mock_load_history, mock_init_client, mock_load_config
+    ):
         mock_load_config.return_value = self.config_content
         mock_client = MagicMock()
         mock_init_client.return_value = mock_client
@@ -102,7 +105,7 @@ class TestSentinel(unittest.TestCase):
         # Mock status for panic sell
         mock_client.status.return_value = [
             {"trade_id": 1, "pair": "ETH/USDT"},
-            {"trade_id": 2, "pair": "SOL/USDT"}
+            {"trade_id": 2, "pair": "SOL/USDT"},
         ]
 
         sentinel_live.trigger_emergency("Test")
@@ -110,8 +113,9 @@ class TestSentinel(unittest.TestCase):
 
         # Verify forceexit called for each trade
         self.assertEqual(mock_client.forceexit.call_count, 2)
-        mock_client.forceexit.assert_any_call(1, ordertype='market')
-        mock_client.forceexit.assert_any_call(2, ordertype='market')
+        mock_client.forceexit.assert_any_call(1, ordertype="market")
+        mock_client.forceexit.assert_any_call(2, ordertype="market")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

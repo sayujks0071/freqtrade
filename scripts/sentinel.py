@@ -4,8 +4,8 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
 
 # Ensure we can import ft_client
 repo_root = Path(__file__).resolve().parent.parent
@@ -14,7 +14,10 @@ sys.path.append(str(repo_root / "ft_client"))
 try:
     from freqtrade_client.ft_rest_client import FtRestClient
 except ImportError as e:
-    print(f"Error: Could not import freqtrade_client. Make sure ft_client is in the path. Details: {e}")
+    print(
+        f"Error: Could not import freqtrade_client. "
+        f"Make sure ft_client is in the path. Details: {e}"
+    )
     sys.exit(1)
 
 logging.basicConfig(
@@ -22,6 +25,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("sentinel")
+
 
 class Sentinel:
     def __init__(self, config_path, interval, dry_run, btc_pair):
@@ -90,7 +94,9 @@ class Sentinel:
 
             # Prune history older than 1 hour + margin (e.g. 70 mins)
             cutoff = now_ts - 3600 - 600
-            self.balance_history = [x for x in self.balance_history if x["ts"] > cutoff]
+            self.balance_history = [
+                x for x in self.balance_history if x["ts"] > cutoff
+            ]
             self._save_history()
 
             return total_balance
@@ -121,7 +127,10 @@ class Sentinel:
         drawdown = (max_balance - current_balance) / max_balance
 
         if drawdown > 0.05:
-            logger.info(f"Drawdown detected: {drawdown*100:.2f}% (Max: {max_balance}, Curr: {current_balance})")
+            logger.info(
+                f"Drawdown detected: {drawdown * 100:.2f}% "
+                f"(Max: {max_balance}, Curr: {current_balance})"
+            )
             return True
         return False
 
@@ -136,33 +145,39 @@ class Sentinel:
                 return False
 
             if isinstance(candles_data, dict) and "error" in candles_data:
-                 logger.warning(f"Error getting candles: {candles_data['error']}")
-                 return False
+                logger.warning(f"Error getting candles: {candles_data['error']}")
+                return False
 
             # Check structure: list of lists [timestamp, open, high, low, close, volume]
             if len(candles_data) > 0 and isinstance(candles_data[0], list):
-                 now_ms = time.time() * 1000
-                 four_hours_ago_ms = now_ms - (4 * 3600 * 1000)
+                now_ms = time.time() * 1000
+                four_hours_ago_ms = now_ms - (4 * 3600 * 1000)
 
-                 # Filter relevant candles (timestamp >= 4 hours ago)
-                 relevant_candles = [c for c in candles_data if c[0] >= four_hours_ago_ms]
+                # Filter relevant candles (timestamp >= 4 hours ago)
+                relevant_candles = [
+                    c for c in candles_data if c[0] >= four_hours_ago_ms
+                ]
 
-                 if not relevant_candles:
-                     relevant_candles = candles_data
+                if not relevant_candles:
+                    relevant_candles = candles_data
 
-                 # Use Highs for peak price reference
-                 highs = [c[2] for c in relevant_candles]
-                 current_price = relevant_candles[-1][4] # Close of latest
+                # Use Highs for peak price reference
+                highs = [c[2] for c in relevant_candles]
+                current_price = relevant_candles[-1][4]  # Close of latest
 
-                 max_high = max(highs)
+                max_high = max(highs)
 
-                 if max_high == 0: return False
+                if max_high == 0:
+                    return False
 
-                 drop = (max_high - current_price) / max_high
+                drop = (max_high - current_price) / max_high
 
-                 if drop > 0.10:
-                     logger.info(f"BTC Crash detected: {drop*100:.2f}% (High: {max_high}, Curr: {current_price})")
-                     return True
+                if drop > 0.10:
+                    logger.info(
+                        f"BTC Crash detected: {drop * 100:.2f}% "
+                        f"(High: {max_high}, Curr: {current_price})"
+                    )
+                    return True
 
             return False
 
@@ -195,11 +210,11 @@ class Sentinel:
                 return
 
             for trade in open_trades:
-                trade_id = trade['trade_id']
-                pair = trade['pair']
+                trade_id = trade["trade_id"]
+                pair = trade["pair"]
                 logger.info(f"Panic selling {pair} (ID: {trade_id})...")
                 try:
-                    self.client.forceexit(trade_id, ordertype='market')
+                    self.client.forceexit(trade_id, ordertype="market")
                 except Exception as e:
                     logger.error(f"Failed to sell {pair}: {e}")
 
@@ -211,7 +226,9 @@ class Sentinel:
         print(f"OPENCLAW: {msg}")
 
     def run(self):
-        logger.info(f"Sentinel started. Monitoring {self.btc_pair}. Interval: {self.interval}s")
+        logger.info(
+            f"Sentinel started. Monitoring {self.btc_pair}. Interval: {self.interval}s"
+        )
         while True:
             try:
                 self.update_balance_history()
@@ -231,12 +248,28 @@ class Sentinel:
 
             time.sleep(self.interval)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sentinel: Freqtrade Circuit Breaker")
-    parser.add_argument("--config", default="user_data/configs/config.delta.live.json", help="Path to config file")
-    parser.add_argument("--interval", type=int, default=300, help="Check interval in seconds (default: 300)")
-    parser.add_argument("--dry-run", action="store_true", help="Dry run mode (do not actually stop/sell)")
-    parser.add_argument("--pair", default="BTC/USDT", help="BTC pair to monitor (default: BTC/USDT)")
+    parser.add_argument(
+        "--config",
+        default="user_data/configs/config.delta.live.json",
+        help="Path to config file",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=300,
+        help="Check interval in seconds (default: 300)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Dry run mode (do not actually stop/sell)",
+    )
+    parser.add_argument(
+        "--pair", default="BTC/USDT", help="BTC pair to monitor (default: BTC/USDT)"
+    )
 
     args = parser.parse_args()
 
