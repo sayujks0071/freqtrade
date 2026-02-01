@@ -3,7 +3,6 @@
 Daily Optimization Routine
 """
 
-import csv
 import json
 import shutil
 import subprocess
@@ -158,11 +157,11 @@ def extract_hyperopt_params(output: str) -> dict:
                 try:
                     params = json.loads(json_str)
                     if "params" in params:
-                         return params["params"]
+                        return params["params"]
                     # Sometimes it returns the strategy config object directly
                     return params
                 except json.JSONDecodeError:
-                    continue # Keep looking if this wasn't valid JSON or not the right one
+                    continue  # Keep looking if this wasn't valid JSON or not the right one
     return {}
 
 
@@ -237,7 +236,7 @@ def main():
 
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
-        print(result_hyperopt.stderr) # Print stderr on failure
+        print(result_hyperopt.stderr)  # Print stderr on failure
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -252,14 +251,15 @@ def main():
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail if no file was written
+        # We might want to fail here, or just continue and let the verification fail
+        # if no file was written
         # But if no file written, verification will use default/old params.
 
         # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
-             shutil.move(backup_json, strategy_json)
+            shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
-             strategy_json.unlink()
+            strategy_json.unlink()
         sys.exit(1)
 
     # 3. Evaluation (Verification Backtest)
