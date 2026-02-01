@@ -5,8 +5,12 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 """
 
 import argparse
+import base64
 import datetime
 import os
+import re
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -260,6 +264,7 @@ class StrategyScout:
         rest_candidates = self.candidates[10:]
 
         with filename.open("w") as f:
+        with Path(filename).open("w") as f:
             f.write(f"# Freqtrade Strategy Scout Report - {date_str}\n\n")
             f.write("## Top 10 Candidates\n\n")
 
@@ -332,6 +337,9 @@ class StrategyScout:
 
             vendor_dir = vendor_base_dir / safe_name
             vendor_dir.mkdir(parents=True, exist_ok=True)
+            # Create vendor dir
+            vendor_dir = f"user_data/strategies_vendor/{safe_name}"
+            os.makedirs(vendor_dir, exist_ok=True)
 
             try:
                 url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
@@ -357,6 +365,13 @@ class StrategyScout:
 
                     license_file = vendor_dir / "LICENSE_NOTE.md"
                     with license_file.open("w") as f:
+                                    # Save file
+                                    with Path(f"{vendor_dir}/{file_info['name']}").open("w") as f:
+                                        f.write(r.text)
+                                    downloaded += 1
+
+                    # Create LICENSE_NOTE.md
+                    with Path(f"{vendor_dir}/LICENSE_NOTE.md").open("w") as f:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
