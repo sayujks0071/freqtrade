@@ -150,6 +150,8 @@ def check_git_status():
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
+        if result.stderr:
+            print(f"Error: {result.stderr}")
         return False
 
     # If there's any output, there are uncommitted changes
@@ -398,20 +400,32 @@ Examples:
             # Create and switch to feature branch if not already on it
             if current_branch != target_branch:
                 print(f"\nCreating feature branch: {target_branch}")
-                result = run_command(["git", "checkout", "-b", target_branch], capture=True)
-                if result.returncode != 0:
-                    # Branch might already exist, try to switch to it
-                    print("Branch may exist, attempting to switch...")
+                # Check if branch already exists
+                check_result = subprocess.run(
+                    ["git", "rev-parse", "--verify", target_branch],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                if check_result.returncode == 0:
+                    # Branch exists, just switch to it
+                    print(f"Branch '{target_branch}' already exists, switching to it...")
                     result = run_command(["git", "checkout", target_branch], capture=True)
-                    if result.returncode != 0:
-                        print("Failed to create or switch to feature branch.")
-                        print("Reverting changes...")
-                        if not created_new:
-                            shutil.move(backup_json, strategy_json)
-                        else:
-                            if strategy_json.exists():
-                                strategy_json.unlink()
-                        sys.exit(1)
+                else:
+                    # Branch doesn't exist, create it
+                    result = run_command(["git", "checkout", "-b", target_branch], capture=True)
+
+                if result.returncode != 0:
+                    print("Failed to create or switch to feature branch.")
+                    if result.stderr:
+                        print(f"Git error: {result.stderr}")
+                    print("Reverting changes...")
+                    if not created_new:
+                        shutil.move(backup_json, strategy_json)
+                    else:
+                        if strategy_json.exists():
+                            strategy_json.unlink()
+                    sys.exit(1)
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
