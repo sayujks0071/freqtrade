@@ -1,29 +1,20 @@
 #!/bin/bash
 set -e
 
-echo "Bootstrapping Delta Exchange Freqtrade Stack..."
-
 # Create directories
-mkdir -p user_data/logs
-mkdir -p user_data/pairlists
+mkdir -p user_data/configs
 mkdir -p user_data/reports
-mkdir -p user_data/strategies/_base
-mkdir -p user_data/strategies_vendor
-mkdir -p user_data/db
 
-# Copy env if missing
+# Setup .env
 if [ ! -f .env ]; then
-    echo "Creating .env from .env.example..."
+    echo "Copying .env.example to .env..."
     cp .env.example .env
-    echo "PLEASE EDIT .env WITH YOUR CREDENTIALS!"
+    echo "Please edit .env with your Delta Exchange credentials."
 else
     echo ".env already exists."
 fi
 
-# Create dummy whitelist if missing to allow startup
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Creating dummy whitelist..."
-    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT", "ETH/USDT:USDT"]}}' > user_data/pairlists/whitelist.delta.json
-fi
-
-echo "Bootstrap complete."
+echo "Bootstrap complete. Next steps:"
+echo "1. Edit .env with your API keys and DELTA_ENV."
+echo "2. Run 'bash scripts/validate_exchange.sh' to verify connection and markets."
+echo "3. Run 'bash scripts/run_dryrun.sh' to start the bot."
