@@ -3,6 +3,7 @@
 Daily Optimization Routine
 """
 
+import argparse
 import json
 import shutil
 import subprocess
@@ -10,6 +11,7 @@ import sys
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
+
 
 # Configuration
 USER_DATA_DIR = Path("user_data")
@@ -42,7 +44,7 @@ def get_latest_backtest_file():
         return None
     last_result_file = BACKTEST_RESULTS_DIR / ".last_result.json"
     if last_result_file.exists():
-        with open(last_result_file, "r") as f:
+        with last_result_file.open() as f:
             data = json.load(f)
             filename = data.get("latest_backtest")
             if filename:
@@ -74,7 +76,7 @@ def read_backtest_result(filepath):
                 with z.open(target_file) as f:
                     data = json.load(f)
     else:
-        with open(filepath, "r") as f:
+        with filepath.open() as f:
             data = json.load(f)
     return data
 
@@ -135,6 +137,43 @@ def run_backtest_job(strategy_name):
     return None
 
 
+def check_git_status():
+    """
+    Check if the repository is in a clean state before making changes.
+    Returns True if clean, False otherwise.
+    """
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=False
+    )
+    if result.returncode != 0:
+        print("Warning: Could not check git status")
+        return False
+
+    # If there's any output, there are uncommitted changes
+    if result.stdout.strip():
+        print("Error: Repository has uncommitted changes:")
+        print(result.stdout)
+        return False
+
+    return True
+
+
+def get_current_branch():
+    """Get the current git branch name."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False
+    )
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return None
+
+
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
@@ -164,6 +203,50 @@ def extract_hyperopt_params(output: str) -> dict:
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Daily Optimization Routine for Freqtrade strategies",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Dry-run mode (no git operations):
+  %(prog)s --dry-run
+
+  # Push to a feature branch instead of main:
+  %(prog)s --branch optimize-strategy-$(date +%%Y%%m%%d)
+
+  # Skip confirmation prompts:
+  %(prog)s --yes
+        """
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run optimization without committing or pushing changes"
+    )
+    parser.add_argument(
+        "--branch",
+        type=str,
+        default=None,
+        help=(
+            "Target branch for pushing changes "
+            "(default: create feature branch 'optimize-YYYYMMDD')"
+        )
+    )
+    parser.add_argument(
+        "--yes", "-y",
+        action="store_true",
+        help="Skip confirmation prompts before pushing"
+    )
+
+    args = parser.parse_args()
+
+    # Check git status before starting (unless in dry-run mode)
+    if not args.dry_run:
+        if not check_git_status():
+            print("\nPlease commit or stash your changes before running this script.")
+            print("Or use --dry-run to test without making git changes.")
+            sys.exit(1)
+
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
 
@@ -245,7 +328,7 @@ def main():
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
     if new_params:
         print(f"Applying new parameters to {strategy_json}")
-        with open(strategy_json, "w") as f:
+        with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
@@ -294,10 +377,73 @@ def main():
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
-        # Use -f to force add in case user_data is gitignored
-        run_command(["git", "add", "-f", str(strategy_json)])
-        run_command(["git", "commit", "-m", msg])
-        run_command(["git", "push", "origin", "main"])
+        if args.dry_run:
+            print("\n[DRY-RUN MODE] Would have committed and pushed:")
+            print(f"  File: {strategy_json}")
+            print(f"  Message: {msg}")
+            if args.branch:
+                print(f"  Branch: {args.branch}")
+            else:
+                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+            print("\nNo changes were made. Use without --dry-run to apply changes.")
+        else:
+            # Determine target branch
+            if args.branch:
+                target_branch = args.branch
+            else:
+                target_branch = f"optimize-{datetime.now().strftime('%Y%m%d')}"
+
+            current_branch = get_current_branch()
+
+            # Create and switch to feature branch if not already on it
+            if current_branch != target_branch:
+                print(f"\nCreating feature branch: {target_branch}")
+                result = run_command(["git", "checkout", "-b", target_branch], capture=True)
+                if result.returncode != 0:
+                    # Branch might already exist, try to switch to it
+                    print("Branch may exist, attempting to switch...")
+                    result = run_command(["git", "checkout", target_branch], capture=True)
+                    if result.returncode != 0:
+                        print("Failed to create or switch to feature branch.")
+                        print("Reverting changes...")
+                        if not created_new:
+                            shutil.move(backup_json, strategy_json)
+                        else:
+                            if strategy_json.exists():
+                                strategy_json.unlink()
+                        sys.exit(1)
+
+            # Use -f to force add in case user_data is gitignored
+            run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "commit", "-m", msg])
+
+            # Confirm before pushing
+            if not args.yes:
+                print(f"\nReady to push changes to branch '{target_branch}'")
+                print("This will:")
+                print(f"  - Push optimized strategy parameters for {worst_strategy}")
+                print(f"  - Create/update remote branch: {target_branch}")
+                print("\nYou can then create a pull request to review and merge these changes.")
+                response = input("\nProceed with push? [y/N]: ").strip().lower()
+                if response not in ['y', 'yes']:
+                    print("Push cancelled. Changes are committed locally.")
+                    print(f"You can manually push later with: git push origin {target_branch}")
+                    if backup_json.exists():
+                        backup_json.unlink()
+                    return
+
+            print(f"\nPushing to {target_branch}...")
+            result = run_command(["git", "push", "origin", target_branch], capture=True)
+
+            if result.returncode == 0:
+                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
+                print("\nNext steps:")
+                print(f"  1. Create a pull request from '{target_branch}' to your main branch")
+                print("  2. Review the changes and test the optimized strategy")
+                print("  3. Merge the pull request after verification")
+            else:
+                print(f"\nFailed to push to {target_branch}")
+                print("Changes are committed locally. You can manually push later.")
 
         if backup_json.exists():
             backup_json.unlink()
