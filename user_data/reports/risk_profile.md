@@ -16,6 +16,7 @@ Active protections in `config.json` (must be enabled in `protections` list):
 2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
 3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
 4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
+   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
 
 ## Daily Limits
 - **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
