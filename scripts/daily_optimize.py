@@ -3,14 +3,14 @@
 Daily Optimization Routine
 """
 
-import sys
-import json
-import subprocess
-import shutil
 import csv
+import json
+import shutil
+import subprocess
+import sys
 import zipfile
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Configuration
 USER_DATA_DIR = Path("user_data")
@@ -23,28 +23,31 @@ EPOCHS = 200
 SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
+
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
         if not capture:
-             pass
+            pass
     return result
+
 
 def get_timerange():
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
+
 def get_latest_backtest_file():
     if not BACKTEST_RESULTS_DIR.exists():
         return None
     last_result_file = BACKTEST_RESULTS_DIR / ".last_result.json"
     if last_result_file.exists():
-        with open(last_result_file, 'r') as f:
+        with open(last_result_file, "r") as f:
             data = json.load(f)
-            filename = data.get('latest_backtest')
+            filename = data.get("latest_backtest")
             if filename:
                 return BACKTEST_RESULTS_DIR / filename
 
@@ -56,14 +59,15 @@ def get_latest_backtest_file():
         return None
     return max(files, key=lambda f: f.stat().st_mtime)
 
+
 def read_backtest_result(filepath):
     data = None
-    if filepath.suffix == '.zip':
-        with zipfile.ZipFile(filepath, 'r') as z:
-            json_files = [f for f in z.namelist() if f.endswith('.json')]
+    if filepath.suffix == ".zip":
+        with zipfile.ZipFile(filepath, "r") as z:
+            json_files = [f for f in z.namelist() if f.endswith(".json")]
             target_file = None
             for f in json_files:
-                if 'backtest-result' in f:
+                if "backtest-result" in f:
                     target_file = f
                     break
             if not target_file and json_files:
@@ -73,23 +77,24 @@ def read_backtest_result(filepath):
                 with z.open(target_file) as f:
                     data = json.load(f)
     else:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             data = json.load(f)
     return data
 
+
 def find_worst_strategy(backtest_data):
-    strategies = backtest_data.get('strategy', {})
+    strategies = backtest_data.get("strategy", {})
     if not strategies:
         return None, None, None
 
     worst_strategy = None
-    min_sharpe = float('inf')
+    min_sharpe = float("inf")
     worst_stats = None
 
     for strategy_name, stats in strategies.items():
-        sharpe = stats.get('sharpe', -float('inf'))
+        sharpe = stats.get("sharpe", -float("inf"))
         if sharpe is None:
-             sharpe = -float('inf')
+            sharpe = -float("inf")
 
         if sharpe < min_sharpe:
             min_sharpe = sharpe
@@ -98,6 +103,7 @@ def find_worst_strategy(backtest_data):
 
     return worst_strategy, min_sharpe, worst_stats
 
+
 def find_available_strategy():
     files = list(STRATEGIES_DIR.glob("*.py"))
     for f in files:
@@ -105,16 +111,23 @@ def find_available_strategy():
             return f.stem
     return None
 
+
 def run_backtest_job(strategy_name):
     timerange = get_timerange()
     print(f"Running backtest for {strategy_name} over {timerange}...")
     cmd = [
-        "freqtrade", "backtesting",
-        "--config", str(CONFIG_FILE),
-        "--timerange", timerange,
-        "--timeframe", "1h",
-        "--cache", "none",
-        "--strategy", strategy_name
+        "freqtrade",
+        "backtesting",
+        "--config",
+        str(CONFIG_FILE),
+        "--timerange",
+        timerange,
+        "--timeframe",
+        "1h",
+        "--cache",
+        "none",
+        "--strategy",
+        strategy_name,
     ]
 
     run_command(cmd, capture=True)
@@ -123,6 +136,35 @@ def run_backtest_job(strategy_name):
     if latest:
         return read_backtest_result(latest)
     return None
+
+
+def extract_hyperopt_params(output: str) -> dict:
+    """
+    Extracts the JSON parameters from the hyperopt output.
+    Finds the last JSON object in the output which typically contains the best parameters.
+    """
+    lines = output.splitlines()
+    json_str = ""
+    started = False
+
+    # Iterate backwards to find the last JSON block
+    # Freqtrade prints the params in json format at the end when --print-json is used
+    for line in reversed(lines):
+        if line.strip() == "}":
+            started = True
+        if started:
+            json_str = line + "\n" + json_str
+            if line.strip() == "{":
+                try:
+                    params = json.loads(json_str)
+                    if "params" in params:
+                         return params["params"]
+                    # Sometimes it returns the strategy config object directly
+                    return params
+                except json.JSONDecodeError:
+                    continue # Keep looking if this wasn't valid JSON or not the right one
+    return {}
+
 
 def main():
     # 1. Establish Baseline
@@ -150,7 +192,7 @@ def main():
         print("No strategy found in backtest results.")
         sys.exit(1)
 
-    current_drawdown = current_stats.get('max_drawdown_account', 1.0)
+    current_drawdown = current_stats.get("max_drawdown_account", 1.0)
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -158,7 +200,7 @@ def main():
 
     # 2. Hyperopt Execution
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
-    backup_json = strategy_json.with_suffix('.json.bak')
+    backup_json = strategy_json.with_suffix(".json.bak")
     created_new = False
 
     if strategy_json.exists():
@@ -169,22 +211,51 @@ def main():
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
-        "freqtrade", "hyperopt",
-        "--config", str(CONFIG_FILE),
-        "--strategy", worst_strategy,
-        "--epochs", str(EPOCHS),
-        "--spaces", *SPACES,
-        "--hyperopt-loss", HYPEROPT_LOSS,
-        "--min-trades", "1",
-        "--timerange", get_timerange(),
+        "freqtrade",
+        "hyperopt",
+        "--config",
+        str(CONFIG_FILE),
+        "--strategy",
+        worst_strategy,
+        "--epochs",
+        str(EPOCHS),
+        "--spaces",
+        *SPACES,
+        "--hyperopt-loss",
+        HYPEROPT_LOSS,
+        "--min-trades",
+        "1",
+        "--timerange",
+        get_timerange(),
         "--no-color",
-        "-j", "1"
+        "--print-json",
+        "-j",
+        "1",
     ]
 
-    result_hyperopt = run_command(cmd_hyperopt, capture=False)
+    result_hyperopt = run_command(cmd_hyperopt, capture=True)
 
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
+        print(result_hyperopt.stderr) # Print stderr on failure
+        if strategy_json.exists() and not created_new:
+            shutil.move(backup_json, strategy_json)
+        elif created_new and strategy_json.exists():
+            strategy_json.unlink()
+        sys.exit(1)
+
+    # Apply new parameters
+    new_params = extract_hyperopt_params(result_hyperopt.stdout)
+    if new_params:
+        print(f"Applying new parameters to {strategy_json}")
+        with open(strategy_json, "w") as f:
+            json.dump(new_params, f, indent=4)
+    else:
+        print("Could not extract new parameters from hyperopt output.")
+        # We might want to fail here, or just continue and let the verification fail if no file was written
+        # But if no file written, verification will use default/old params.
+
+        # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
              shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -198,19 +269,19 @@ def main():
     if not new_backtest_data:
         print("Failed to run verification backtest.")
         if strategy_json.exists() and not created_new:
-             shutil.move(backup_json, strategy_json)
+            shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
-             strategy_json.unlink()
+            strategy_json.unlink()
         sys.exit(1)
 
-    new_stats = new_backtest_data['strategy'][worst_strategy]
-    new_sharpe = new_stats.get('sharpe', -float('inf'))
+    new_stats = new_backtest_data["strategy"][worst_strategy]
+    new_sharpe = new_stats.get("sharpe", -float("inf"))
     if new_sharpe is None:
-        new_sharpe = -float('inf')
-    new_drawdown = new_stats.get('max_drawdown_account', 1.0)
+        new_sharpe = -float("inf")
+    new_drawdown = new_stats.get("max_drawdown_account", 1.0)
 
     # Get profit % for commit message
-    avg_profit_pct = new_stats.get('profit_total_pct', 0.0) * 100
+    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
@@ -240,6 +311,7 @@ def main():
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
 
 if __name__ == "__main__":
     main()
