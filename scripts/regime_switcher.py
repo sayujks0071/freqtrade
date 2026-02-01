@@ -8,18 +8,19 @@ import json
 import logging
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 
 # Add project root to path to allow importing freqtrade
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import talib.abstract as ta
 
+
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("RegimeSwitcher")
 
@@ -32,23 +33,24 @@ USER_DATA_DIR = Path("user_data")
 CONFIG_PATH = USER_DATA_DIR / "configs/config_production.json"
 REGIME_LOG_PATH = Path("regime_log.md")
 
+
 def analyze_regime(dataframe):
     """Analyze indicators to determine regime."""
     # Indicators
-    dataframe['ema200'] = ta.EMA(dataframe, timeperiod=200)
-    dataframe['adx'] = ta.ADX(dataframe, timeperiod=14)
+    dataframe["ema200"] = ta.EMA(dataframe, timeperiod=200)
+    dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)
 
     last_candle = dataframe.iloc[-1]
 
-    price = last_candle['close']
-    ema200 = last_candle['ema200']
-    adx = last_candle['adx']
-    date = last_candle['date']
+    price = last_candle["close"]
+    ema200 = last_candle["ema200"]
+    adx = last_candle["adx"]
+    date = last_candle["date"]
 
     logger.info(f"Analysis Date: {date}, Price: {price}, EMA200: {ema200}, ADX: {adx}")
 
     regime = "Unknown"
-    strategy = "BollingerRSI" # Default
+    strategy = "BollingerRSI"  # Default
 
     # Logic
     # Volatile/Crashing: Price < EMA200
@@ -69,6 +71,7 @@ def analyze_regime(dataframe):
         strategy = "BollingerRSI"
 
     return regime, strategy, last_candle
+
 
 def update_config(strategy_name):
     """Update the strategy in config_production.json."""
@@ -96,9 +99,10 @@ def update_config(strategy_name):
         logger.error(f"Failed to update config: {e}")
         return False
 
+
 def log_decision(regime, strategy, candle):
     """Log the decision to regime_log.md."""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     log_entry = (
         f"| {timestamp} | {candle['date']} | {candle['close']:.2f} | "
@@ -115,20 +119,30 @@ def log_decision(regime, strategy, candle):
 
     logger.info(f"Logged decision: {regime} -> {strategy}")
 
+
 def main():
     # 1. Download Data (Gate.io Spot for analysis due to Binance restriction)
     logger.info(f"Downloading data for {PAIR} from Gate.io...")
     cmd = [
-        sys.executable, "-m", "freqtrade", "download-data",
-        "--exchange", "gate",
-        "--pairs", PAIR,
-        "--timeframe", TIMEFRAME,
-        "--days", str(DAYS_TO_DOWNLOAD)
+        sys.executable,
+        "-m",
+        "freqtrade",
+        "download-data",
+        "--exchange",
+        "gate",
+        "--pairs",
+        PAIR,
+        "--timeframe",
+        TIMEFRAME,
+        "--days",
+        str(DAYS_TO_DOWNLOAD),
     ]
     try:
         subprocess.run(cmd, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
-        logger.warning(f"Failed to download Gate.io data: {e.stderr.decode() if e.stderr else e}. Trying to proceed if data exists...")
+        logger.warning(
+            f"Failed to download Gate.io data: {e.stderr.decode() if e.stderr else e}. Trying to proceed if data exists..."
+        )
 
     # 2. Load Data
     try:
@@ -140,7 +154,7 @@ def main():
             datadir=USER_DATA_DIR / "data/gate",
             timeframe=TIMEFRAME,
             pair=PAIR,
-            candle_type=CandleType.SPOT
+            candle_type=CandleType.SPOT,
         )
     except Exception as e:
         logger.error(f"CRITICAL: Could not load data. {e}")
@@ -159,6 +173,7 @@ def main():
 
     # 5. Log
     log_decision(regime, strategy, last_candle)
+
 
 if __name__ == "__main__":
     main()
