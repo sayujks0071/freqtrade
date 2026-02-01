@@ -5,14 +5,15 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 import sys
 from pathlib import Path
 
+
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 
-import talib.abstract as ta  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
-from pandas import DataFrame  # noqa: E402
+import talib.abstract as ta
+from AuditedStrategyMixin import AuditedStrategyMixin
+from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy  # noqa: E402
+from freqtrade.strategy import IStrategy
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -86,8 +87,18 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             'exit_long'] = 1
         return dataframe
 
-    def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, current_time, entry_tag, side: str, **kwargs) -> bool:
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time,
+        entry_tag,
+        side: str,
+        **kwargs,
+    ) -> bool:
         """
         Called right before placing a trade.
         """
