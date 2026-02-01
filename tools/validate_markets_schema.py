@@ -44,6 +44,9 @@ def validate_symbol_format(symbol, errors):
         errors.append(f"Symbol '{symbol}' contains whitespace")
     if symbol != symbol.upper():
         errors.append(f"Symbol '{symbol}' is not uppercase")
+    # Strict check for futures format (must have settle currency)
+    if ":" not in symbol:
+        errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
 
 
 def validate_volume(m, symbol, errors):

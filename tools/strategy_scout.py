@@ -24,6 +24,9 @@ SEARCH_QUERIES = [
 KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
 REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
+TIMEOUT = 10
+REQUEST_TIMEOUT = 10  # Seconds
+
 
 
 class StrategyScout:
@@ -38,6 +41,8 @@ class StrategyScout:
     def check_rate_limit(self):
         try:
             resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=10)
+            resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=TIMEOUT)
+            resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
                 core = data["resources"]["core"]
@@ -46,7 +51,9 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
+                    print(
+                        f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
+                    )
                     return False
             return True
         except Exception as e:
@@ -54,6 +61,20 @@ class StrategyScout:
             return True  # Assume ok if check fails, to avoid loop
 
     def _search_queries(self, found_repos):
+
+    def search_github(self):
+        print("Searching GitHub...")
+        found_repos = {}  # Dedup by full_name
+
+        self._search_queries(found_repos)
+        self._add_known_sources(found_repos)
+
+        # Convert to list
+        self.candidates = list(found_repos.values())
+        print(f"Total unique candidates found: {len(self.candidates)}")
+
+    def _search_queries(self, found_repos):
+        # 1. Search Queries
         for query in SEARCH_QUERIES:
             if not self.check_rate_limit():
                 break
@@ -64,6 +85,10 @@ class StrategyScout:
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=10
+                    f"{GITHUB_API_URL}/search/repositories",
+                    params=params,
+                    timeout=TIMEOUT,
+                    f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
                 )
                 if resp.status_code == 200:
                     items = resp.json().get("items", [])
@@ -75,12 +100,17 @@ class StrategyScout:
                 print(f"Exception during search: {e}")
 
     def _add_known_sources(self, found_repos):
+        # 2. Add Known Sources
         for source in KNOWN_SOURCES:
             if source not in found_repos:
                 if not self.check_rate_limit():
                     break
                 try:
                     resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=10)
+                    resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=TIMEOUT)
+                    resp = self.session.get(
+                        f"{GITHUB_API_URL}/repos/{source}", timeout=REQUEST_TIMEOUT
+                    )
                     if resp.status_code == 200:
                         found_repos[source] = resp.json()
                 except Exception as e:
@@ -108,6 +138,8 @@ class StrategyScout:
             # Metadata filtering
             full_name = repo["full_name"]
             # stars = repo.get('stargazers_count', 0)  # Unused
+            # stars = repo.get('stargazers_count', 0) # Unused
+            # stars = repo.get("stargazers_count", 0)
             pushed_at = repo.get("pushed_at")
             license_data = repo.get("license")
 
@@ -120,11 +152,6 @@ class StrategyScout:
                 license_name = "Other (Check manually)"
                 score += 1
             else:
-                # Reject no license? Instructions say: "Reject 'no license'"
-                # But sometimes it's in a file not detected by GitHub.
-                # We will penalize heavily but maybe not hard drop if it's a known source?
-                # Known sources like freqtrade-strategies have licenses.
-                # For unknown, we should be strict.
                 if full_name not in KNOWN_SOURCES:
                     continue
 
@@ -157,6 +184,15 @@ class StrategyScout:
                 if pushed_at
                 else 9999
             )
+            if pushed_at:
+                dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
+                repo["age_days"] = (datetime.datetime.now() - dt).days
+                repo["age_days"] = (
+                    datetime.datetime.now()
+                    - datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
+                ).days
+            else:
+                repo["age_days"] = 9999
 
             scored_candidates.append(repo)
 
@@ -165,11 +201,72 @@ class StrategyScout:
         print(f"Candidates after filtering: {len(self.candidates)}")
 
     def deep_inspect(self, limit=15):  # noqa: C901
-        print(f"Deep inspecting top {limit} candidates...")
-        # Inspect content for risk controls, strategy files, etc.
-        # This consumes API limits.
+        print(f"Candidates after filtering: {len(self.candidates)}")
 
+    def deep_inspect(self, limit=15):  # noqa: C901
+        self.candidates = sorted(
+            scored_candidates, key=lambda x: x["scout_score"], reverse=True
+        )
+        print(f"Candidates after filtering: {len(self.candidates)}")
+
+    def _find_strategy_files(self, full_name):
+        """Helper to find strategy files in a repo."""
+        strategies = []
+        found_path = None
+        paths_to_check = ["user_data/strategies", "strategies", "."]
+
+        for path in paths_to_check:
+            try:
+                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+                if resp.status_code == 200:
+                    contents = resp.json()
+                    if isinstance(contents, list):
+                        potential = [
+                            f
+                            for f in contents
+                            if f["name"].endswith(".py") and f["name"] != "__init__.py"
+                        ]
+                        if potential:
+                            strategies = potential
+                            found_path = path
+                            break
+            except Exception:
+                pass
+        return strategies, found_path
+
+    def _analyze_strategy_content(self, strat_file, repo):
+        """Helper to download and analyze strategy content."""
+        try:
+            download_url = strat_file.get("download_url")
+            if download_url:
+                content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
+                if content_resp.status_code == 200:
+                    content = content_resp.text
+
+                    # Check heuristics
+                    if "stoploss" in content:
+                        repo["scout_score"] += 2
+                        repo["scout_notes"].append("Has stoploss")
+                    if "minimal_roi" in content:
+                        repo["scout_score"] += 2
+                        repo["scout_notes"].append("Has ROI")
+                    if "populate_indicators" in content:
+                        repo["scout_score"] += 2
+                    if "can_short" in content:
+                        repo["scout_notes"].append("Futures/Shorts mentioned")
+
+                    # Negative heuristics
+                    if "martingale" in content.lower():
+                        repo["scout_score"] -= 10
+                        repo["scout_notes"].append("Martingale detected (Risk!)")
+        except Exception as e:
+            print(f"Failed to read file {strat_file['name']}: {e}")
+
+    def deep_inspect(self, limit=15):
+        print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
+
         for repo in self.candidates:
             if inspected_count >= limit:
                 break
@@ -181,17 +278,13 @@ class StrategyScout:
             full_name = repo["full_name"]
             print(f"Inspecting {full_name}...")
 
-            # Find strategy files
-            strategies = []
-
-            # Try specific paths
-            paths_to_check = ["user_data/strategies", "strategies", "."]
-            found_path = None
+            strategies, found_path = self._find_strategy_files(full_name)
 
             for path in paths_to_check:
                 try:
                     url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
                     resp = self.session.get(url, timeout=10)
+                    resp = self.session.get(url, timeout=TIMEOUT)
                     if resp.status_code == 200:
                         contents = resp.json()
                         if isinstance(contents, list):
@@ -207,6 +300,8 @@ class StrategyScout:
                                 break  # Found strategies
                 except Exception:  # noqa: S110
                     pass
+                except Exception as e:
+                    print(f"DEBUG: Failed to inspect path {path}: {e}")
 
             repo["strategy_count"] = len(strategies)
             repo["strategy_path"] = found_path
@@ -224,6 +319,13 @@ class StrategyScout:
                         # which does not use API quota!
                         # This is a great trick.
                         content_resp = requests.get(strat_file["download_url"], timeout=10)
+                    # Use download_url to avoid base64 decoding if possible?
+                    download_url = strat_file.get("download_url")
+                    if download_url:
+                        # Actually download_url usually points to
+                        # raw.githubusercontent.com which does not use API quota!
+                        # This is a great trick.
+                        content_resp = requests.get(download_url, timeout=TIMEOUT)
                         if content_resp.status_code == 200:
                             content = content_resp.text
 
@@ -249,6 +351,10 @@ class StrategyScout:
 
             else:
                 # No strategies found in typical folders
+                repo["scout_score"] += min(len(strategies), 5) * 1
+                # Check the first strategy file for content
+                self._analyze_strategy_content(strategies[0], repo)
+            else:
                 repo["scout_score"] -= 5
 
             inspected_count += 1
@@ -259,13 +365,27 @@ class StrategyScout:
     def generate_report(self):
         print("Generating report...")
         Path("user_data/reports").mkdir(parents=True, exist_ok=True)
+
+    def generate_report(self):
+        print("Generating report...")
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
+        self.candidates = sorted(
+            self.candidates, key=lambda x: x["scout_score"], reverse=True
+        )
+
+    def generate_report(self):
+        print("Generating report...")
+        report_dir = Path("user_data/reports")
+        report_dir.mkdir(parents=True, exist_ok=True)
+
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
-        filename = f"user_data/reports/strategy_shortlist_{date_str}.md"
+        filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
         top_10 = self.candidates[:10]
         rest_candidates = self.candidates[10:]
 
         with Path(filename).open("w") as f:
+        with filename.open("w") as f:
             f.write(f"# Freqtrade Strategy Scout Report - {date_str}\n\n")
             f.write("## Top 10 Candidates\n\n")
 
@@ -275,7 +395,9 @@ class StrategyScout:
                 f.write(f"- **Stars:** {repo.get('stargazers_count', 0)}\n")
                 f.write(f"- **License:** {repo.get('license_name', 'Unknown')}\n")
                 f.write(f"- **Strategies Found:** {repo.get('strategy_count', 'N/A')}\n")
-                f.write(f"- **Last Update:** {repo.get('pushed_at', 'N/A').split('T')[0]}\n")
+                if repo.get("pushed_at"):
+                    last_update = repo.get("pushed_at", "").split("T")[0]
+                    f.write(f"- **Last Update:** {last_update}\n")
 
                 desc = repo.get("description")
                 if desc:
@@ -290,9 +412,10 @@ class StrategyScout:
                     adoption.append("Seems to support futures.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
+                adoption.append(
+                    "Verify `stoploss` and `leverage` settings for Delta futures."
+                )
                 f.write(" ".join(adoption) + "\n")
-
                 f.write("\n")
 
             if rest_candidates:
@@ -305,6 +428,20 @@ class StrategyScout:
                         f"{repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | "
                         f"{repo.get('license_name', 'Unknown')} |\n"
                     )
+                    url = repo["html_url"]
+                    full = repo["full_name"]
+                    score = repo.get("scout_score", 0)
+                    stars = repo.get("stargazers_count", 0)
+                    lic = repo.get("license_name", "Unknown")
+                    f.write(f"| {i} | [{full}]({url}) | {score} | {stars} | {lic} |\n")
+                    repo_score = repo.get("scout_score", 0)
+                    repo_stars = repo.get("stargazers_count", 0)
+                    repo_license = repo.get("license_name", "Unknown")
+                    line = (
+                        f"| {i} | [{repo['full_name']}]({repo['html_url']}) | "
+                        f"{repo_score} | {repo_stars} | {repo_license} |\n"
+                    )
+                    f.write(line)
                 f.write("\n")
 
         print(f"Report written to {filename}")
@@ -313,6 +450,8 @@ class StrategyScout:
     def vendor_strategies(self, candidates, top_n=5):
         print(f"Vendoring top {top_n} strategies...")
         Path("user_data/strategies_vendor").mkdir(parents=True, exist_ok=True)
+        vendor_base_dir = Path("user_data/strategies_vendor")
+        vendor_base_dir.mkdir(parents=True, exist_ok=True)
 
         count = 0
         for repo in candidates:
@@ -332,20 +471,35 @@ class StrategyScout:
             # Create vendor dir
             vendor_dir = f"user_data/strategies_vendor/{safe_name}"
             Path(vendor_dir).mkdir(parents=True, exist_ok=True)
+            vendor_dir = Path(f"user_data/strategies_vendor/{safe_name}")
+            vendor_dir.mkdir(parents=True, exist_ok=True)
 
             try:
                 # Re-fetch file list for that path
-                # Note: this uses API calls.
                 url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
                 resp = self.session.get(url, timeout=10)
+                resp = self.session.get(url, timeout=TIMEOUT)
+                continue
+
+            print(f"Vendoring from {full_name}...")
+
+            vendor_dir = vendor_base_dir / safe_name
+            vendor_dir.mkdir(parents=True, exist_ok=True)
+
+            try:
+                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
                 if resp.status_code == 200:
                     contents = resp.json()
-                    # Download up to 5 .py files
                     downloaded = 0
                     for file_info in contents:
                         if file_info["name"].endswith(".py") and file_info["name"] != "__init__.py":
                             if downloaded >= 3:
                                 # Limit to 3 files per repo to save bandwidth/noise
+                        is_py = file_info["name"].endswith(".py")
+                        is_init = file_info["name"] == "__init__.py"
+                        if is_py and not is_init:
+                            if downloaded >= 3:
                                 break
 
                             raw_url = file_info.get("download_url")
@@ -354,15 +508,31 @@ class StrategyScout:
                                 if r.status_code == 200:
                                     # Save file
                                     with Path(f"{vendor_dir}/{file_info['name']}").open("w") as f:
+                                r = requests.get(raw_url, timeout=TIMEOUT)
+                                if r.status_code == 200:
+                                    # Save file
+                                    with (vendor_dir / file_info["name"]).open("w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
                     # Create LICENSE_NOTE.md
                     with Path(f"{vendor_dir}/LICENSE_NOTE.md").open("w") as f:
+                    with (vendor_dir / "LICENSE_NOTE.md").open("w") as f:
+                                r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
+                                if r.status_code == 200:
+                                    file_path = vendor_dir / file_info["name"]
+                                    with file_path.open("w") as f:
+                                        f.write(r.text)
+                                    downloaded += 1
+
+                    license_file = vendor_dir / "LICENSE_NOTE.md"
+                    with license_file.open("w") as f:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write("Please check the original repository for full license details.\n")
+                        f.write(
+                            "Please check the original repository for full license details.\n"
+                        )
 
                     count += 1
             except Exception as e:
@@ -371,7 +541,9 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
+    parser.add_argument(
+        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
+    )
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
