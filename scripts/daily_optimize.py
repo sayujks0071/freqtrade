@@ -11,6 +11,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -42,7 +43,7 @@ def get_latest_backtest_file():
         return None
     last_result_file = BACKTEST_RESULTS_DIR / ".last_result.json"
     if last_result_file.exists():
-        with open(last_result_file, "r") as f:
+        with open(last_result_file) as f:
             data = json.load(f)
             filename = data.get("latest_backtest")
             if filename:
@@ -74,7 +75,7 @@ def read_backtest_result(filepath):
                 with z.open(target_file) as f:
                     data = json.load(f)
     else:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
     return data
 
@@ -161,6 +162,72 @@ def extract_hyperopt_params(output: str) -> dict:
                 except json.JSONDecodeError:
                     continue  # Keep looking if this wasn't valid JSON or not the right one
     return {}
+
+
+def verify_git_state():
+    """
+    Verifies the repository is in a valid state for pushing changes.
+    Returns (success: bool, error_message: str)
+    """
+    # Check if we're on the main branch
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        return False, "Failed to determine current branch"
+
+    current_branch = result.stdout.strip()
+    if current_branch != "main":
+        return False, f"Not on main branch (currently on '{current_branch}')"
+
+    # Check if repository is in a clean state (no uncommitted changes before our changes)
+    result = subprocess.run(
+        ["git", "status", "--porcelain"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return False, "Failed to check repository status"
+
+    # Fetch latest changes from origin to check if we're up-to-date
+    print("Fetching latest changes from origin...")
+    result = subprocess.run(
+        ["git", "fetch", "origin", "main"],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        return False, f"Failed to fetch from origin: {result.stderr}"
+
+    # Check if branch is up-to-date with origin/main
+    result = subprocess.run(
+        ["git", "rev-list", "--left-right", "--count", "HEAD...origin/main"],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        return False, "Failed to compare with origin/main"
+
+    counts = result.stdout.strip().split()
+    if len(counts) == 2:
+        _ahead, behind = int(counts[0]), int(counts[1])
+        if behind > 0:
+            return (
+                False,
+                f"Branch is {behind} commit(s) behind origin/main. "
+                "Please pull latest changes first.",
+            )
+
+    # Check for potential merge conflicts
+    result = subprocess.run(
+        ["git", "merge-base", "HEAD", "origin/main"],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        return False, "Failed to find merge base with origin/main"
+
+    return True, ""
 
 
 def main():
@@ -293,6 +360,19 @@ def main():
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
+
+        # Verify git state before committing and pushing
+        print("Verifying git repository state...")
+        success, error_msg = verify_git_state()
+        if not success:
+            print(f"Git state verification failed: {error_msg}")
+            print("Cannot push changes. Please resolve the issue and run again.")
+            if not created_new:
+                shutil.move(backup_json, strategy_json)
+            else:
+                if strategy_json.exists():
+                    strategy_json.unlink()
+            sys.exit(1)
 
         # Use -f to force add in case user_data is gitignored
         run_command(["git", "add", "-f", str(strategy_json)])
