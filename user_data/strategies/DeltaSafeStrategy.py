@@ -3,6 +3,7 @@ DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Add _base to path to allow import
@@ -16,6 +17,31 @@ from freqtrade.strategy import IStrategy  # noqa: E402
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+    """
+    # Strategy Audit Header
+    # ---------------------
+    # Strategy Name: DeltaSafeStrategy
+    # Author: Freqtrade User
+    # Version: 1.1
+    # Supported Timeframes: 1h
+    #
+    # Pair Format Notes:
+    # - Delta Contract: e.g., BTCUSDT
+    # - Freqtrade Pair: e.g., BTC/USDT:USDT
+    #
+    # Timezone Rule:
+    # - All timestamps logged as UTC ISO-8601
+    #
+    # Entry/Exit Definitions:
+    # - Long Entry: RSI < 30 and Volume > 0
+    # - Long Exit: RSI > 70 and Volume > 0
+    # - Short Entry: N/A
+    # - Short Exit: N/A
+    #
+    # Repainting Note:
+    # - Only act on closed candles (no incomplete candle usage)
+    # ---------------------
+    """
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -56,40 +82,85 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         'exit': 'GTC'
     }
 
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        """
+        if self.dp:
+            for pair in self.dp.current_whitelist():
+                self.normalize_pair(pair)
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata['pair']):
-            return dataframe
+        # Use assert_pair_in_whitelist from mixin
+        if self.config.get("exchange", {}).get("pair_whitelist"):
+            if not self.assert_pair_in_whitelist(metadata['pair'], self.config['exchange']['pair_whitelist']):
+                return dataframe
+
+        # Named boolean conditions for clarity and audit
+        is_oversold = (dataframe['rsi'] < 30)
+        has_volume = (dataframe['volume'] > 0)
 
         dataframe.loc[
-            (
-                (dataframe['rsi'] < 30) &
-                (dataframe['volume'] > 0)
-            ),
+            (is_oversold & has_volume),
             'enter_long'] = 1
-
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+
+        # Named boolean conditions
+        is_overbought = (dataframe['rsi'] > 70)
+        has_volume = (dataframe['volume'] > 0)
+
         dataframe.loc[
-            (
-                (dataframe['rsi'] > 70) &
-                (dataframe['volume'] > 0)
-            ),
+            (is_overbought & has_volume),
             'exit_long'] = 1
         return dataframe
 
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, current_time, entry_tag, side: str, **kwargs) -> bool:
+                            time_in_force: str, current_time: datetime, entry_tag, side: str, **kwargs) -> bool:
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        indicators = {}
+        if self.dp:
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if not dataframe.empty:
+                last_candle = dataframe.iloc[-1]
+                indicators = {
+                    "rsi": last_candle.get("rsi"),
+                    "volume": last_candle.get("volume"),
+                    "close": last_candle.get("close")
+                }
+
+        reason = f"Entry {side} signal"
+        self.log_signal(pair, side, reason, current_time, indicators)
+        return True
+
+    def confirm_trade_exit(self, pair: str, trade, order_type: str, amount: float,
+                           rate: float, time_in_force: str, exit_reason: str,
+                           current_time: datetime, **kwargs) -> bool:
+
+        indicators = {}
+        if self.dp:
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if not dataframe.empty:
+                last_candle = dataframe.iloc[-1]
+                indicators = {
+                    "rsi": last_candle.get("rsi"),
+                    "volume": last_candle.get("volume"),
+                    "close": last_candle.get("close")
+                }
+
+        # side is opposite of trade.trade_direction if we are exiting?
+        # trade object has 'trade_direction' (long/short)
+        # but here we log the action "exit_long" or "exit_short"
+        side = f"exit_{trade.trade_direction}"
+
+        self.log_signal(pair, side, exit_reason, current_time, indicators)
         return True
