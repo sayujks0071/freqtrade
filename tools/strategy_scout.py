@@ -12,6 +12,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 from typing import Any
 
 import requests
@@ -218,6 +219,9 @@ class StrategyScout:
                 try:
                     if strat_file.get("download_url"):
                         # Use download_url to avoid base64 decoding if possible?
+                        # Actually download_url usually points to raw.githubusercontent.com
+                        # which does not use API quota! This is a great trick.
+                        content_resp = requests.get(strat_file["download_url"], timeout=10)
                         # Actually download_url usually points to raw.githubusercontent.com which does not use API quota!
                         # This is a great trick.
                         content_resp = requests.get(strat_file["download_url"])
@@ -255,7 +259,7 @@ class StrategyScout:
 
     def generate_report(self):
         print("Generating report...")
-        os.makedirs("user_data/reports", exist_ok=True)
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
         filename = f"user_data/reports/strategy_shortlist_{date_str}.md"
 
@@ -298,6 +302,9 @@ class StrategyScout:
                 f.write("|---|---|---|---|---|\n")
                 for i, repo in enumerate(rest_candidates, 11):
                     f.write(
+                        f"| {i} | [{repo['full_name']}]({repo['html_url']}) | "
+                        f"{repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | "
+                        f"{repo.get('license_name', 'Unknown')} |\n"
                         f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | {repo.get('license_name', 'Unknown')} |\n"
                     )
                 f.write("\n")
@@ -326,7 +333,7 @@ class StrategyScout:
 
             # Create vendor dir
             vendor_dir = f"user_data/strategies_vendor/{safe_name}"
-            os.makedirs(vendor_dir, exist_ok=True)
+            Path(vendor_dir).mkdir(parents=True, exist_ok=True)
 
             try:
                 # Re-fetch file list for that path
@@ -344,14 +351,16 @@ class StrategyScout:
 
                             raw_url = file_info.get("download_url")
                             if raw_url:
-                                r = requests.get(raw_url)
+                                r = requests.get(raw_url, timeout=10)
                                 if r.status_code == 200:
                                     # Save file
+                                    with (Path(vendor_dir) / file_info['name']).open("w") as f:
                                     with Path(f"{vendor_dir}/{file_info['name']}").open("w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
                     # Create LICENSE_NOTE.md
+                    with (Path(vendor_dir) / "LICENSE_NOTE.md").open("w") as f:
                     with Path(f"{vendor_dir}/LICENSE_NOTE.md").open("w") as f:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")

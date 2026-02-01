@@ -1,0 +1,3 @@
+## 2025-02-23 - Faster Timestamp Flooring
+**Learning:** `pd.to_datetime().dt.floor("s")` is significantly slower (~3x) than performing integer arithmetic `(ts // 1000) * 1000` before conversion when input is numeric timestamps. However, special care must be taken to check input types using `pd.api.types.is_numeric_dtype`, as `np.issubdtype(dtype, np.number)` raises TypeError on timezone-aware datetime arrays.
+**Action:** Prefer integer arithmetic for timestamp flooring when raw data is numeric. Always validate dtype using `pd.api.types` functions to ensure robustness against different input types (like existing DatetimeIndex in tests).

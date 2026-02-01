@@ -2,6 +2,11 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
+import talib.abstract as ta
+from pandas import DataFrame
+
+from freqtrade.strategy import IStrategy
+from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
 
 import sys
 from pathlib import Path
@@ -94,6 +99,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_time,
         entry_tag,
         side: str,
+        **kwargs,
         **kwargs
     ) -> bool:
         """
