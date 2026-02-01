@@ -2,9 +2,11 @@
 AuditedStrategyMixin
 Mixin class for strategies to enforce audit logging and safety checks.
 """
+
 import logging
-from datetime import timezone, datetime
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +15,9 @@ class AuditedStrategyMixin:
     """
     Mixin for strategies to enforce audit logging and safety checks.
     """
+
     # Type hint for the config attribute expected from IStrategy
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
     def log_signal(
         self,
@@ -22,7 +25,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         ts_utc: datetime,
-        indicators_snapshot: Optional[Dict[str, Any]] = None
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -35,7 +38,7 @@ class AuditedStrategyMixin:
         """
         # Format: AUDIT_SIGNAL | EVENT_TS | PAIR | SIDE | REASON | CANDLE_TS | INDICATORS
 
-        event_ts = datetime.now(timezone.utc).isoformat()
+        event_ts = datetime.now(UTC).isoformat()
         indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
         msg = (
@@ -53,11 +56,11 @@ class AuditedStrategyMixin:
         p = pair.upper()
         # Basic check for Futures format: BASE/QUOTE:SETTLE
         if "/" not in p:
-             raise ValueError(f"AUDIT_ERROR | Pair {pair} missing separator '/'")
+            raise ValueError(f"AUDIT_ERROR | Pair {pair} missing separator '/'")
 
         return p
 
-    def assert_pair_in_whitelist(self, pair: str, whitelist: List[str]) -> bool:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> bool:
         """
         Assert pair is in the provided whitelist.
         """
@@ -78,5 +81,7 @@ class AuditedStrategyMixin:
         Legacy wrapper for assert_pair_in_whitelist using self.config
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             return self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"])
+            return self.assert_pair_in_whitelist(
+                pair, self.config["exchange"]["pair_whitelist"]
+            )
         return True

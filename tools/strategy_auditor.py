@@ -3,13 +3,14 @@
 Strategy Auditor Tool
 Enforces clarity and correctness in strategies.
 """
-import ast
+
 import argparse
+import ast
 import sys
 import tokenize
 from io import BytesIO
 from pathlib import Path
-from typing import List, Tuple
+
 
 HEADER_TEMPLATE = """
     # Strategy Audit Header
@@ -45,11 +46,12 @@ REQUIRED_HEADER_FIELDS = [
     "Pair Format Notes:",
     "Timezone Rule:",
     "Entry/Exit Definitions:",
-    "Repainting Note:"
+    "Repainting Note:",
 ]
 
+
 class StrategyVisitor(ast.NodeVisitor):
-    def __init__(self, comments: List[int]):
+    def __init__(self, comments: list[int]):
         self.errors = []
         self.has_header = False
         self.class_node = None
@@ -67,27 +69,28 @@ class StrategyVisitor(ast.NodeVisitor):
                 self.has_header = True
             else:
                 if "Strategy Audit Header" in docstring:
-                     pass
+                    pass
 
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
-        if node.name in ['populate_entry_trend', 'populate_exit_trend']:
+        if node.name in ["populate_entry_trend", "populate_exit_trend"]:
             self._check_trend_function(node)
             self._check_comments(node)
 
     def _check_comments(self, node):
         # We need to see if there is at least one comment inside the function body
         start_line = node.lineno
-        end_line = getattr(node, 'end_lineno', start_line)
+        end_line = getattr(node, "end_lineno", start_line)
 
-        has_comment = any(
-            start_line <= c_line <= end_line
-            for c_line in self.comments
-        )
+        has_comment = any(start_line <= c_line <= end_line for c_line in self.comments)
 
         if not has_comment:
-            self.errors.append(f"ERROR: {node.name} at line {start_line} must include comments explaining the market thesis.")
+            msg = (
+                f"ERROR: {node.name} at line {start_line} "
+                "must include comments explaining the market thesis."
+            )
+            self.errors.append(msg)
 
     def _check_trend_function(self, node):
         # We expect assignments to .loc with named variables as conditions
@@ -95,17 +98,17 @@ class StrategyVisitor(ast.NodeVisitor):
             if isinstance(child, ast.Assign):
                 for target in child.targets:
                     if isinstance(target, ast.Subscript):
-                        if isinstance(target.value, ast.Attribute) and target.value.attr == 'loc':
+                        if isinstance(target.value, ast.Attribute) and target.value.attr == "loc":
                             condition_node = None
-                            if isinstance(target.slice, ast.Tuple): # python 3.9+
+                            if isinstance(target.slice, ast.Tuple):  # python 3.9+
                                 if len(target.slice.elts) > 0:
                                     condition_node = target.slice.elts[0]
-                            elif isinstance(target.slice, ast.Index): # python < 3.9
+                            elif isinstance(target.slice, ast.Index):  # python < 3.9
                                 if isinstance(target.slice.value, ast.Tuple):
                                     condition_node = target.slice.value.elts[0]
                                 else:
                                     condition_node = target.slice.value
-                            elif sys.version_info >= (3, 9):
+                            else:
                                 condition_node = target.slice
 
                             if condition_node:
@@ -126,21 +129,27 @@ class StrategyVisitor(ast.NodeVisitor):
             return False
 
         if is_complex(node):
-            self.errors.append(f"ERROR: Complex condition in {func_name} at line {lineno}. Use named boolean variables.")
+            msg = (
+                f"ERROR: Complex condition in {func_name} at line {lineno}. "
+                "Use named boolean variables."
+            )
+            self.errors.append(msg)
 
-def get_comments(source_code: str) -> List[int]:
+
+def get_comments(source_code: str) -> list[int]:
     comments = []
     try:
-        tokens = tokenize.tokenize(BytesIO(source_code.encode('utf-8')).readline)
+        tokens = tokenize.tokenize(BytesIO(source_code.encode("utf-8")).readline)
         for token in tokens:
             if token.type == tokenize.COMMENT:
-                comments.append(token.start[0]) # Line number
+                comments.append(token.start[0])  # Line number
     except tokenize.TokenError:
         pass
     return comments
 
-def audit_file(filepath: Path, fix: bool) -> List[str]:
-    with open(filepath, 'r', encoding='utf-8') as f:
+
+def audit_file(filepath: Path, fix: bool) -> list[str]:
+    with Path(filepath).open(encoding="utf-8") as f:
         source = f.read()
 
     comments = get_comments(source)
@@ -162,14 +171,25 @@ def audit_file(filepath: Path, fix: bool) -> List[str]:
             class_lineno = visitor.class_node.lineno - 1
 
             body = visitor.class_node.body
-            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, (ast.Str, ast.Constant)):
-                errors.append(msg + " (Docstring exists but is missing required fields. Please update manually or delete it to auto-fix.)")
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, (ast.Str, ast.Constant))
+            ):
+                errors.append(
+                    msg
+                    + " (Docstring exists but is missing required fields. "
+                    "Please update manually or delete it to auto-fix.)"
+                )
             else:
-                indent = "    "
-                header = '    """' + HEADER_TEMPLATE.format(strategy_name=visitor.strategy_name) + '    """'
+                header = (
+                    '    """'
+                    + HEADER_TEMPLATE.format(strategy_name=visitor.strategy_name)
+                    + '    """'
+                )
                 lines.insert(class_lineno + 1, header)
 
-                with open(filepath, 'w', encoding='utf-8') as f:
+                with Path(filepath).open("w", encoding="utf-8") as f:
                     f.write("\n".join(lines))
 
                 print(f"FIXED: Added header to {filepath}")
@@ -177,6 +197,7 @@ def audit_file(filepath: Path, fix: bool) -> List[str]:
             errors.append(msg)
 
     return errors
+
 
 def main():
     parser = argparse.ArgumentParser(description="Strategy Auditor")
@@ -205,6 +226,7 @@ def main():
         sys.exit(1)
     else:
         print("Audit passed.")
+
 
 if __name__ == "__main__":
     main()
