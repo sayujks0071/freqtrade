@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent / "scripts"))
 # We also need ft_client in path for Sentinel to import it
 sys.path.append(str(Path(__file__).resolve().parent.parent / "ft_client"))
 
-from sentinel import Sentinel
+from sentinel import Sentinel  # noqa: E402
 
 
 class TestSentinel(unittest.TestCase):

@@ -94,9 +94,7 @@ class Sentinel:
 
             # Prune history older than 1 hour + margin (e.g. 70 mins)
             cutoff = now_ts - 3600 - 600
-            self.balance_history = [
-                x for x in self.balance_history if x["ts"] > cutoff
-            ]
+            self.balance_history = [x for x in self.balance_history if x["ts"] > cutoff]
             self._save_history()
 
             return total_balance
@@ -154,9 +152,7 @@ class Sentinel:
                 four_hours_ago_ms = now_ms - (4 * 3600 * 1000)
 
                 # Filter relevant candles (timestamp >= 4 hours ago)
-                relevant_candles = [
-                    c for c in candles_data if c[0] >= four_hours_ago_ms
-                ]
+                relevant_candles = [c for c in candles_data if c[0] >= four_hours_ago_ms]
 
                 if not relevant_candles:
                     relevant_candles = candles_data
@@ -226,9 +222,7 @@ class Sentinel:
         print(f"OPENCLAW: {msg}")
 
     def run(self):
-        logger.info(
-            f"Sentinel started. Monitoring {self.btc_pair}. Interval: {self.interval}s"
-        )
+        logger.info(f"Sentinel started. Monitoring {self.btc_pair}. Interval: {self.interval}s")
         while True:
             try:
                 self.update_balance_history()
