@@ -378,9 +378,7 @@ def main():
     backup_json, created_new = backup_strategy(strategy_json)
 
     try:
-        result_hyperopt = run_hyperopt(
-            worst_strategy, CONFIG_FILE, EPOCHS, SPACES, HYPEROPT_LOSS
-        )
+        result_hyperopt = run_hyperopt(worst_strategy, CONFIG_FILE, EPOCHS, SPACES, HYPEROPT_LOSS)
 
         if result_hyperopt.returncode != 0:
             print("Hyperopt failed.")
