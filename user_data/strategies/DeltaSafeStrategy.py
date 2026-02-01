@@ -2,10 +2,10 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
-from freqtrade.strategy import IStrategy
-from pandas import DataFrame
 import talib.abstract as ta
+from pandas import DataFrame
 
+from freqtrade.strategy import IStrategy
 from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
@@ -80,8 +80,18 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             'exit_long'] = 1
         return dataframe
 
-    def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, current_time, entry_tag, side: str, **kwargs) -> bool:
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time,
+        entry_tag,
+        side: str,
+        **kwargs,
+    ) -> bool:
         """
         Called right before placing a trade.
         """

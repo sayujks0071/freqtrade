@@ -208,9 +208,9 @@ class StrategyScout:
                 try:
                     if 'download_url' in strat_file and strat_file['download_url']:
                         # Use download_url to avoid base64 decoding if possible?
-                        # Actually download_url usually points to raw.githubusercontent.com which does not use API quota!
-                        # This is a great trick.
-                        content_resp = requests.get(strat_file['download_url'])
+                        # Actually download_url usually points to raw.githubusercontent.com
+                        # which does not use API quota! This is a great trick.
+                        content_resp = requests.get(strat_file["download_url"], timeout=10)
                         if content_resp.status_code == 200:
                             content = content_resp.text
 
@@ -245,7 +245,7 @@ class StrategyScout:
 
     def generate_report(self):
         print("Generating report...")
-        os.makedirs("user_data/reports", exist_ok=True)
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
         filename = f"user_data/reports/strategy_shortlist_{date_str}.md"
 
@@ -271,7 +271,7 @@ class StrategyScout:
                 if repo.get('scout_notes'):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
 
-                f.write(f"- **Adoption Notes:** ")
+                f.write("- **Adoption Notes:** ")
                 adoption = []
                 if "Futures/Shorts mentioned" in repo.get('scout_notes', []):
                     adoption.append("Seems to support futures.")
@@ -287,7 +287,11 @@ class StrategyScout:
                 f.write("| Rank | Repository | Score | Stars | License |\n")
                 f.write("|---|---|---|---|---|\n")
                 for i, repo in enumerate(rest_candidates, 11):
-                    f.write(f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | {repo.get('license_name', 'Unknown')} |\n")
+                    f.write(
+                        f"| {i} | [{repo['full_name']}]({repo['html_url']}) | "
+                        f"{repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | "
+                        f"{repo.get('license_name', 'Unknown')} |\n"
+                    )
                 f.write("\n")
 
         print(f"Report written to {filename}")
@@ -314,7 +318,7 @@ class StrategyScout:
 
             # Create vendor dir
             vendor_dir = f"user_data/strategies_vendor/{safe_name}"
-            os.makedirs(vendor_dir, exist_ok=True)
+            Path(vendor_dir).mkdir(parents=True, exist_ok=True)
 
             # Fetch file list again (or cached if I stored it, but I didn't store list)
             # We need to list again or just try to get the files we saw?
@@ -337,7 +341,7 @@ class StrategyScout:
 
                             raw_url = file_info.get('download_url')
                             if raw_url:
-                                r = requests.get(raw_url)
+                                r = requests.get(raw_url, timeout=10)
                                 if r.status_code == 200:
                                     # Save file
                                     with (Path(vendor_dir) / file_info['name']).open("w") as f:
