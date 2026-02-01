@@ -1,0 +1,8 @@
+[
+  {
+    "strategy": "DeltaSafeStrategy",
+    "roi": -0.31,
+    "max_drawdown": 0.36,
+    "days": 30
+  }
+]
