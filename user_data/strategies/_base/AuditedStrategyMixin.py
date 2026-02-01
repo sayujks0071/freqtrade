@@ -42,8 +42,7 @@ class AuditedStrategyMixin:
         indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
         msg = (
-            f"AUDIT_SIGNAL | {event_ts} | {pair} | "
-            f"{side} | {reason} | {ts_utc} | {indicators_str}"
+            f"AUDIT_SIGNAL | {event_ts} | {pair} | {side} | {reason} | {ts_utc} | {indicators_str}"
         )
         logger.info(msg)
 
@@ -81,7 +80,5 @@ class AuditedStrategyMixin:
         Legacy wrapper for assert_pair_in_whitelist using self.config
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
-            return self.assert_pair_in_whitelist(
-                pair, self.config["exchange"]["pair_whitelist"]
-            )
+            return self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"])
         return True

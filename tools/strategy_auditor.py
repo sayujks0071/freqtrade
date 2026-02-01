@@ -52,7 +52,7 @@ REQUIRED_HEADER_FIELDS = [
 
 class StrategyVisitor(ast.NodeVisitor):
     def __init__(self, comments: list[int]):
-        self.errors = []
+        self.errors: list[str] = []
         self.has_header = False
         self.class_node = None
         self.strategy_name = "Unknown"
@@ -177,8 +177,7 @@ def audit_file(filepath: Path, fix: bool) -> list[str]:
                 and isinstance(body[0].value, (ast.Str, ast.Constant))
             ):
                 errors.append(
-                    msg
-                    + " (Docstring exists but is missing required fields. "
+                    msg + " (Docstring exists but is missing required fields. "
                     "Please update manually or delete it to auto-fix.)"
                 )
             else:

@@ -46,20 +46,15 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(
-                        f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
-                    )
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
         except Exception as e:
             print(f"Error checking rate limit: {e}")
             return True  # Assume ok if check fails, to avoid loop
 
-    def search_github(self):
-        print("Searching GitHub...")
-        found_repos = {}  # Dedup by full_name
-
-        # 1. Search Queries
+    def _search_queries(self, found_repos):
+        """Helper to search GitHub using defined queries."""
         for query in SEARCH_QUERIES:
             if not self.check_rate_limit():
                 break
@@ -80,7 +75,8 @@ class StrategyScout:
             except Exception as e:
                 print(f"Exception during search: {e}")
 
-        # 2. Add Known Sources
+    def _add_known_sources(self, found_repos):
+        """Helper to add known sources if not already found."""
         for source in KNOWN_SOURCES:
             if source not in found_repos:
                 if not self.check_rate_limit():
@@ -91,6 +87,16 @@ class StrategyScout:
                         found_repos[source] = resp.json()
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
+
+    def search_github(self):
+        print("Searching GitHub...")
+        found_repos = {}  # Dedup by full_name
+
+        # 1. Search Queries
+        self._search_queries(found_repos)
+
+        # 2. Add Known Sources
+        self._add_known_sources(found_repos)
 
         # Convert to list
         self.candidates = list(found_repos.values())
@@ -342,10 +348,7 @@ class StrategyScout:
                     # Download up to 5 .py files
                     downloaded = 0
                     for file_info in contents:
-                        if (
-                            file_info["name"].endswith(".py")
-                            and file_info["name"] != "__init__.py"
-                        ):
+                        if file_info["name"].endswith(".py") and file_info["name"] != "__init__.py":
                             if downloaded >= 3:
                                 break
 
@@ -372,9 +375,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
