@@ -4,7 +4,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 import logging
 from datetime import UTC, datetime
-from typing import Any, Dict
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ class AuditedStrategyMixin:
     """
 
     # Type hint for the config attribute expected from IStrategy
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
     def log_signal(
         self,
