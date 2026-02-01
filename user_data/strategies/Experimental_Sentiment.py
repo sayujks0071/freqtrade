@@ -1,6 +1,6 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+Experimental_Sentiment
+A strategy that uses a mock sentiment signal (e.g. "Twitter Volume" or "Whale Wallet Movements").
 """
 
 import sys
@@ -18,7 +18,7 @@ sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
-class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -31,18 +31,14 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     timeframe = "1h"
 
     # Run "populate_indicators" only for new candle
-    # Logic runs on closed candle only
     process_only_new_candles = True
 
-    # These values can be overridden in the "ask_strategy" section in the config.
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
 
-    # Number of candles the strategy requires before producing valid signals
     startup_candle_count: int = 30
 
-    # Optional order type mapping.
     order_types = {
         "entry": "limit",
         "exit": "limit",
@@ -50,27 +46,45 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         "stoploss_on_exchange": False,
     }
 
-    # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # RSI
+        # Standard TA for reference
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+
+        # Mock Sentiment Signal
+        # Use Volume as a seed for pseudo-randomness to avoid repainting
+        # (volume is consistent for closed candles)
+        # We take the volume, multiply by a prime, and take modulo to get a 0-1 score
+        dataframe["sentiment_score"] = (dataframe["volume"] * 0.123456789) % 1
+
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Entry logic based on Sentiment
+        dataframe.loc[
+            (
+                (dataframe["sentiment_score"] > 0.8)  # High sentiment -> Buy
+                & (dataframe["volume"] > 0)
+            ),
+            "enter_long",
+        ] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        # Exit logic based on Sentiment
+        dataframe.loc[
+            (
+                (dataframe["sentiment_score"] < 0.2)  # Low sentiment -> Sell
+                & (dataframe["volume"] > 0)
+            ),
+            "exit_long",
+        ] = 1
+
         return dataframe
 
     def confirm_trade_entry(
@@ -85,8 +99,5 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         side: str,
         **kwargs,
     ) -> bool:
-        """
-        Called right before placing a trade.
-        """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        self.log_signal(pair, self.timeframe, side, "Sentiment Entry Confirmed", current_time)
         return True
