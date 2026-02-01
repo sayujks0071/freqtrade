@@ -10,8 +10,10 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 REPORT_FILE = Path("WEEKLY_REPORT.md")
 LOG_FILE = Path("optimization_log.txt")
+
 
 def run_command(cmd, capture=True):
     result = subprocess.run(cmd, capture_output=capture, text=True)
@@ -20,6 +22,7 @@ def run_command(cmd, capture=True):
         if result.stderr:
             print(result.stderr)
     return result
+
 
 def get_git_commits(days=7):
     since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -32,6 +35,7 @@ def get_git_commits(days=7):
     if result.returncode == 0:
         return result.stdout.splitlines()
     return []
+
 
 def get_optimization_logs(days=7):
     if not LOG_FILE.exists():
@@ -51,6 +55,7 @@ def get_optimization_logs(days=7):
                 continue
     return logs
 
+
 def generate_report(commits, logs):
     # Section 1: Strategies Updated
     updated_strategies = set()
@@ -64,21 +69,21 @@ def generate_report(commits, logs):
                 updated_strategies.add(parts[2])
 
     # From Logs (Success)
-    success_logs = [l for l in logs if l.get("status") == "SUCCESS"]
-    for l in success_logs:
-        updated_strategies.add(l.get("strategy"))
+    success_logs = [log_entry for log_entry in logs if log_entry.get("status") == "SUCCESS"]
+    for log_entry in success_logs:
+        updated_strategies.add(log_entry.get("strategy"))
 
     # Section 2: Portfolio ROI Improvement
     total_roi_improvement = 0.0
-    for l in success_logs:
-        metrics = l.get("metrics", {})
+    for log_entry in success_logs:
+        metrics = log_entry.get("metrics", {})
         total_roi_improvement += metrics.get("profit_pct", 0.0)
 
     # Section 3: Stuck Strategies
     # Failed attempts in the last week, AND no success in the last week.
-    failed_logs = [l for l in logs if l.get("status") == "FAILURE"]
-    failed_strategies = set(l.get("strategy") for l in failed_logs)
-    successful_strategies_week = set(l.get("strategy") for l in success_logs)
+    failed_logs = [log_entry for log_entry in logs if log_entry.get("status") == "FAILURE"]
+    failed_strategies = set(log_entry.get("strategy") for log_entry in failed_logs)
+    successful_strategies_week = set(log_entry.get("strategy") for log_entry in success_logs)
 
     stuck_strategies = failed_strategies - successful_strategies_week
 
@@ -105,13 +110,14 @@ def generate_report(commits, logs):
     if stuck_strategies:
         for s in sorted(list(stuck_strategies)):
             # Count failures
-            count = len([l for l in failed_logs if l.get("strategy") == s])
+            count = len([log_entry for log_entry in failed_logs if log_entry.get("strategy") == s])
             lines.append(f"- {s} ({count} failed attempts)")
     else:
         lines.append("None.")
     lines.append("")
 
     return "\n".join(lines)
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Optimization Report")
@@ -138,6 +144,7 @@ def main():
             run_command(["git", "push"])
         else:
             print("No changes to report.")
+
 
 if __name__ == "__main__":
     main()

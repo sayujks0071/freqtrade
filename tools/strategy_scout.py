@@ -48,9 +48,7 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(
-                        f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
-                    )
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
         except Exception as e:
@@ -105,53 +103,59 @@ class StrategyScout:
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
 
+    def _calculate_score(self, repo) -> tuple[int, list[str], str]:
+        """Calculates a preliminary score for a repository."""
+        score = 0
+        notes = []
+        full_name = repo["full_name"]
+        pushed_at = repo.get("pushed_at")
+        license_data = repo.get("license")
+
+        # 1. License Check
+        license_name = "Unknown"
+        if license_data and license_data.get("key") != "other":
+            license_name = license_data.get("name", "Unknown")
+            score += 5  # Clear license
+        elif license_data and license_data.get("key") == "other":
+            license_name = "Other (Check manually)"
+            score += 1
+        else:
+            if full_name not in KNOWN_SOURCES:
+                return -1, [], ""  # Signal to skip
+
+        # 2. Recency
+        if pushed_at:
+            try:
+                # Handle Z if present
+                pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
+                age_days = (datetime.datetime.now() - pushed_dt).days
+                if age_days < 30:
+                    score += 5
+                elif age_days < 90:
+                    score += 3
+                elif age_days < 365:
+                    score += 1
+                else:
+                    score -= 2  # Stale
+            except ValueError:
+                pass
+
+        # 3. Description / Documentation
+        description = repo.get("description", "") or ""
+        if "freqtrade" in description.lower():
+            score += 2
+
+        return score, notes, license_name
+
     def filter_and_score(self):
         print("Filtering and Scoring...")
         scored_candidates = []
 
         for repo in self.candidates:
-            score = 0
-            notes = []
+            score, notes, license_name = self._calculate_score(repo)
 
-            # Metadata filtering
-            full_name = repo["full_name"]
-            pushed_at = repo.get("pushed_at")
-            license_data = repo.get("license")
-
-            # 1. License Check
-            license_name = "Unknown"
-            if license_data and license_data.get("key") != "other":
-                license_name = license_data.get("name", "Unknown")
-                score += 5  # Clear license
-            elif license_data and license_data.get("key") == "other":
-                license_name = "Other (Check manually)"
-                score += 1
-            else:
-                if full_name not in KNOWN_SOURCES:
-                    continue
-
-            # 2. Recency
-            if pushed_at:
-                try:
-                    # Handle Z if present, though fromisoformat usually handles it in recent python
-                    # or strptime
-                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                    age_days = (datetime.datetime.now() - pushed_dt).days
-                    if age_days < 30:
-                        score += 5
-                    elif age_days < 90:
-                        score += 3
-                    elif age_days < 365:
-                        score += 1
-                    else:
-                        score -= 2  # Stale
-                except ValueError:
-                    pass
-
-            # 3. Description / Documentation
-            description = repo.get("description", "") or ""
-            if "freqtrade" in description.lower():
-                score += 2
+            if score == -1 and not notes and not license_name:
+                continue
 
             repo["scout_score"] = score
             repo["scout_notes"] = notes
@@ -159,6 +163,7 @@ class StrategyScout:
 
             # Calculate age_days for report
             repo["age_days"] = 9999
+            pushed_at = repo.get("pushed_at")
             if pushed_at:
                 try:
                     dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
@@ -194,8 +199,8 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error checking path {path} in {full_name}: {e}")
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):
@@ -296,9 +301,7 @@ class StrategyScout:
                     adoption.append("Seems to support futures.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append(
-                    "Verify `stoploss` and `leverage` settings for Delta futures."
-                )
+                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
@@ -370,9 +373,7 @@ class StrategyScout:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write(
-                            "Please check the original repository for full license details.\n"
-                        )
+                        f.write("Please check the original repository for full license details.\n")
 
                     count += 1
             except Exception as e:
@@ -381,9 +382,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
