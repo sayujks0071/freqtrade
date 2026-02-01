@@ -32,6 +32,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     timeframe = '1h'
 
     # Run "populate_indicators" only for new candle
+    # Logic runs on closed candle only
     process_only_new_candles = True
 
     # These values can be overridden in the "ask_strategy" section in the config.

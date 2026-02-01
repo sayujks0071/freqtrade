@@ -43,6 +43,7 @@ This repository is configured as a production-ready crypto trading stack for Del
     -   Hard caps on open trades and leverage.
 -   **Strategy CI**: GitHub Actions block unsafe strategies.
 -   **Observability**: Daily reports and structured logging.
+-   **Audit Logs**: Strategy signals are logged with `AUDIT_SIGNAL` prefix in the logs (`user_data/logs/freqtrade.log`).
 
 ## Tools
 

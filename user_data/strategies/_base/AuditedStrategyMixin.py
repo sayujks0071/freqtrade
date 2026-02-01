@@ -45,3 +45,9 @@ class AuditedStrategyMixin:
                 logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
                 return False
         return True
+
+    def normalize_pair(self, pair: str) -> str:
+        """
+        Normalize pair to uppercase.
+        """
+        return pair.upper()
