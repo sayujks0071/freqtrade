@@ -8,11 +8,12 @@ from pathlib import Path
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 
-import talib.abstract as ta  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
-from pandas import DataFrame  # noqa: E402
+import talib.abstract as ta
+from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy  # noqa: E402
+from freqtrade.strategy import IStrategy
+
+from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):

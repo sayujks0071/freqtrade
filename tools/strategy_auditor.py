@@ -76,11 +76,17 @@ def audit_file(filepath):  # noqa: C901
 
                     if isinstance(sl, ast.BoolOp):
                         if len(sl.values) > 3:
-                            errors.append(f"Complex inline condition (>{len(sl.values)} ops) at line {node.lineno}. Use named variables.")
+                            errors.append(
+                                f"Complex inline condition (>{len(sl.values)} ops) "
+                                f"at line {node.lineno}. Use named variables."
+                            )
                     elif isinstance(sl, ast.Tuple):
                         for elt in sl.elts:
                             if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(f"Complex inline condition (>{len(elt.values)} ops) at line {node.lineno}. Use named variables.")
+                                errors.append(
+                                    f"Complex inline condition (>{len(elt.values)} ops) "
+                                    f"at line {node.lineno}. Use named variables."
+                                )
 
     if not has_class:
         # Might be a library file, skip strict checks?
