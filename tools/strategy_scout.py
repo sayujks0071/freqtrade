@@ -28,6 +28,7 @@ TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
 
 
+
 class StrategyScout:
     def __init__(self, token: str | None = None):
         self.token = token
@@ -39,6 +40,7 @@ class StrategyScout:
 
     def check_rate_limit(self):
         try:
+            resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=10)
             resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=TIMEOUT)
             resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
@@ -57,6 +59,8 @@ class StrategyScout:
         except Exception as e:
             print(f"Error checking rate limit: {e}")
             return True  # Assume ok if check fails, to avoid loop
+
+    def _search_queries(self, found_repos):
 
     def search_github(self):
         print("Searching GitHub...")
@@ -80,6 +84,7 @@ class StrategyScout:
             params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
             try:
                 resp = self.session.get(
+                    f"{GITHUB_API_URL}/search/repositories", params=params, timeout=10
                     f"{GITHUB_API_URL}/search/repositories",
                     params=params,
                     timeout=TIMEOUT,
@@ -101,6 +106,7 @@ class StrategyScout:
                 if not self.check_rate_limit():
                     break
                 try:
+                    resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=10)
                     resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=TIMEOUT)
                     resp = self.session.get(
                         f"{GITHUB_API_URL}/repos/{source}", timeout=REQUEST_TIMEOUT
@@ -109,6 +115,17 @@ class StrategyScout:
                         found_repos[source] = resp.json()
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
+
+    def search_github(self):
+        print("Searching GitHub...")
+        found_repos = {}  # Dedup by full_name
+
+        self._search_queries(found_repos)
+        self._add_known_sources(found_repos)
+
+        # Convert to list
+        self.candidates = list(found_repos.values())
+        print(f"Total unique candidates found: {len(self.candidates)}")
 
     def filter_and_score(self):
         print("Filtering and Scoring...")
@@ -120,6 +137,7 @@ class StrategyScout:
 
             # Metadata filtering
             full_name = repo["full_name"]
+            # stars = repo.get('stargazers_count', 0)  # Unused
             # stars = repo.get('stargazers_count', 0) # Unused
             # stars = repo.get("stargazers_count", 0)
             pushed_at = repo.get("pushed_at")
@@ -158,6 +176,14 @@ class StrategyScout:
             repo["scout_score"] = score
             repo["scout_notes"] = notes
             repo["license_name"] = license_name
+            repo["age_days"] = (
+                (
+                    datetime.datetime.now()
+                    - datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
+                ).days
+                if pushed_at
+                else 9999
+            )
             if pushed_at:
                 dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                 repo["age_days"] = (datetime.datetime.now() - dt).days
@@ -172,6 +198,9 @@ class StrategyScout:
 
         # Sort by preliminary score to prioritize inspection
         self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
+        print(f"Candidates after filtering: {len(self.candidates)}")
+
+    def deep_inspect(self, limit=15):  # noqa: C901
         print(f"Candidates after filtering: {len(self.candidates)}")
 
     def deep_inspect(self, limit=15):  # noqa: C901
@@ -254,6 +283,7 @@ class StrategyScout:
             for path in paths_to_check:
                 try:
                     url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+                    resp = self.session.get(url, timeout=10)
                     resp = self.session.get(url, timeout=TIMEOUT)
                     if resp.status_code == 200:
                         contents = resp.json()
@@ -268,6 +298,8 @@ class StrategyScout:
                                 strategies = potential
                                 found_path = path
                                 break  # Found strategies
+                except Exception:  # noqa: S110
+                    pass
                 except Exception as e:
                     print(f"DEBUG: Failed to inspect path {path}: {e}")
 
@@ -281,6 +313,12 @@ class StrategyScout:
                 # We only check one to save requests
                 strat_file = strategies[0]
                 try:
+                    if strat_file.get("download_url"):
+                        # Use download_url to avoid base64 decoding if possible?
+                        # Actually download_url usually points to raw.githubusercontent.com
+                        # which does not use API quota!
+                        # This is a great trick.
+                        content_resp = requests.get(strat_file["download_url"], timeout=10)
                     # Use download_url to avoid base64 decoding if possible?
                     download_url = strat_file.get("download_url")
                     if download_url:
@@ -323,6 +361,10 @@ class StrategyScout:
 
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
+
+    def generate_report(self):
+        print("Generating report...")
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
 
     def generate_report(self):
         print("Generating report...")
@@ -381,6 +423,11 @@ class StrategyScout:
                 f.write("| Rank | Repository | Score | Stars | License |\n")
                 f.write("|---|---|---|---|---|\n")
                 for i, repo in enumerate(rest_candidates, 11):
+                    f.write(
+                        f"| {i} | [{repo['full_name']}]({repo['html_url']}) | "
+                        f"{repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | "
+                        f"{repo.get('license_name', 'Unknown')} |\n"
+                    )
                     url = repo["html_url"]
                     full = repo["full_name"]
                     score = repo.get("scout_score", 0)
@@ -422,12 +469,15 @@ class StrategyScout:
             print(f"Vendoring from {full_name}...")
 
             # Create vendor dir
+            vendor_dir = f"user_data/strategies_vendor/{safe_name}"
+            Path(vendor_dir).mkdir(parents=True, exist_ok=True)
             vendor_dir = Path(f"user_data/strategies_vendor/{safe_name}")
             vendor_dir.mkdir(parents=True, exist_ok=True)
 
             try:
                 # Re-fetch file list for that path
                 url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+                resp = self.session.get(url, timeout=10)
                 resp = self.session.get(url, timeout=TIMEOUT)
                 continue
 
@@ -454,6 +504,10 @@ class StrategyScout:
 
                             raw_url = file_info.get("download_url")
                             if raw_url:
+                                r = requests.get(raw_url, timeout=10)
+                                if r.status_code == 200:
+                                    # Save file
+                                    with Path(f"{vendor_dir}/{file_info['name']}").open("w") as f:
                                 r = requests.get(raw_url, timeout=TIMEOUT)
                                 if r.status_code == 200:
                                     # Save file
@@ -462,6 +516,7 @@ class StrategyScout:
                                     downloaded += 1
 
                     # Create LICENSE_NOTE.md
+                    with Path(f"{vendor_dir}/LICENSE_NOTE.md").open("w") as f:
                     with (vendor_dir / "LICENSE_NOTE.md").open("w") as f:
                                 r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
                                 if r.status_code == 200:
