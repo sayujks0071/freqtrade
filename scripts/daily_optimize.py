@@ -25,6 +25,26 @@ SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
+def log_optimization_attempt(strategy, status, old_sharpe, new_sharpe, old_drawdown, new_drawdown, profit_pct, reason=""):
+    log_file = Path("optimization_log.txt")
+    timestamp = datetime.now().isoformat()
+    entry = {
+        "timestamp": timestamp,
+        "strategy": strategy,
+        "status": status,
+        "metrics": {
+            "old_sharpe": old_sharpe,
+            "new_sharpe": new_sharpe,
+            "old_drawdown": old_drawdown,
+            "new_drawdown": new_drawdown,
+            "profit_pct": profit_pct
+        },
+        "reason": reason
+    }
+    with log_file.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
@@ -376,6 +396,15 @@ Examples:
     print(f"Drawdown Improved: {drawdown_improved}")
 
     if sharpe_improved and drawdown_improved:
+        log_optimization_attempt(
+            worst_strategy,
+            "SUCCESS",
+            current_sharpe,
+            new_sharpe,
+            current_drawdown,
+            new_drawdown,
+            avg_profit_pct
+        )
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
@@ -463,6 +492,16 @@ Examples:
             backup_json.unlink()
 
     else:
+        log_optimization_attempt(
+            worst_strategy,
+            "FAILURE",
+            current_sharpe,
+            new_sharpe,
+            current_drawdown,
+            new_drawdown,
+            avg_profit_pct,
+            reason="Metrics did not improve"
+        )
         print("Evaluation FAILED. Reverting changes.")
         if not created_new:
             shutil.move(backup_json, strategy_json)
