@@ -5,12 +5,16 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 """
 
 import argparse
+import base64
 import datetime
 import os
+import re
+import sys
+import time
+from pathlib import Path
 from typing import Any
 
 import requests
-
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -258,7 +262,7 @@ class StrategyScout:
         top_10 = self.candidates[:10]
         rest_candidates = self.candidates[10:]
 
-        with open(filename, "w") as f:
+        with Path(filename).open("w") as f:
             f.write(f"# Freqtrade Strategy Scout Report - {date_str}\n\n")
             f.write("## Top 10 Candidates\n\n")
 
@@ -324,11 +328,6 @@ class StrategyScout:
             vendor_dir = f"user_data/strategies_vendor/{safe_name}"
             os.makedirs(vendor_dir, exist_ok=True)
 
-            # Fetch file list again (or cached if I stored it, but I didn't store list)
-            # We need to list again or just try to get the files we saw?
-            # I didn't store the file list in repo object, only the count.
-            # I should recall list.
-
             try:
                 # Re-fetch file list for that path
                 # Note: this uses API calls.
@@ -348,14 +347,12 @@ class StrategyScout:
                                 r = requests.get(raw_url)
                                 if r.status_code == 200:
                                     # Save file
-                                    # Sentinel Fix: Sanitize filename to prevent path traversal
-                                    filename = os.path.basename(file_info['name'])
-                                    with open(f"{vendor_dir}/{filename}", "w") as f:
+                                    with Path(f"{vendor_dir}/{file_info['name']}").open("w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
                     # Create LICENSE_NOTE.md
-                    with open(f"{vendor_dir}/LICENSE_NOTE.md", "w") as f:
+                    with Path(f"{vendor_dir}/LICENSE_NOTE.md").open("w") as f:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
