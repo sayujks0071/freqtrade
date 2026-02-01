@@ -1,7 +1,7 @@
 {
-    "max_open_trades": 5,
+    "max_open_trades": 3,
     "stake_currency": "USDT",
-    "stake_amount": 20,
+    "stake_amount": "unlimited",
     "tradable_balance_ratio": 0.99,
     "fiat_display_currency": "USD",
     "dry_run": true,
@@ -9,9 +9,8 @@
     "cancel_open_orders_on_exit": false,
     "trading_mode": "futures",
     "margin_mode": "isolated",
-    "unidirectional_only": true,
     "exchange": {
-        "name": "delta",
+        "name": "gateio",
         "key": "",
         "secret": "",
         "ccxt_config": {
@@ -21,7 +20,10 @@
             "enableRateLimit": true,
             "rateLimit": 200
         },
-        "pair_whitelist": [],
+        "pair_whitelist": [
+            "BTC/USDT:USDT",
+            "ETH/USDT:USDT"
+        ],
         "pair_blacklist": []
     },
     "pairlists": [
@@ -35,32 +37,12 @@
         "chat_id": ""
     },
     "api_server": {
-        "enabled": true,
-        "listen_ip_address": "0.0.0.0",
+        "enabled": false,
+        "listen_ip_address": "127.0.0.1",
         "listen_port": 8080,
-        "verbosity": "error",
-        "jwt_secret_key": "somethingrandom",
-        "CORS_origins": [],
         "username": "freqtrader",
-        "password": "SuperSecurePassword123!"
+        "password": ""
     },
-    "protections": [
-        {
-            "method": "CooldownPeriod",
-            "stop_duration_candles": 5
-        },
-        {
-            "method": "MaxDrawdown",
-            "lookback_period_candles": 48,
-            "trade_limit": 20,
-            "stop_duration_candles": 12,
-            "max_allowed_drawdown": 0.2
-        },
-        {
-            "method": "DailyLossLimit",
-            "max_daily_loss": 0.05
-        }
-    ],
     "bot_name": "freqtrade",
     "initial_state": "running",
     "forcebuy_enable": false,
