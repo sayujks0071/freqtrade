@@ -184,8 +184,8 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Failed to check path {path}: {e}")
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):

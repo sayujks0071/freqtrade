@@ -15,7 +15,7 @@ from pathlib import Path
 # Add project root to path to allow importing freqtrade
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-import talib.abstract as ta
+import talib.abstract as ta  # noqa: E402, RUF100
 
 
 # Setup logging
@@ -140,8 +140,10 @@ def main():
     try:
         subprocess.run(cmd, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode() if e.stderr else str(e)
         logger.warning(
-            f"Failed to download Gate.io data: {e.stderr.decode() if e.stderr else e}. Trying to proceed if data exists..."
+            f"Failed to download Gate.io data: {error_msg}. "
+            "Trying to proceed if data exists..."
         )
 
     # 2. Load Data
