@@ -34,7 +34,8 @@ def run_command(cmd, capture=True):
 
 
 def get_timerange():
-    end_date = datetime.now()
+    # Use yesterday as the fixed end date to avoid including incomplete data from today
+    end_date = (datetime.now() - timedelta(days=1)).date()
     start_date = end_date - timedelta(days=30)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
