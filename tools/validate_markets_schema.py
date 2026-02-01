@@ -4,37 +4,52 @@ import json
 import os
 import re
 import sys
-from datetime import timezone, datetime
+from datetime import UTC, datetime
 from pathlib import Path
+
 
 # Configuration defaults
 DEFAULT_MIN_MARKETS = 20
 DEFAULT_MAX_REMOVAL_RATIO = 0.25
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
+    parser = argparse.ArgumentParser(
+        description="Validate markets schema and check for drift."
+    )
     parser.add_argument("--markets", required=True, help="Path to markets JSON file")
-    parser.add_argument("--env", required=True, help="Delta Environment (e.g., india_prod)")
-    parser.add_argument("--prev-whitelist", help="Path to previous whitelist file (for drift check)")
-    parser.add_argument("--out-report", required=True, help="Path to write the Markdown report")
+    parser.add_argument(
+        "--env", required=True, help="Delta Environment (e.g., india_prod)"
+    )
+    parser.add_argument(
+        "--prev-whitelist", help="Path to previous whitelist file (for drift check)"
+    )
+    parser.add_argument(
+        "--out-report", required=True, help="Path to write the Markdown report"
+    )
     return parser.parse_args()
+
 
 def load_json(path):
     with Path(path).open() as f:
         return json.load(f)
 
+
 def get_config_vars():
     return {
         "MIN_MARKETS": int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS)),
-        "MAX_REMOVAL_RATIO": float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)),
+        "MAX_REMOVAL_RATIO": float(
+            os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)
+        ),
         "STRICT_VOLUME": os.environ.get("STRICT_VOLUME", "false").lower() == "true",
         "FILTER_MODE": os.environ.get("FILTER_MODE", "perps_usdt"),
         "ALLOWLIST_REGEX": os.environ.get("ALLOWLIST_REGEX", ".*"),
     }
 
+
 def is_eligible(market, config):
     symbol = market.get("symbol", "")
-    active = market.get("active", True) # Default to True if missing
+    active = market.get("active", True)  # Default to True if missing
 
     if not active:
         return False
@@ -52,7 +67,8 @@ def is_eligible(market, config):
         # Default to perps_usdt
         return "/USDT:USDT" in symbol
 
-def validate_market(m, idx, errors, config):
+
+def validate_market(m, idx, errors, config):  # noqa: C901
     # This function is now called only for eligible markets
 
     # Required fields
@@ -87,65 +103,81 @@ def validate_market(m, idx, errors, config):
 
     # Check for Settle delimiter if it looks like a future and we are in perps mode
     if config["FILTER_MODE"] in ["perps_usdt", "all_futures"]:
-        pass # Checked in main loop if needed
+        pass  # Checked in main loop if needed
 
     # Numeric checks (Volume)
     if config["STRICT_VOLUME"]:
         # Check volume if available in top-level or info
         vol = m.get("volume")
         if vol is None:
-             # Try info
-             info = m.get("info", {})
-             vol_str = info.get("volume_24h") or info.get("turnover_24h")
-             if vol_str is not None:
-                 try:
-                     vol = float(vol_str)
-                 except ValueError:
-                     pass
+            # Try info
+            info = m.get("info", {})
+            vol_str = info.get("volume_24h") or info.get("turnover_24h")
+            if vol_str is not None:
+                try:
+                    vol = float(vol_str)
+                except ValueError:
+                    pass
 
         if vol is not None and isinstance(vol, (int, float)):
-             if vol < 1000:
-                 errors.append(f"Market {symbol}: Low volume ({vol})")
+            if vol < 1000:
+                errors.append(f"Market {symbol}: Low volume ({vol})")
 
     return symbol
+
 
 def check_numeric_sanity(m, idx, errors, config):
     symbol = m.get("symbol", f"#{idx}")
 
     # Check limits
-    if 'limits' in m:
-        limits = m['limits']
+    if "limits" in m:
+        limits = m["limits"]
         # Amount limits
-        if 'amount' in limits:
-            amt = limits['amount']
+        if "amount" in limits:
+            amt = limits["amount"]
             if isinstance(amt, dict):
-                min_amt = amt.get('min')
-                max_amt = amt.get('max')
+                min_amt = amt.get("min")
+                max_amt = amt.get("max")
                 if isinstance(min_amt, (int, float)) and min_amt < 0:
-                     errors.append(f"Market {symbol}: Negative min amount limit ({min_amt})")
+                    errors.append(
+                        f"Market {symbol}: Negative min amount limit ({min_amt})"
+                    )
                 if isinstance(max_amt, (int, float)) and max_amt < 0:
-                     errors.append(f"Market {symbol}: Negative max amount limit ({max_amt})")
-                if isinstance(min_amt, (int, float)) and isinstance(max_amt, (int, float)) and min_amt > max_amt:
-                     errors.append(f"Market {symbol}: Invalid limits (min {min_amt} > max {max_amt})")
+                    errors.append(
+                        f"Market {symbol}: Negative max amount limit ({max_amt})"
+                    )
+                if (
+                    isinstance(min_amt, (int, float))
+                    and isinstance(max_amt, (int, float))
+                    and min_amt > max_amt
+                ):
+                    errors.append(
+                        f"Market {symbol}: Invalid limits (min {min_amt} > max {max_amt})"
+                    )
 
     # Check precision
-    if 'precision' in m:
-        prec = m['precision']
+    if "precision" in m:
+        prec = m["precision"]
         if isinstance(prec, dict):
             for k, v in prec.items():
                 if isinstance(v, (int, float)) and v < 0:
-                     errors.append(f"Market {symbol}: Negative precision for {k}: {v}")
+                    errors.append(f"Market {symbol}: Negative precision for {k}: {v}")
 
     return
+
 
 def validate_environment_sanity(markets, env):
     if not markets:
         return
-    first_market = markets[0]
-    info = first_market.get("info", {})
-    print(f"WARN: Environment sanity check limited due to dump format. Validating based on schema structure only.")
+    # first_market = markets[0]
+    # info = first_market.get("info", {})
+    print(
+        "WARN: Environment sanity check limited due to dump format. "
+        "Validating based on schema structure only."
+    )
 
-def main():
+
+def main():  # noqa: C901
     args = parse_args()
     config = get_config_vars()
 
@@ -163,7 +195,9 @@ def main():
     elif isinstance(data, dict) and "markets" in data:
         markets = data["markets"]
     else:
-        print("FAIL: Invalid markets JSON structure (not a list or dict with 'markets')")
+        print(
+            "FAIL: Invalid markets JSON structure (not a list or dict with 'markets')"
+        )
         sys.exit(2)
 
     # Validation Results
@@ -173,7 +207,9 @@ def main():
 
     # A) Count Check
     if len(markets) < config["MIN_MARKETS"]:
-        errors.append(f"Total markets count {len(markets)} < MIN_MARKETS ({config['MIN_MARKETS']})")
+        errors.append(
+            f"Total markets count {len(markets)} < MIN_MARKETS ({config['MIN_MARKETS']})"
+        )
 
     # B, C, D) Per-market validation
     for i, m in enumerate(markets):
@@ -193,7 +229,10 @@ def main():
                 # Check settle delimiter for eligible perps
                 if config["FILTER_MODE"] == "perps_usdt":
                     if ":" not in validated_symbol:
-                        errors.append(f"Symbol '{validated_symbol}' eligible but missing settle delimiter (:) for perps_usdt mode")
+                        errors.append(
+                            f"Symbol '{validated_symbol}' eligible but missing settle "
+                            "delimiter (:) for perps_usdt mode"
+                        )
 
     # E) Environment Sanity
     validate_environment_sanity(markets, args.env)
@@ -203,14 +242,14 @@ def main():
     drift_stats = {"added": [], "removed": [], "ratio": 0.0, "format_changed": []}
     prev_set = set()
 
-    if args.prev_whitelist and os.path.exists(args.prev_whitelist):
+    if args.prev_whitelist and Path(args.prev_whitelist).exists():
         try:
             prev_data = load_json(args.prev_whitelist)
             prev_pairs = []
             if isinstance(prev_data, dict) and "exchange" in prev_data:
-                 prev_pairs = prev_data.get("exchange", {}).get("pair_whitelist", [])
+                prev_pairs = prev_data.get("exchange", {}).get("pair_whitelist", [])
             elif isinstance(prev_data, list):
-                 prev_pairs = prev_data
+                prev_pairs = prev_data
 
             prev_set = set(prev_pairs)
             curr_set = set(eligible_symbols)
@@ -218,14 +257,20 @@ def main():
             removed = prev_set - curr_set
             added = curr_set - prev_set
 
-            removal_ratio = len(removed) / len(prev_set) if len(prev_set) > 0 else 0.0
+            removal_ratio = (
+                len(removed) / len(prev_set) if len(prev_set) > 0 else 0.0
+            )
 
             drift_stats["added"] = sorted(list(added))
             drift_stats["removed"] = sorted(list(removed))
             drift_stats["ratio"] = removal_ratio
 
             if removal_ratio > config["MAX_REMOVAL_RATIO"]:
-                drift_errors.append(f"Large delist drift: {removal_ratio:.2f} > {config['MAX_REMOVAL_RATIO']} (Max allowed). Manual review required.")
+                drift_errors.append(
+                    f"Large delist drift: {removal_ratio:.2f} > "
+                    f"{config['MAX_REMOVAL_RATIO']} (Max allowed). "
+                    "Manual review required."
+                )
 
             # Format Change Detection
             def strip_symbol(s):
@@ -244,8 +289,8 @@ def main():
                 drift_errors.append(msg)
 
         except Exception as e:
-             drift_errors.append(f"Failed to process previous whitelist: {e}")
-             print(f"WARN: Drift check error: {e}")
+            drift_errors.append(f"Failed to process previous whitelist: {e}")
+            print(f"WARN: Drift check error: {e}")
     else:
         print("WARN: No previous whitelist found or provided. Skipping drift check.")
 
@@ -254,41 +299,45 @@ def main():
     status = "FAIL" if is_fail else "PASS"
 
     report_lines = []
-    report_lines.append(f"# Markets Schema Validation Report")
-    report_lines.append(f"**Date:** {datetime.now(timezone.utc).isoformat()}")
+    report_lines.append("# Markets Schema Validation Report")
+    report_lines.append(f"**Date:** {datetime.now(UTC).isoformat()}")
     report_lines.append(f"**Status:** {status}")
     report_lines.append(f"**Environment:** {args.env}")
-    report_lines.append(f"")
-    report_lines.append(f"## Counts")
+    report_lines.append("")
+    report_lines.append("## Counts")
     report_lines.append(f"- Total Markets: {len(markets)}")
     report_lines.append(f"- Eligible Markets: {len(eligible_symbols)}")
     report_lines.append(f"- Whitelist Size (Prev): {len(prev_set)}")
-    report_lines.append(f"")
+    report_lines.append("")
 
     if drift_stats["ratio"] > 0 or drift_stats["added"] or drift_stats["removed"]:
-        report_lines.append(f"## Drift Summary")
+        report_lines.append("## Drift Summary")
         report_lines.append(f"- Added: {len(drift_stats['added'])}")
         report_lines.append(f"- Removed: {len(drift_stats['removed'])}")
         report_lines.append(f"- Removal Ratio: {drift_stats['ratio']:.2%}")
         if drift_stats["removed"]:
-             report_lines.append(f"- Sample Removed: {', '.join(drift_stats['removed'][:5])}")
+            report_lines.append(
+                f"- Sample Removed: {', '.join(drift_stats['removed'][:5])}"
+            )
         if drift_stats["format_changed"]:
-             report_lines.append(f"- Format Changes: {', '.join(drift_stats['format_changed'][:5])}")
-        report_lines.append(f"")
+            report_lines.append(
+                f"- Format Changes: {', '.join(drift_stats['format_changed'][:5])}"
+            )
+        report_lines.append("")
 
     if errors:
-        report_lines.append(f"## Schema Errors")
+        report_lines.append("## Schema Errors")
         for e in errors[:20]:
             report_lines.append(f"- {e}")
         if len(errors) > 20:
-            report_lines.append(f"- ... and {len(errors)-20} more")
-        report_lines.append(f"")
+            report_lines.append(f"- ... and {len(errors) - 20} more")
+        report_lines.append("")
 
     if drift_errors:
-        report_lines.append(f"## Drift Errors")
+        report_lines.append("## Drift Errors")
         for e in drift_errors:
             report_lines.append(f"- {e}")
-        report_lines.append(f"")
+        report_lines.append("")
 
     # Write Report
     try:
@@ -305,6 +354,7 @@ def main():
     else:
         print("Validation PASSED.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
