@@ -28,14 +28,11 @@ def run_command(cmd, capture=True):
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
-        if not capture:
-            pass
     return result
 
 
 def get_timerange():
-    # Use yesterday as the fixed end date to avoid including incomplete data from today
-    end_date = (datetime.now() - timedelta(days=1)).date()
+    end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
@@ -298,15 +295,13 @@ def main():
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         # Use -f to force add in case user_data is gitignored
-        commit_succeeded = False
-        try:
-            run_command(["git", "add", "-f", str(strategy_json)])
-            run_command(["git", "commit", "-m", msg])
-            run_command(["git", "push", "origin", "main"])
-            commit_succeeded = True
-        finally:
-            if commit_succeeded and backup_json.exists():
-                backup_json.unlink()
+        run_command(["git", "add", "-f", str(strategy_json)])
+        run_command(["git", "commit", "-m", msg])
+        run_command(["git", "push", "origin", "main"])
+
+        if backup_json.exists():
+            backup_json.unlink()
+
     else:
         print("Evaluation FAILED. Reverting changes.")
         if not created_new:

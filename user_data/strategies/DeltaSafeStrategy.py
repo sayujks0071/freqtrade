@@ -2,10 +2,8 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
-
 import sys
 from pathlib import Path
-
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -15,11 +13,6 @@ from pandas import DataFrame  # noqa: E402
 
 from freqtrade.strategy import IStrategy  # noqa: E402
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
-import talib.abstract as ta
-from AuditedStrategyMixin import AuditedStrategyMixin
-from pandas import DataFrame
-
-from freqtrade.strategy import IStrategy
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -68,7 +61,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         dataframe.loc[
             ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
         ] = 1
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.
@@ -79,7 +71,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         dataframe.loc[
             ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
         ] = 1
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(

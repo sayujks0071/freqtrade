@@ -11,10 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from typing import Any
-
-import requests
-
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -28,7 +24,6 @@ KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
 REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
 REQUEST_TIMEOUT = 10  # Seconds
-
 
 
 class StrategyScout:
@@ -114,7 +109,6 @@ class StrategyScout:
             # Metadata filtering
             full_name = repo["full_name"]
             # stars = repo.get("stargazers_count", 0)
-            stars = repo.get("stargazers_count", 0)
             pushed_at = repo.get("pushed_at")
             license_data = repo.get("license")
 
@@ -158,14 +152,6 @@ class StrategyScout:
                 ).days
             else:
                 repo["age_days"] = 9999
-            repo["age_days"] = (
-                (
-                    datetime.datetime.now()
-                    - datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                ).days
-                if pushed_at
-                else 9999
-            )
 
             scored_candidates.append(repo)
 
@@ -173,7 +159,6 @@ class StrategyScout:
         self.candidates = sorted(
             scored_candidates, key=lambda x: x["scout_score"], reverse=True
         )
-        self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
         print(f"Candidates after filtering: {len(self.candidates)}")
 
     def _find_strategy_files(self, full_name):
@@ -247,26 +232,6 @@ class StrategyScout:
 
             strategies, found_path = self._find_strategy_files(full_name)
 
-            for path in paths_to_check:
-                try:
-                    url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
-                    resp = self.session.get(url)
-                    if resp.status_code == 200:
-                        contents = resp.json()
-                        if isinstance(contents, list):
-                            # Filter for .py files that look like strategies
-                            potential = [
-                                f
-                                for f in contents
-                                if f["name"].endswith(".py") and f["name"] != "__init__.py"
-                            ]
-                            if potential:
-                                strategies = potential
-                                found_path = path
-                                break  # Found strategies
-                except Exception:
-                    pass
-
             repo["strategy_count"] = len(strategies)
             repo["strategy_path"] = found_path
 
@@ -275,42 +240,6 @@ class StrategyScout:
                 # Check the first strategy file for content
                 self._analyze_strategy_content(strategies[0], repo)
             else:
-                repo["scout_score"] += min(len(strategies), 5) * 1  # +1 per strategy up to 5
-
-                # Check the first strategy file for content
-                # We only check one to save requests
-                strat_file = strategies[0]
-                try:
-                    if strat_file.get("download_url"):
-                        # Use download_url to avoid base64 decoding if possible?
-                        # Actually download_url usually points to raw.githubusercontent.com which does not use API quota!
-                        # This is a great trick.
-                        content_resp = requests.get(strat_file["download_url"])
-                        if content_resp.status_code == 200:
-                            content = content_resp.text
-
-                            # Check heuristics
-                            if "stoploss" in content:
-                                repo["scout_score"] += 2
-                                repo["scout_notes"].append("Has stoploss")
-                            if "minimal_roi" in content:
-                                repo["scout_score"] += 2
-                                repo["scout_notes"].append("Has ROI")
-                            if "populate_indicators" in content:
-                                repo["scout_score"] += 2
-                            if "can_short" in content:
-                                repo["scout_notes"].append("Futures/Shorts mentioned")
-
-                            # Negative heuristics
-                            if "martingale" in content.lower():
-                                repo["scout_score"] -= 10
-                                repo["scout_notes"].append("Martingale detected (Risk!)")
-
-                except Exception as e:
-                    print(f"Failed to read file {strat_file['name']}: {e}")
-
-            else:
-                # No strategies found in typical folders
                 repo["scout_score"] -= 5
 
             inspected_count += 1
@@ -318,8 +247,6 @@ class StrategyScout:
         self.candidates = sorted(
             self.candidates, key=lambda x: x["scout_score"], reverse=True
         )
-        # Re-sort after inspection
-        self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
 
     def generate_report(self):
         print("Generating report...")
@@ -378,9 +305,6 @@ class StrategyScout:
                         f"{repo_score} | {repo_stars} | {repo_license} |\n"
                     )
                     f.write(line)
-                    f.write(
-                        f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo.get('scout_score', 0)} | {repo.get('stargazers_count', 0)} | {repo.get('license_name', 'Unknown')} |\n"
-                    )
                 f.write("\n")
 
         print(f"Report written to {filename}")
@@ -403,7 +327,6 @@ class StrategyScout:
 
             if not path:
                 continue
-                continue  # Can't vendor if we didn't find the path
 
             print(f"Vendoring from {full_name}...")
 
@@ -421,8 +344,6 @@ class StrategyScout:
                         is_init = file_info["name"] == "__init__.py"
                         if is_py and not is_init:
                             if downloaded >= 3:
-                        if file_info["name"].endswith(".py") and file_info["name"] != "__init__.py":
-                            if downloaded >= 3:  # Limit to 3 files per repo to save bandwidth/noise
                                 break
 
                             raw_url = file_info.get("download_url")
@@ -431,10 +352,6 @@ class StrategyScout:
                                 if r.status_code == 200:
                                     file_path = vendor_dir / file_info["name"]
                                     with file_path.open("w") as f:
-                                    # Save file
-                                    # Sentinel Fix: Sanitize filename to prevent path traversal
-                                    filename = os.path.basename(file_info['name'])
-                                    with open(f"{vendor_dir}/{filename}", "w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
