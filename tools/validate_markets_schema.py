@@ -184,8 +184,8 @@ def main():  # noqa: C901
     # Load Markets
     try:
         data = load_json(args.markets)
-    except Exception as e:
-        print(f"FAIL: Could not load markets JSON: {e}")
+    except Exception as e_load:
+        print(f"FAIL: Could not load markets JSON: {e_load}")
         sys.exit(2)
 
     # Handle different list-markets output formats
@@ -288,9 +288,9 @@ def main():  # noqa: C901
                 drift_stats["format_changed"].append(msg)
                 drift_errors.append(msg)
 
-        except Exception as e:
-            drift_errors.append(f"Failed to process previous whitelist: {e}")
-            print(f"WARN: Drift check error: {e}")
+        except Exception as e_drift:
+            drift_errors.append(f"Failed to process previous whitelist: {e_drift}")
+            print(f"WARN: Drift check error: {e_drift}")
     else:
         print("WARN: No previous whitelist found or provided. Skipping drift check.")
 
@@ -344,8 +344,8 @@ def main():  # noqa: C901
         with Path(args.out_report).open("w") as f:
             f.write("\n".join(report_lines))
         print(f"Report written to {args.out_report}")
-    except Exception as e:
-        print(f"FAIL: Could not write report: {e}")
+    except Exception as e_write:
+        print(f"FAIL: Could not write report: {e_write}")
         pass
 
     if is_fail:
