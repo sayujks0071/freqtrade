@@ -67,8 +67,13 @@ class StrategyScout:
     def search_github(self):
         print("Searching GitHub...")
         found_repos = {}  # Dedup by full_name
+        self._search_queries(found_repos)
+        self._add_known_sources(found_repos)
+        # Convert to list
+        self.candidates = list(found_repos.values())
+        print(f"Total unique candidates found: {len(self.candidates)}")
 
-        # 1. Search Queries
+    def _search_queries(self, found_repos: dict[str, Any]):
         for query in SEARCH_QUERIES:
             if not self.check_rate_limit():
                 break
@@ -89,7 +94,7 @@ class StrategyScout:
             except Exception as e:
                 print(f"Exception during search: {e}")
 
-        # 2. Add Known Sources
+    def _add_known_sources(self, found_repos: dict[str, Any]):
         for source in KNOWN_SOURCES:
             if source not in found_repos:
                 if not self.check_rate_limit():
@@ -103,10 +108,6 @@ class StrategyScout:
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
 
-        # Convert to list
-        self.candidates = list(found_repos.values())
-        print(f"Total unique candidates found: {len(self.candidates)}")
-
     def filter_and_score(self):
         print("Filtering and Scoring...")
         scored_candidates = []
@@ -117,7 +118,6 @@ class StrategyScout:
 
             # Metadata filtering
             full_name = repo["full_name"]
-            # stars = repo.get("stargazers_count", 0)  # Unused variable removed
             pushed_at = repo.get("pushed_at")
             license_data = repo.get("license")
 
@@ -130,11 +130,6 @@ class StrategyScout:
                 license_name = "Other (Check manually)"
                 score += 1
             else:
-                # Reject no license? Instructions say: "Reject 'no license'"
-                # But sometimes it's in a file not detected by GitHub.
-                # We will penalize heavily but maybe not hard drop if it's a known source?
-                # Known sources like freqtrade-strategies have licenses.
-                # For unknown, we should be strict.
                 if full_name not in KNOWN_SOURCES:
                     continue
 
