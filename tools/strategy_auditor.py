@@ -75,6 +75,7 @@ def audit_file(filepath):  # noqa: C901
                         sl = sl.value
 
                     if isinstance(sl, ast.BoolOp):
+                        # Limit to 3 operands (e.g. A & B & C) to encourage readability
                         if len(sl.values) > 3:
                             errors.append(
                                 f"Complex inline condition (>{len(sl.values)} ops) "
