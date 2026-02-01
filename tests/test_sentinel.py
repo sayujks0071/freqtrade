@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent / "scripts"))
 # We also need ft_client in path for Sentinel to import it
 sys.path.append(str(Path(__file__).resolve().parent.parent / "ft_client"))
 
-from sentinel import Sentinel  # noqa: E402
+from sentinel import Sentinel
 
 
 class TestSentinel(unittest.TestCase):
@@ -88,9 +88,7 @@ class TestSentinel(unittest.TestCase):
     @patch("sentinel.Sentinel._load_config")
     @patch("sentinel.Sentinel._init_client")
     @patch("sentinel.Sentinel._load_history")
-    def test_trigger_emergency(
-        self, mock_load_history, mock_init_client, mock_load_config
-    ):
+    def test_trigger_emergency(self, mock_load_history, mock_init_client, mock_load_config):
         mock_load_config.return_value = self.config_content
         mock_client = MagicMock()
         mock_init_client.return_value = mock_client

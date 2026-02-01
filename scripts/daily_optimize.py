@@ -227,8 +227,7 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(
@@ -391,9 +390,7 @@ def commit_and_push(args, msg, strategy_json, worst_strategy):
         return
 
     # Determine target branch
-    target_branch = (
-        args.branch if args.branch else f"optimize-{datetime.now().strftime('%Y%m%d')}"
-    )
+    target_branch = args.branch if args.branch else f"optimize-{datetime.now().strftime('%Y%m%d')}"
     current_branch = get_current_branch()
 
     # Create and switch to feature branch if not already on it
@@ -409,9 +406,7 @@ def commit_and_push(args, msg, strategy_json, worst_strategy):
             print(f"Branch '{target_branch}' already exists, switching to it...")
             result = run_command(["git", "checkout", target_branch], capture=True)
         else:
-            result = run_command(
-                ["git", "checkout", "-b", target_branch], capture=True
-            )
+            result = run_command(["git", "checkout", "-b", target_branch], capture=True)
 
         if result.returncode != 0:
             print("Failed to create or switch to feature branch.")
@@ -427,28 +422,20 @@ def commit_and_push(args, msg, strategy_json, worst_strategy):
         print("This will:")
         print(f"  - Push optimized strategy parameters for {worst_strategy}")
         print(f"  - Create/update remote branch: {target_branch}")
-        print(
-            "\nYou can then create a pull request to review and merge these changes."
-        )
+        print("\nYou can then create a pull request to review and merge these changes.")
         response = input("\nProceed with push? [y/N]: ").strip().lower()
         if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
-            print(
-                f"You can manually push later with: git push origin {target_branch}"
-            )
+            print(f"You can manually push later with: git push origin {target_branch}")
             return
 
     print(f"\nPushing to {target_branch}...")
     result = run_command(["git", "push", "origin", target_branch], capture=True)
 
     if result.returncode == 0:
-        print(
-            f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
-        )
+        print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
         print("\nNext steps:")
-        print(
-            f"  1. Create a pull request from '{target_branch}' to your main branch"
-        )
+        print(f"  1. Create a pull request from '{target_branch}' to your main branch")
         print("  2. Review the changes and test the optimized strategy")
         print("  3. Merge the pull request after verification")
     else:
@@ -459,9 +446,7 @@ def commit_and_push(args, msg, strategy_json, worst_strategy):
 def ensure_clean_state(args):
     if not args.dry_run:
         if not check_git_status():
-            print(
-                "\nPlease commit or stash your changes before running this script."
-            )
+            print("\nPlease commit or stash your changes before running this script.")
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
@@ -483,13 +468,9 @@ def main():
     else:
         created_new = True
 
-    result_hyperopt = execute_hyperopt(
-        worst_strategy, strategy_json, backup_json, created_new
-    )
+    result_hyperopt = execute_hyperopt(worst_strategy, strategy_json, backup_json, created_new)
 
-    if apply_new_params(
-        result_hyperopt.stdout, strategy_json, backup_json, created_new
-    ):
+    if apply_new_params(result_hyperopt.stdout, strategy_json, backup_json, created_new):
         evaluate_results(
             args,
             worst_strategy,
