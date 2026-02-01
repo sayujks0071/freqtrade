@@ -338,7 +338,9 @@ class StrategyScout:
                                 r = requests.get(raw_url)
                                 if r.status_code == 200:
                                     # Save file
-                                    with open(f"{vendor_dir}/{file_info['name']}", "w") as f:
+                                    # Sentinel Fix: Sanitize filename to prevent path traversal
+                                    filename = os.path.basename(file_info['name'])
+                                    with open(f"{vendor_dir}/{filename}", "w") as f:
                                         f.write(r.text)
                                     downloaded += 1
 
