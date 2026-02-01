@@ -1,11 +1,11 @@
-import sys
 import json
-import os
+import sys
+
 
 def generate_whitelist(markets_file, config_file):
     print(f"Loading markets from {markets_file}...")
     try:
-        with open(markets_file, 'r') as f:
+        with open(markets_file) as f:
             markets_data = json.load(f)
     except Exception as e:
         print(f"Error loading markets file: {e}")
@@ -25,10 +25,10 @@ def generate_whitelist(markets_file, config_file):
     valid_pairs = []
     for m in markets:
         # Check if active?
-        if m.get('active') is False:
+        if m.get("active") is False:
             continue
-        if 'symbol' in m:
-            valid_pairs.append(m['symbol'])
+        if "symbol" in m:
+            valid_pairs.append(m["symbol"])
 
     print(f"Found {len(valid_pairs)} active pairs.")
 
@@ -43,7 +43,7 @@ def generate_whitelist(markets_file, config_file):
     selected_pairs = []
 
     # Priority list
-    priority = ['BTC/USDT:USDT', 'ETH/USDT:USDT', 'SOL/USDT:USDT', 'XRP/USDT:USDT', 'BNB/USDT:USDT']
+    priority = ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT", "XRP/USDT:USDT", "BNB/USDT:USDT"]
 
     for p in priority:
         if p in valid_pairs:
@@ -58,22 +58,23 @@ def generate_whitelist(markets_file, config_file):
 
     print(f"Updating config {config_file}...")
     try:
-        with open(config_file, 'r') as f:
+        with open(config_file) as f:
             config_data = json.load(f)
 
         # Ensure structure exists
-        if 'exchange' not in config_data:
-            config_data['exchange'] = {}
+        if "exchange" not in config_data:
+            config_data["exchange"] = {}
 
-        config_data['exchange']['pair_whitelist'] = selected_pairs
+        config_data["exchange"]["pair_whitelist"] = selected_pairs
 
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump(config_data, f, indent=4)
 
         print("Config updated successfully.")
     except Exception as e:
         print(f"Error updating config file: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

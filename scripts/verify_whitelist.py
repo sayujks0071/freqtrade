@@ -1,10 +1,11 @@
-import sys
 import json
+import sys
+
 
 def verify_whitelist(markets_file, config_file):
     print(f"Loading markets from {markets_file}...")
     try:
-        with open(markets_file, 'r') as f:
+        with open(markets_file) as f:
             markets_data = json.load(f)
     except Exception as e:
         print(f"Error loading markets file: {e}")
@@ -17,26 +18,26 @@ def verify_whitelist(markets_file, config_file):
         # If it's a dict, keys are likely symbols
         available_pairs = set(markets_data.keys())
         # Or if it mimics ccxt structure:
-        if 'symbol' not in list(markets_data.values())[0]:
-             # It might be symbol -> details
-             pass
+        if "symbol" not in list(markets_data.values())[0]:
+            # It might be symbol -> details
+            pass
     elif isinstance(markets_data, list):
         for m in markets_data:
-            if 'symbol' in m:
-                available_pairs.add(m['symbol'])
+            if "symbol" in m:
+                available_pairs.add(m["symbol"])
 
     print(f"Found {len(available_pairs)} available markets.")
 
     print(f"Loading config from {config_file}...")
     try:
-        with open(config_file, 'r') as f:
+        with open(config_file) as f:
             config_data = json.load(f)
     except Exception as e:
         print(f"Error loading config file: {e}")
         sys.exit(1)
 
-    exchange_conf = config_data.get('exchange', {})
-    whitelist = exchange_conf.get('pair_whitelist', [])
+    exchange_conf = config_data.get("exchange", {})
+    whitelist = exchange_conf.get("pair_whitelist", [])
 
     print(f"Verifying {len(whitelist)} pairs from whitelist...")
 
@@ -46,13 +47,14 @@ def verify_whitelist(markets_file, config_file):
             missing.append(pair)
 
     if missing:
-        print(f"ERROR: The following pairs are in the whitelist but NOT found in the markets:")
+        print("ERROR: The following pairs are in the whitelist but NOT found in the markets:")
         for m in missing:
             print(f" - {m}")
         print("Please check your whitelist or the market data.")
         sys.exit(1)
 
     print("All whitelist pairs are valid.")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
