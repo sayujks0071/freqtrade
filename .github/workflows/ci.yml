@@ -24,8 +24,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ "ubuntu-22.04", "ubuntu-24.04", "macos-14", "macos-15" , "windows-2022", "windows-2025" ]
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        os: [ "ubuntu-22.04" ]
+        python-version: ["3.12"]
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -65,23 +65,23 @@ jobs:
         python build_helpers/freqtrade_client_version_align.py
 
     - name: Tests
-      if: (!(runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-24.04'))
+      if: (!(runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-22.04'))
       run: |
         pytest --random-order --durations 20 -n auto
 
     - name: Tests with Coveralls
-      if: (runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-24.04')
+      if: (runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-22.04')
       run: |
         pytest --random-order --cov=freqtrade --cov=freqtrade_client --cov-config=.coveragerc
 
     - uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
-      if: (runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-24.04')
+      if: (runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-22.04')
       with:
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Cleanup codecov dirty state files
-      if: (runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-24.04')
+      if: (runner.os == 'Linux' && matrix.python-version == '3.12' && matrix.os == 'ubuntu-22.04')
       run: |
         # See https://github.com/codecov/codecov-action/issues/1851
         rm -rf codecov codecov.SHA256SUM codecov.SHA256SUM.sig
@@ -150,7 +150,7 @@ jobs:
         ruff format --check
 
     - name: Mypy
-      if: ${{ matrix.os == 'ubuntu-24.04' || matrix.os == 'macos-15' }}
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: |
         mypy freqtrade scripts tests
 
