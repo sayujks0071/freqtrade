@@ -1,25 +1,31 @@
 """
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+
+# Strategy Name: DeltaSafeStrategy
+# Author: Freqtrade
+# Version: 1.1
+# Supported Timeframes: 1h
+# Supported Pair Format: Delta Futures (BTC/USDT:USDT)
+# Timezone Rule: UTC ISO-8601
+# Entry Conditions: RSI < 30 and Volume > 0
+# Exit Conditions: RSI > 70 and Volume > 0
+# No Repainting: Only act on closed candles
 """
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
 
+from freqtrade.persistence import Trade
 from freqtrade.strategy import IStrategy
-
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
-
-from freqtrade.strategy import IStrategy  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -57,30 +63,35 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        """
+        self.validate_pairs()
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
+        if not self.assert_pair_in_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
-        ] = 1
+        # Thesis: Oversold condition with volume confirmation
+        rsi_oversold = dataframe["rsi"] < 30
+        volume_exists = dataframe["volume"] > 0
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        dataframe.loc[(rsi_oversold & volume_exists), "enter_long"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
-        ] = 1
+        # Thesis: Overbought condition with volume confirmation
+        rsi_overbought = dataframe["rsi"] > 70
+        volume_exists = dataframe["volume"] > 0
+
+        dataframe.loc[(rsi_overbought & volume_exists), "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -90,13 +101,84 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        # Get dataframe to log indicators
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+
+        # Helper to safely get value
+        indicators = {}
+        if not dataframe.empty:
+            last_candle = dataframe.iloc[-1].to_dict()
+            indicators = {
+                "rsi": last_candle.get("rsi"),
+                "volume": last_candle.get("volume"),
+                "close": last_candle.get("close"),
+            }
+
+        # Ensure we use UTC for logging
+        if current_time.tzinfo is None:
+            ts = current_time.replace(tzinfo=timezone.utc)  # noqa: UP017
+        else:
+            ts = current_time
+
+        self.log_signal(
+            pair=pair,
+            side=side,
+            reason=entry_tag or "Signal Confirmed",
+            ts_utc=ts,
+            indicators_snapshot=indicators,
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade: Trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        sell_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        """
+        Called right before placing an exit trade.
+        """
+        # Get dataframe to log indicators
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+
+        # Helper to safely get value
+        indicators = {}
+        if not dataframe.empty:
+            last_candle = dataframe.iloc[-1].to_dict()
+            indicators = {
+                "rsi": last_candle.get("rsi"),
+                "volume": last_candle.get("volume"),
+                "close": last_candle.get("close"),
+            }
+
+        # Ensure we use UTC for logging
+        if current_time.tzinfo is None:
+            ts = current_time.replace(tzinfo=timezone.utc)  # noqa: UP017
+        else:
+            ts = current_time
+
+        # side is opposite of trade entry
+        exit_side = "sell" if trade.is_short is False else "buy"
+
+        self.log_signal(
+            pair=pair,
+            side=exit_side,
+            reason=sell_reason or "Exit Signal",
+            ts_utc=ts,
+            indicators_snapshot=indicators,
+        )
         return True
