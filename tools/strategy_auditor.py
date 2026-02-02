@@ -46,16 +46,19 @@ def audit_file(filepath):  # noqa: C901
                     # We want datetime.now(timezone.utc) or similar.
                     # If args exist, we assume they passed a timezone (heuristic).
                     if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}. Use datetime.now(timezone.utc).")
+                        errors.append(
+                            f"Potential naive datetime.now() usage at line {node.lineno}. "
+                            "Use datetime.now(timezone.utc)."
+                        )
                 elif node.func.attr == "utcnow":
-                     errors.append(f"datetime.utcnow() is deprecated/discouraged at line {node.lineno}. Use datetime.now(timezone.utc).")
-
+                    errors.append(
+                        f"datetime.utcnow() is deprecated/discouraged at line {node.lineno}. "
+                        "Use datetime.now(timezone.utc)."
+                    )
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
-    has_class = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
-            has_class = True
             # Check bases
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:

@@ -7,9 +7,11 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
-import requests
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
+
+import requests
+
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -32,7 +34,7 @@ class StrategyScout:
         if self.token:
             self.session.headers.update({"Authorization": f"token {self.token}"})
         self.session.headers.update({"Accept": "application/vnd.github.v3+json"})
-        self.candidates: List[Dict[str, Any]] = []
+        self.candidates: list[dict[str, Any]] = []
 
     def check_rate_limit(self):
         try:
@@ -120,7 +122,7 @@ class StrategyScout:
                 score += 1
             else:
                 if full_name not in KNOWN_SOURCES:
-                    continue # Skip unlicensed unless known
+                    continue  # Skip unlicensed unless known
 
             # 2. Recency
             if pushed_at:
@@ -153,7 +155,9 @@ class StrategyScout:
             scored_candidates.append(repo)
 
         # Sort by preliminary score
-        self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
+        self.candidates = sorted(
+            scored_candidates, key=lambda x: x["scout_score"], reverse=True
+        )
         print(f"Candidates after filtering: {len(self.candidates)}")
 
     def _find_strategy_files(self, full_name):
@@ -182,7 +186,7 @@ class StrategyScout:
                 pass
         return strategies, found_path
 
-    def deep_inspect(self, limit=15):
+    def deep_inspect(self, limit=15):  # noqa: C901
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -231,7 +235,9 @@ class StrategyScout:
             inspected_count += 1
 
         # Re-sort after inspection
-        self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
+        self.candidates = sorted(
+            self.candidates, key=lambda x: x["scout_score"], reverse=True
+        )
 
     def generate_report(self):
         print("Generating report...")

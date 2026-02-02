@@ -7,8 +7,8 @@ A production-ready crypto trading stack for Delta Exchange (India + Global) usin
 - **Dockerized Setup**: Safe, isolated environment with dry-run and live modes.
 - **Market Data Pipeline**: Daily refresh, drift detection, and strict schema validation.
 - **Risk Guardrails**: Daily loss limit, structural validation, and configurable limits.
-- **Strategy Tooling**: CI checks, strategy scout, and auditing tools.
-- **Observability**: Structured logs and daily reports.
+- **Strategy Tooling**: CI checks, strategy scout, and auditing mixin.
+- **Observability**: Structured logging and daily reports.
 
 ## Setup
 
