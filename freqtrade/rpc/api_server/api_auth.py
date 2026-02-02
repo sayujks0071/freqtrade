@@ -167,9 +167,7 @@ def token_refresh(token: str = Depends(oauth2_scheme), api_config=Depends(get_ap
     # Refresh token
     secret = api_config.get("jwt_secret_key")
     if not secret:
-        raise HTTPException(
-            status_code=500, detail="Configuration Error: jwt_secret_key not set"
-        )
+        raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
 
     u = get_user_from_token(token, secret, "refresh")
     token_data = {"identity": {"u": u}}
