@@ -221,7 +221,8 @@ def main():
     schema_errors, all_symbols = validate_schema(data)
 
     # 2. Env Sanity Check
-    # Confirm the dump corresponds to the intended DELTA_ENV by checking for a recognizable base URL / exchange id if available in metadata; otherwise log a warning.
+    # Confirm the dump corresponds to the intended DELTA_ENV by checking for
+    # a recognizable base URL / exchange id if available in metadata; otherwise log a warning.
     if data and isinstance(data, list) and len(data) > 0:
         sample = data[0]
         # Check for 'info' field
@@ -236,7 +237,7 @@ def main():
     current_whitelist = set(filter_markets(data))
 
     # 4. Drift Check
-    drift_errors, drift_info, prev_symbols = validate_drift(current_whitelist, args.prev_whitelist)
+    drift_errors, drift_info, _prev_symbols = validate_drift(current_whitelist, args.prev_whitelist)
 
     # Combine Errors
     all_errors = schema_errors + drift_errors
@@ -244,8 +245,8 @@ def main():
 
     # Generate Report
     report_lines = [
-        f"# Markets Schema Validation Report",
-        f"**Date:** {datetime.now(timezone.utc).isoformat()}",
+        "# Markets Schema Validation Report",
+        f"**Date:** {datetime.now(timezone.utc).isoformat()}",  # noqa: UP017
         f"**Status:** {status}",
         f"**Environment:** {args.env or 'Unknown'}",
         f"**File:** `{args.markets}`",
