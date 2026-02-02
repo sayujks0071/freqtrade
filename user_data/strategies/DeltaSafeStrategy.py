@@ -23,6 +23,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     """
     DeltaSafeStrategy
     A sample strategy using the AuditedStrategyMixin.
+
+    NOTE: Logic must run on closed candles.
     """
 
     INTERFACE_VERSION = 3
