@@ -116,7 +116,9 @@ def http_basic_or_jwt_token(
     if token:
         secret = api_config.get("jwt_secret_key")
         if not secret:
-            raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
+            raise HTTPException(
+                status_code=500, detail="Configuration Error: jwt_secret_key not set"
+            )
         return get_user_from_token(token, secret)
     elif form_data and verify_auth(api_config, form_data.username, form_data.password):
         return form_data.username
@@ -135,7 +137,9 @@ def token_login(
         token_data = {"identity": {"u": form_data.username}}
         secret = api_config.get("jwt_secret_key")
         if not secret:
-            raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
+            raise HTTPException(
+                status_code=500, detail="Configuration Error: jwt_secret_key not set"
+            )
 
         access_token = create_token(
             token_data,
@@ -163,7 +167,9 @@ def token_refresh(token: str = Depends(oauth2_scheme), api_config=Depends(get_ap
     # Refresh token
     secret = api_config.get("jwt_secret_key")
     if not secret:
-        raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
+        raise HTTPException(
+            status_code=500, detail="Configuration Error: jwt_secret_key not set"
+        )
 
     u = get_user_from_token(token, secret, "refresh")
     token_data = {"identity": {"u": u}}

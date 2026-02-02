@@ -136,10 +136,10 @@ class ApiServer(RPCHandler):
             new_key = secrets.token_hex(32)
             api_config["jwt_secret_key"] = new_key
             logger.warning(
-                f"SECURITY WARNING - `jwt_secret_key` is default or missing. "
-                f"Generated a random key for this session. "
-                f"This will invalidate sessions on restart. "
-                f"Please set `jwt_secret_key` in your config.json."
+                "SECURITY WARNING - `jwt_secret_key` is default or missing. "
+                "Generated a random key for this session. "
+                "This will invalidate sessions on restart. "
+                "Please set `jwt_secret_key` in your config.json."
             )
 
         self.app = FastAPI(
