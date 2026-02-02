@@ -353,9 +353,7 @@ def perform_push(target_branch, backup_json):
         backup_json.unlink()
 
 
-def commit_changes(
-    args, worst_strategy, avg_profit_pct, strategy_json, backup_json, created_new
-):
+def commit_changes(args, worst_strategy, avg_profit_pct, strategy_json, backup_json, created_new):
     """Commit changes to git."""
     msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
     date_str = datetime.now().strftime("%Y%m%d")
@@ -407,9 +405,7 @@ def main():
         default=None,
         help="Target branch for pushing changes",
     )
-    parser.add_argument(
-        "--yes", "-y", action="store_true", help="Skip confirmation prompts"
-    )
+    parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompts")
 
     args = parser.parse_args()
 
@@ -422,9 +418,7 @@ def main():
     worst_strategy, current_sharpe, current_drawdown = establish_baseline()
 
     # 2. Hyperopt Execution
-    result_hyperopt, strategy_json, backup_json, created_new = execute_hyperopt(
-        worst_strategy
-    )
+    result_hyperopt, strategy_json, backup_json, created_new = execute_hyperopt(worst_strategy)
 
     # 3. Apply New Params
     success = apply_new_params(result_hyperopt, strategy_json)
