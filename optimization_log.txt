@@ -1,0 +1,2 @@
+{"timestamp": "2026-02-02T16:47:34.020975", "strategy": "TestStrategy", "status": "failed", "metrics": {"reason": "Test Failure"}}
+{"timestamp": "2026-02-02T16:47:34.021535", "strategy": "TestStrategy", "status": "success", "metrics": {"roi_improvement": 5.5}}
