@@ -29,3 +29,4 @@ The experimental strategy using a mocked sentiment signal significantly underper
 
 ## Notes
 - During testing, a syntax error in `user_data/strategies/_base/AuditedStrategyMixin.py` (duplicate arguments in `log_signal`) was identified and fixed to enable backtesting.
+- CI Retry Trigger: 2026-02-02
