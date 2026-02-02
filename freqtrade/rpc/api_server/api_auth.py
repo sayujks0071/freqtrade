@@ -59,7 +59,10 @@ async def validate_ws_token(
     api_config: dict[str, Any] = Depends(get_api_config),
 ):
     secret_ws_token = api_config.get("ws_token", None)
-    secret_jwt_key = api_config.get("jwt_secret_key", "super-secret")
+    secret_jwt_key = api_config.get("jwt_secret_key")
+
+    if not secret_jwt_key:
+        raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
 
     # Check if ws_token is/in secret_ws_token
     if ws_token and secret_ws_token:
@@ -111,7 +114,10 @@ def http_basic_or_jwt_token(
     api_config=Depends(get_api_config),
 ):
     if token:
-        return get_user_from_token(token, api_config.get("jwt_secret_key", "super-secret"))
+        secret = api_config.get("jwt_secret_key")
+        if not secret:
+            raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
+        return get_user_from_token(token, secret)
     elif form_data and verify_auth(api_config, form_data.username, form_data.password):
         return form_data.username
 
@@ -127,14 +133,18 @@ def token_login(
 ):
     if verify_auth(api_config, form_data.username, form_data.password):
         token_data = {"identity": {"u": form_data.username}}
+        secret = api_config.get("jwt_secret_key")
+        if not secret:
+            raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
+
         access_token = create_token(
             token_data,
-            api_config.get("jwt_secret_key", "super-secret"),
+            secret,
             token_type="access",  # noqa: S106
         )
         refresh_token = create_token(
             token_data,
-            api_config.get("jwt_secret_key", "super-secret"),
+            secret,
             token_type="refresh",  # noqa: S106
         )
         return {
@@ -151,11 +161,15 @@ def token_login(
 @router_login.post("/token/refresh", response_model=AccessToken)
 def token_refresh(token: str = Depends(oauth2_scheme), api_config=Depends(get_api_config)):
     # Refresh token
-    u = get_user_from_token(token, api_config.get("jwt_secret_key", "super-secret"), "refresh")
+    secret = api_config.get("jwt_secret_key")
+    if not secret:
+        raise HTTPException(status_code=500, detail="Configuration Error: jwt_secret_key not set")
+
+    u = get_user_from_token(token, secret, "refresh")
     token_data = {"identity": {"u": u}}
     access_token = create_token(
         token_data,
-        api_config.get("jwt_secret_key", "super-secret"),
+        secret,
         token_type="access",  # noqa: S106
     )
     return {"access_token": access_token}
