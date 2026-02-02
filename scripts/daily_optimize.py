@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -348,7 +342,7 @@ def commit_and_push(args, strategy_name, avg_profit_pct, strategy_json, backup_j
             ["git", "rev-parse", "--verify", target_branch],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if check_result.returncode == 0:
             print(f"Branch '{target_branch}' already exists, switching to it...")
@@ -373,7 +367,7 @@ def commit_and_push(args, strategy_name, avg_profit_pct, strategy_json, backup_j
     if not args.yes:
         print(f"\nReady to push changes to branch '{target_branch}'")
         response = input("\nProceed with push? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
+        if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
             return
 
@@ -385,7 +379,7 @@ def commit_and_push(args, strategy_name, avg_profit_pct, strategy_json, backup_j
 def main():
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--dry-run", action="store_true", help="Run without committing")
     parser.add_argument("--branch", type=str, default=None, help="Target branch")
