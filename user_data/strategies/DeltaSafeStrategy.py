@@ -13,9 +13,9 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 # No Repainting: Only act on closed candles
 """
 
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
 
 import talib.abstract as ta
 from pandas import DataFrame

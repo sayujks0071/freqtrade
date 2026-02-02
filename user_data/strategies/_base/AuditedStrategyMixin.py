@@ -15,8 +15,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
+import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -45,10 +45,7 @@ class AuditedStrategyMixin:
         indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
         # AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {indicators_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {indicators_str}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:

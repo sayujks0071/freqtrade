@@ -114,36 +114,7 @@ def check_comments_in_function(node, tokens, errors):
         errors.append(f"Missing comments explaining market thesis in {node.name}")
 
 
-def audit_file(filepath, fix=False):
-    print(f"Auditing {filepath}...")
-    with Path(filepath).open() as f:
-        source = f.read()
-
-    if fix:
-        new_source = fix_header(source, filepath)
-        if new_source != source:
-            with Path(filepath).open("w") as f:
-                f.write(new_source)
-            source = new_source
-            print("  - Applied fixes (Header)")
-
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        print(f"FAIL: Syntax Error in {filepath}: {exc}")
-        return False
-
-    errors = []
-
-    try:
-        tokens = list(tokenize.tokenize(BytesIO(source.encode("utf-8")).readline))
-    except tokenize.TokenError:
-        tokens = []
-
-    docstring = ast.get_docstring(tree)
-    _, header_errors = check_header(docstring)
-    errors.extend(header_errors)
-
+def check_imports(tree, errors):
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for n in node.names:
@@ -153,6 +124,8 @@ def audit_file(filepath, fix=False):
             if node.module in ["requests", "urllib", "socket", "http"]:
                 errors.append(f"Unsafe import from: {node.module}")
 
+
+def check_datetime(tree, errors):
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
@@ -162,6 +135,8 @@ def audit_file(filepath, fix=False):
                         "Use datetime.now(timezone.utc)"
                     )
 
+
+def check_strategy_structure(tree, filepath, tokens, errors):
     has_class = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -182,9 +157,51 @@ def audit_file(filepath, fix=False):
                         check_comments_in_function(item, tokens, errors)
                         for stmt in item.body:
                             check_complex_conditions(stmt, errors)
+    return has_class
 
-    if not has_class:
-        pass
+
+def apply_fixes(filepath):
+    with Path(filepath).open() as f:
+        source = f.read()
+
+    new_source = fix_header(source, filepath)
+    if new_source != source:
+        with Path(filepath).open("w") as f:
+            f.write(new_source)
+        print("  - Applied fixes (Header)")
+        return new_source
+    return source
+
+
+def audit_file(filepath, fix=False):
+    print(f"Auditing {filepath}...")
+
+    if fix:
+        source = apply_fixes(filepath)
+    else:
+        with Path(filepath).open() as f:
+            source = f.read()
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        print(f"FAIL: Syntax Error in {filepath}: {exc}")
+        return False
+
+    errors = []
+
+    try:
+        tokens = list(tokenize.tokenize(BytesIO(source.encode("utf-8")).readline))
+    except tokenize.TokenError:
+        tokens = []
+
+    docstring = ast.get_docstring(tree)
+    _, header_errors = check_header(docstring)
+    errors.extend(header_errors)
+
+    check_imports(tree, errors)
+    check_datetime(tree, errors)
+    check_strategy_structure(tree, filepath, tokens, errors)
 
     if errors:
         for e in errors:
