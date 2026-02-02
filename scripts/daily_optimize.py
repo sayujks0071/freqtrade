@@ -66,19 +66,19 @@ def read_backtest_result(filepath: Path) -> dict[str, Any] | None:
         with zipfile.ZipFile(filepath, "r") as z:
             json_files = [f for f in z.namelist() if f.endswith(".json")]
             target_file = None
-            for f in json_files:
-                if "backtest-result" in f:
-                    target_file = f
+            for json_filename in json_files:
+                if "backtest-result" in json_filename:
+                    target_file = json_filename
                     break
             if not target_file and json_files:
                 target_file = json_files[0]
 
             if target_file:
-                with z.open(target_file) as f:
-                    data = json.load(f)
+                with z.open(target_file) as fp:
+                    data = json.load(fp)
     else:
-        with filepath.open() as f:
-            data = json.load(f)
+        with filepath.open() as fp:
+            data = json.load(fp)
     return data
 
 
@@ -94,6 +94,8 @@ def find_worst_strategy(
     worst_stats = None
 
     for strategy_name, stats in strategies.items():
+        if not stats:
+            continue
         sharpe = stats.get("sharpe", -float("inf"))
         if sharpe is None:
             sharpe = -float("inf")
@@ -410,7 +412,7 @@ Examples:
         print("No strategy found in backtest results.")
         sys.exit(1)
 
-    current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+    current_drawdown = current_stats.get("max_drawdown_account", 1.0)  # type: ignore
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -464,13 +466,13 @@ Examples:
     new_drawdown = new_stats.get("max_drawdown_account", 1.0)
 
     # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+    avg_profit_pct = (new_stats.get("profit_total_pct") or 0.0) * 100
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
-    sharpe_improved = new_sharpe > (current_sharpe * 1.05)
-    drawdown_improved = new_drawdown < current_drawdown
+    sharpe_improved = new_sharpe > (current_sharpe * 1.05)  # type: ignore
+    drawdown_improved = new_drawdown < current_drawdown  # type: ignore
 
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")

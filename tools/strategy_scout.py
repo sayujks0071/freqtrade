@@ -132,7 +132,7 @@ class StrategyScout:
         self, query: str, found_repos: dict[str, Any]
     ) -> bool:  # Returns True if API is still usable
         print(f"Querying API: {query}")
-        params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+        params = {"q": query, "sort": "stars", "order": "desc", "per_page": "20"}
         try:
             resp = self.session.get(
                 f"{GITHUB_API_URL}/search/repositories",
