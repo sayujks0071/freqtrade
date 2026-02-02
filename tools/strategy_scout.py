@@ -187,7 +187,7 @@ class StrategyScout:
                 continue
         return strategies, found_path
 
-    def deep_inspect(self, limit=15):
+    def deep_inspect(self, limit=15):  # noqa: C901
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -236,9 +236,7 @@ class StrategyScout:
             inspected_count += 1
 
         # Re-sort after inspection
-        self.candidates = sorted(
-            self.candidates, key=lambda x: x["scout_score"], reverse=True
-        )
+        self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
 
     def generate_report(self):
         print("Generating report...")
@@ -339,9 +337,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 

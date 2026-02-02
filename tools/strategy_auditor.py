@@ -93,8 +93,8 @@ def audit_file(filepath):  # noqa: C901
                             )
 
     if errors:
-        for e in errors:
-            print(f"  - {e}")
+        for err in errors:
+            print(f"  - {err}")
         return False
 
     print("PASS")

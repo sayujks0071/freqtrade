@@ -2,19 +2,20 @@
 DeltaSafeStrategy
 A strategy with safety built-in for Delta Exchange.
 """
-from datetime import datetime
+
 import logging
-from pathlib import Path
 import sys
+from datetime import datetime
+from pathlib import Path
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 
-import talib.abstract as ta  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
-from pandas import DataFrame  # noqa: E402
+import talib.abstract as ta
+from AuditedStrategyMixin import AuditedStrategyMixin
+from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy  # noqa: E402
+from freqtrade.strategy import IStrategy
 
 
 logger = logging.getLogger(__name__)
@@ -59,9 +60,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         Based on TA indicators, populates the entry signal for the given dataframe
         """
         dataframe.loc[
-            (
-                (dataframe["rsi"] < 30) & (dataframe["volume"] > 0)
-            ),
+            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)),
             "enter_long",
         ] = 1
 
@@ -75,9 +74,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         Based on TA indicators, populates the exit signal for the given dataframe
         """
         dataframe.loc[
-            (
-                (dataframe["rsi"] > 70) & (dataframe["volume"] > 0)
-            ),
+            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)),
             "exit_long",
         ] = 1
         return dataframe
