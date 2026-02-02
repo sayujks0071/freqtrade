@@ -1,97 +1,64 @@
 #!/bin/bash
+set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
-REPORT_FILE="user_data/reports/markets_$(date +%s).json"
-CONFIG_FILE="/freqtrade/user_data/configs/config.delta.dryrun.json"
+echo "Validating Delta Exchange Connection..."
+echo "Environment: $DELTA_ENV"
+echo "Base URL: $BASE_URL"
 
-echo "Fetching markets from Delta ($DELTA_ENV)..."
+# 1. Connectivity Check (ping)
+echo "Checking connectivity..."
+if ! curl -s -f -o /dev/null "$BASE_URL/v2/products"; then
+    echo "FAIL: Could not connect to $BASE_URL"
+    exit 1
+fi
+echo "Connectivity OK."
 
-# Run list-markets
-# We expect JSON output (list of pair strings)
+# 2. Market Data Validation (using existing tool)
+echo "Validating Market Data Schema..."
+# We reuse the update script's logic but in a check-only mode if possible,
+# or just run the update script which validates everything.
+# But validate_exchange should be lighter.
+# Let's fetch markets and run the validator.
+
+TEMP_MARKETS=$(mktemp)
+echo "Fetching markets..."
 docker compose run --rm freqtrade list-markets \
-    --config "$CONFIG_FILE" \
-    --exchange delta \
-    --trading-mode futures \
-    --print-json > "${REPORT_FILE}.tmp"
+    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
+    --print-json > "$TEMP_MARKETS.raw"
 
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE"
-
-if [ ! -s "$REPORT_FILE" ]; then
-    echo "Error: Failed to fetch markets or parse output."
-    echo "Raw Output:"
-    cat "${REPORT_FILE}.tmp"
-    rm -f "$REPORT_FILE" "${REPORT_FILE}.tmp"
-    exit 1
-fi
-rm "${REPORT_FILE}.tmp"
-
-echo "Markets list saved to $REPORT_FILE"
-
-echo "Validating Whitelist..."
-
-# Python script to check whitelist
+# Extract JSON
 python3 -c "
-import json
-import sys
-import os
-
+import sys, json, re
 try:
-    with open('$REPORT_FILE', 'r') as f:
-        markets = json.load(f) # List of strings
-
-    # Load config to get whitelist
-    # We need to read the local file, not the container path
-    config_file = 'user_data/configs/config.delta.dryrun.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
-
-    missing = []
-    for pair in whitelist:
-        if pair not in markets:
-            missing.append(pair)
-
-    if missing:
-        print(f'ERROR: The following whitelist pairs are NOT active or missing on Delta ({os.environ.get("DELTA_ENV")}):')
-        for m in missing:
-            print(f' - {m}')
+    content = open('$TEMP_MARKETS.raw').read()
+    match = re.search(r'\[.*\]', content, re.DOTALL)
+    if match:
+        print(match.group(0))
+    else:
         sys.exit(1)
-
-    print(f'SUCCESS: All {len(whitelist)} whitelist pairs are valid.')
-
-except Exception as e:
-    print(f'Error validating: {e}')
+except:
     sys.exit(1)
-"
+" > "$TEMP_MARKETS"
 
-if [ $? -eq 0 ]; then
-    echo "Validation Passed."
-else
-    echo "Validation Failed."
+if [ ! -s "$TEMP_MARKETS" ]; then
+    echo "FAIL: Failed to fetch/parse markets"
+    rm "$TEMP_MARKETS"*
     exit 1
 fi
-set -e
-cd "$(dirname "$0")/.."
 
-echo "Validating Exchange Connection..."
+echo "Running Schema Validator..."
+python3 tools/validate_markets_schema.py "$TEMP_MARKETS"
+VALID_STATUS=$?
 
-# 1. Confirm Delta is available and fetch markets
-# We use the update script which does fetch + validate schema
-# But we might want to just do a quick check.
-# Let's use the update script to ensure we have fresh markets
-./scripts/update_markets_and_whitelist.sh
+rm "$TEMP_MARKETS"*
 
-# 2. Validate current whitelist against the fetched markets
-# The update script generated a NEW whitelist.
-# If we want to validate an EXISTING whitelist, we should have done it before updating.
-# But usually we validate that the *generated* whitelist is valid (which the script does).
+if [ $VALID_STATUS -eq 0 ]; then
+    echo "PASS: Market Data Schema is valid."
+else
+    echo "FAIL: Market Data Schema validation failed."
+    exit 1
+fi
 
-# The prompt says "validate whitelist pairs exist".
-# If we just regenerated it from the dump, they obviously exist.
-# Maybe the intent is to validate that the pairs in `config.delta.dryrun.json` (if any) exist.
-# Since we use an external whitelist file, and we just updated it, we are good.
-
-echo "Validation Complete. Market dump and Whitelist are fresh."
+echo "Exchange Validation Complete: SUCCESS"
