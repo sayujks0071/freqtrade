@@ -143,7 +143,29 @@ This repository is configured as a production-ready crypto trading stack for Del
 ## Documentation
 
 -   [Risk Profile](user_data/reports/risk_profile.md)
+-   [Symbol Mapping](user_data/reports/symbol_mapping_2024.md)
 -   [Freqtrade Documentation](https://www.freqtrade.io)
+
+## How to choose pairs on Delta
+
+**Always pick from the markets dump.** Never hand-type pairs blindly.
+
+1. Run `./scripts/update_markets_and_whitelist.sh`.
+2. Check `user_data/pairlists/whitelist.delta.txt` or the JSON report.
+3. Copy the `Base/Quote:Settle` format (e.g., `BTC/USDT:USDT`) into your config.
+
+## How to interpret logs
+
+The **Strategy Audit Layer** ensures every trade decision is explainable.
+Look for lines starting with `AUDIT_SIGNAL` in the logs (`user_data/logs/freqtrade.log` or docker logs).
+
+**Format:**
+`AUDIT_SIGNAL | TIMESTAMP (UTC) | PAIR | SIDE | REASON | INDICATORS`
+
+**Example:**
+`AUDIT_SIGNAL | 2024-01-01T12:00:00+00:00 | BTC/USDT:USDT | long | Signal Confirmed | {'rsi': 25.5, 'volume': 1500, 'close': 42000.0}`
+
+This tells you exactly why the strategy entered/exited at that moment.
 
 ---
 

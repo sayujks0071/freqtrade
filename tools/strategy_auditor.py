@@ -2,13 +2,146 @@
 import ast
 import os
 import sys
+import argparse
 from pathlib import Path
+import tokenize
+from io import BytesIO
+
+HEADER_TEMPLATE = """
+    # Strategy Name: {name}
+    # Author: {author}
+    # Version: {version}
+    # Supported Timeframes: {timeframes}
+    # Supported Pair Format: {pair_format}
+    # Timezone Rule: {timezone_rule}
+    # Entry Conditions: {entry_conditions}
+    # Exit Conditions: {exit_conditions}
+    # No Repainting: {no_repainting}
+"""
+
+REQUIRED_FIELDS = [
+    "Strategy Name",
+    "Author",
+    "Version",
+    "Supported Timeframes",
+    "Supported Pair Format",
+    "Timezone Rule",
+    "Entry Conditions",
+    "Exit Conditions",
+    "No Repainting",
+]
+
+def check_header(docstring):
+    if not docstring:
+        return False, ["Missing module docstring (Header block)"]
+
+    missing = []
+    for field in REQUIRED_FIELDS:
+        if field not in docstring:
+            missing.append(f"Missing header field: {field}")
+
+    if "closed candle" not in docstring.lower() and "no repainting" not in docstring.lower():
+         missing.append("Missing 'No Repainting' / 'closed candle' note in header")
+
+    return (len(missing) == 0), missing
+
+def fix_header(source, filepath):
+    # This is a basic fixer that prepends a docstring if missing.
+    # If a docstring exists but is incomplete, we assume manual intervention is better
+    # than trying to regex-edit a partial docstring.
+    # But for the task, "auto-insert if missing".
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+
+    if ast.get_docstring(tree):
+        # Docstring exists. We could try to append missing fields, but that's complex.
+        # For now, we only insert if NO docstring exists or it's empty.
+        # Check if it satisfies requirements?
+        pass
+    else:
+        # Insert header
+        print(f"Fixing header for {filepath}")
+        name = Path(filepath).stem
+        header = '"""' + HEADER_TEMPLATE.format(
+            name=name,
+            author="Unknown",
+            version="1.0",
+            timeframes="1h",
+            pair_format="Delta Futures (BTC/USDT:USDT)",
+            timezone_rule="UTC ISO-8601",
+            entry_conditions="Long on signal",
+            exit_conditions="Short on signal",
+            no_repainting="Only act on closed candles"
+        ) + '\n"""\n'
+        return header + source
+
+    return source
+
+def check_complex_conditions(node, errors):
+    # Check for assignments to dataframe with complex BoolOp index
+    if isinstance(node, ast.Assign):
+        # We look for dataframe.loc[...] = ...
+        for target in node.targets:
+            if isinstance(target, ast.Subscript):
+                # Check slice (index)
+                sl = target.slice
+                # Handle python < 3.9 where slice might be wrapped
+                if isinstance(sl, ast.Index):
+                    sl = sl.value
+
+                # Logic: If the slice contains a specific number of binary operations
+                # or comparisons inline, flag it.
+                # Requirement: "named boolean sub-conditions (no giant unreadable one-liners)"
+                # Accepted: df.loc[condition_a & condition_b, ...]
+                # Rejected: df.loc[(df['x']>1) & (df['y']<2), ...]
+
+                has_inline_logic = False
+
+                # Recursive check for Compare or Call or Attribute access (like df['x'])
+                for child in ast.walk(sl):
+                    if isinstance(child, ast.Compare):
+                        has_inline_logic = True
+                        break
+                    # If we see df['rsi'] < 30, that is a Compare.
+                    # If we see just boolean operators on names, that is fine.
+
+                if has_inline_logic:
+                     errors.append(
+                        f"Complex inline condition at line {node.lineno}. "
+                        "Use named boolean variables (e.g., `long_cond = (df['rsi'] < 30)`)."
+                    )
+
+def check_comments_in_function(node, tokens, errors):
+    # Check if there are comments inside the function body
+    start_line = node.lineno
+    end_line = node.end_lineno if hasattr(node, 'end_lineno') else start_line + 10 # fallback
+
+    has_comment = False
+    for tok in tokens:
+        if tok.type == tokenize.COMMENT:
+            if start_line <= tok.start[0] <= end_line:
+                has_comment = True
+                break
+
+    if not has_comment:
+        errors.append(f"Missing comments explaining market thesis in {node.name}")
 
 
-def audit_file(filepath):  # noqa: C901
+def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
     with Path(filepath).open() as f:
         source = f.read()
+
+    if fix:
+        new_source = fix_header(source, filepath)
+        if new_source != source:
+            with Path(filepath).open('w') as f:
+                f.write(new_source)
+            source = new_source
+            print("  - Applied fixes (Header)")
 
     try:
         tree = ast.parse(source)
@@ -18,9 +151,16 @@ def audit_file(filepath):  # noqa: C901
 
     errors = []
 
+    # Get tokens for comment checking
+    try:
+        tokens = list(tokenize.tokenize(BytesIO(source.encode('utf-8')).readline))
+    except tokenize.TokenError:
+        tokens = []
+
     # Check 1: Docstring (Header block)
-    if not ast.get_docstring(tree):
-        errors.append("Missing module docstring (Header block)")
+    docstring = ast.get_docstring(tree)
+    valid_header, header_errors = check_header(docstring)
+    errors.extend(header_errors)
 
     # Check 2: Unsafe Imports
     for node in ast.walk(tree):
@@ -32,64 +172,33 @@ def audit_file(filepath):  # noqa: C901
             if node.module in ["requests", "urllib", "socket", "http"]:
                 errors.append(f"Unsafe import from: {node.module}")
 
-    # Check 3: datetime.now() usage (heuristic)
+    # Check 3: datetime.now() usage
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute):
-                # check for .now()
-                if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
-                    if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
+                 # Check if arguments exist (timezone)
+                if not node.args and not node.keywords:
+                    errors.append(f"Naive datetime.now() usage at line {node.lineno}. Use datetime.now(timezone.utc)")
 
-    # Check 4: Enforce AuditedStrategyMixin (heuristic)
+    # Check 4: Enforce AuditedStrategyMixin
     has_class = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             has_class = True
-            # Check bases
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
+                if filepath.endswith("DeltaSafeStrategy.py"):
                     errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
 
-    # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
-
-    # Check 6: Complex conditions (named sub-conditions)
-    # Heuristic: Check for assignments to dataframe with complex BoolOp index
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            # We look for dataframe.loc[...] = ...
-            for target in node.targets:
-                if isinstance(target, ast.Subscript):
-                    # Check slice (index)
-                    sl = target.slice
-                    # Handle python < 3.9 where slice might be wrapped
-                    if isinstance(sl, ast.Index):
-                        sl = sl.value
-
-                    if isinstance(sl, ast.BoolOp):
-                        if len(sl.values) > 3:
-                            errors.append(
-                                f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
-                            )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
+            # Check methods populate_entry_trend, populate_exit_trend
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef):
+                    if item.name in ["populate_entry_trend", "populate_exit_trend", "populate_entry_trend_short", "populate_exit_trend_short"]:
+                         check_comments_in_function(item, tokens, errors)
+                         for stmt in item.body:
+                             check_complex_conditions(stmt, errors)
 
     if not has_class:
-        # Might be a library file, skip strict checks?
         pass
 
     if errors:
@@ -102,21 +211,22 @@ def audit_file(filepath):  # noqa: C901
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: strategy_auditor.py <file_or_dir>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Strategy Auditor")
+    parser.add_argument("path", help="File or directory to audit")
+    parser.add_argument("--fix", action="store_true", help="Attempt to fix issues (missing header)")
+    args = parser.parse_args()
 
-    target = sys.argv[1]
+    target = args.path
     failed = False
 
     if Path(target).is_file():
-        if not audit_file(target):
+        if not audit_file(target, fix=args.fix):
             failed = True
     else:
         for root, _, files in os.walk(target):
             for file in files:
                 if file.endswith(".py") and not file.startswith("__"):
-                    if not audit_file(str(Path(root) / file)):
+                    if not audit_file(str(Path(root) / file), fix=args.fix):
                         failed = True
 
     if failed:
