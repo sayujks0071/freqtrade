@@ -471,7 +471,7 @@ Examples:
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
-    sharpe_improved = new_sharpe > (current_sharpe * 1.05)  # type: ignore
+    sharpe_improved = new_sharpe > (current_sharpe * 1.05)
     drawdown_improved = new_drawdown < current_drawdown  # type: ignore
 
     print(f"Sharpe Improved: {sharpe_improved}")
