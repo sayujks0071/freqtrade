@@ -23,6 +23,13 @@ if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
 fi
 
 echo "WARNING: Using LIVE TRADING config..."
+read -p "Are you sure you want to trade real money? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]
+then
+    exit 1
+fi
+
 echo "Starting Freqtrade in Docker (LIVE)..."
 docker compose up -d --remove-orphans
 echo "Container started. View logs with: docker compose logs -f"
