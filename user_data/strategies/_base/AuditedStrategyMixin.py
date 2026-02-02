@@ -18,9 +18,9 @@ class AuditedStrategyMixin:
 
     # Type hint for the config attribute expected from IStrategy
     config: dict[str, Any]
+    _whitelist_set: set[str] | None = None
 
     def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
         self,
         pair: str,
         timeframe: str,
@@ -44,11 +44,12 @@ class AuditedStrategyMixin:
         """
         Assert pair is in current whitelist.
         """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
+        if self._whitelist_set is None:
+            self._whitelist_set = set(self.config.get("exchange", {}).get("pair_whitelist", []))
+
+        if self._whitelist_set:
+            if pair not in self._whitelist_set:
+                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
                 return False
         return True
 
