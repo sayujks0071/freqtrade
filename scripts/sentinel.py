@@ -19,11 +19,8 @@ import requests
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("sentinel.log")
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("sentinel.log")],
 )
 logger = logging.getLogger("Sentinel")
 
@@ -41,22 +38,24 @@ class Sentinel:
         self.config = self._load_config()
 
         # API Configuration
-        api_config = self.config.get('api_server', {})
-        self.api_ip = api_config.get('listen_ip_address', '127.0.0.1')
-        if self.api_ip == '0.0.0.0':  # noqa: S104
-            self.api_ip = '127.0.0.1'
-        self.api_port = api_config.get('listen_port', 8080)
-        self.username = api_config.get('username')
-        self.password = api_config.get('password')
+        api_config = self.config.get("api_server", {})
+        self.api_ip = api_config.get("listen_ip_address", "127.0.0.1")
+        if self.api_ip == "0.0.0.0":  # noqa: S104
+            self.api_ip = "127.0.0.1"
+        self.api_port = api_config.get("listen_port", 8080)
+        self.username = api_config.get("username")
+        self.password = api_config.get("password")
         self.base_url = f"http://{self.api_ip}:{self.api_port}/api/v1"
 
         self.token = None
 
         # State
-        self.balance_history = []  # List of (timestamp, total_balance)
+        self.balance_history: list[
+            tuple[datetime, float]
+        ] = []  # List of (timestamp, total_balance)
 
         # Gate.io for BTC monitoring (Reliable Source)
-        self.exchange = ccxt.gateio({'enableRateLimit': True})
+        self.exchange = ccxt.gateio({"enableRateLimit": True})
 
     def _load_config(self) -> dict:
         if not self.config_path.exists():
@@ -64,7 +63,7 @@ class Sentinel:
             sys.exit(1)
 
         try:
-            with self.config_path.open('r') as f:
+            with self.config_path.open("r") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to load config: {e}")
@@ -78,7 +77,7 @@ class Sentinel:
             response = requests.post(f"{self.base_url}/login", auth=auth, timeout=10)
 
             if response.status_code == 200:
-                self.token = response.json().get('access_token')
+                self.token = response.json().get("access_token")
                 logger.info("Authentication successful.")
             else:
                 logger.error(f"Authentication failed: {response.status_code} {response.text}")
@@ -114,7 +113,7 @@ class Sentinel:
             if response.status_code == 200:
                 data = response.json()
                 # 'total' is the total value in stake currency
-                return data.get('total')
+                return data.get("total")
             else:
                 logger.error(f"Failed to get balance: {response.status_code} {response.text}")
                 return None
@@ -146,8 +145,10 @@ class Sentinel:
         drawdown = (max_balance - current_balance) / max_balance
 
         if drawdown > DRAWDOWN_THRESHOLD:
-            logger.critical(f"DRAWDOWN TRIGGERED: {drawdown:.2%} in last hour. "
-                            f"Max: {max_balance}, Current: {current_balance}")
+            logger.critical(
+                f"DRAWDOWN TRIGGERED: {drawdown:.2%} in last hour. "
+                f"Max: {max_balance}, Current: {current_balance}"
+            )
             return True
         return False
 
@@ -158,7 +159,7 @@ class Sentinel:
         """
         try:
             # Fetch last 5 candles (1h timeframe) to cover 4 hours history + current
-            ohlcv = self.exchange.fetch_ohlcv("BTC/USDT", timeframe='1h', limit=6)
+            ohlcv = self.exchange.fetch_ohlcv("BTC/USDT", timeframe="1h", limit=6)
             if not ohlcv:
                 logger.warning("No BTC data fetched.")
                 return False
@@ -179,8 +180,10 @@ class Sentinel:
             drop = (max_high - current_close) / max_high
 
             if drop > BTC_DROP_THRESHOLD:
-                logger.critical(f"BTC CRASH TRIGGERED: {drop:.2%} drop in 4h. "
-                                f"High: {max_high}, Current: {current_close}")
+                logger.critical(
+                    f"BTC CRASH TRIGGERED: {drop:.2%} drop in 4h. "
+                    f"High: {max_high}, Current: {current_close}"
+                )
                 return True
 
             return False
@@ -231,8 +234,8 @@ class Sentinel:
 
     def run(self):
         logger.info("Sentinel started monitoring.")
-        logger.info(f"Drawdown Threshold: {DRAWDOWN_THRESHOLD*100}% / {DRAWDOWN_WINDOW_MINUTES}m")
-        logger.info(f"BTC Drop Threshold: {BTC_DROP_THRESHOLD*100}% / {BTC_DROP_WINDOW_HOURS}h")
+        logger.info(f"Drawdown Threshold: {DRAWDOWN_THRESHOLD * 100}% / {DRAWDOWN_WINDOW_MINUTES}m")
+        logger.info(f"BTC Drop Threshold: {BTC_DROP_THRESHOLD * 100}% / {BTC_DROP_WINDOW_HOURS}h")
 
         while True:
             try:
@@ -260,13 +263,14 @@ class Sentinel:
 
             time.sleep(CHECK_INTERVAL)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Sentinel: Freqtrade Circuit Breaker")
     parser.add_argument(
         "--config",
         type=str,
         default="user_data/configs/config.delta.dryrun.json",
-        help="Path to Freqtrade config file"
+        help="Path to Freqtrade config file",
     )
     args = parser.parse_args()
 
@@ -274,6 +278,7 @@ def main():
 
     sentinel = Sentinel(config_path)
     sentinel.run()
+
 
 if __name__ == "__main__":
     main()
