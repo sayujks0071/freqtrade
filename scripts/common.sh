@@ -2,16 +2,20 @@
 
 # Load .env
 if [ -f .env ]; then
-    # echo "Loading .env..."
     set -a
     . .env
     set +a
 else
-    echo "No .env file found. Proceeding with environment variables..."
+    # Only echo if interactive, to avoid messing up json output in other scripts
+    if [ -t 1 ]; then
+        echo "No .env file found. Proceeding with environment variables..."
+    fi
 fi
 
 if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
+    if [ -t 1 ]; then
+        echo "DELTA_ENV is not set. Defaulting to global_prod."
+    fi
     DELTA_ENV="global_prod"
 fi
 
@@ -28,7 +32,6 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
         echo "Unknown DELTA_ENV: $DELTA_ENV"
@@ -42,8 +45,6 @@ if [ -n "$DELTA_BASE_URL" ]; then
     BASE_URL="$DELTA_BASE_URL"
 fi
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
-
 # Export Freqtrade Variables
 export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
 export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
@@ -53,6 +54,6 @@ export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
 
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
+if [ -t 1 ]; then
+    echo "Configuration: ENV=$DELTA_ENV"
 fi
