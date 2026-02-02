@@ -1,6 +1,6 @@
-# Freqtrade Delta Exchange Stack
+# Delta Exchange Trading Stack (Freqtrade)
 
-This repository contains a production-ready setup for trading on Delta Exchange (Global or India) using Freqtrade.
+This repository is configured as a production-ready crypto trading stack for Delta Exchange (India + Global), built on Freqtrade.
 
 ## ⚠️ Financial Risk Warning
 
@@ -14,85 +14,10 @@ This software is for educational purposes. Use at your own risk.
 - A Delta Exchange Account (Global or India)
 - API Keys (Trading permissions only, **NO** withdrawal permissions)
 
-## Setup Guide
-
-### 1. Bootstrap
-
-Run the bootstrap script to initialize directories and configuration:
-```bash
-./scripts/bootstrap.sh
-```
-
-### 2. Configuration
-
-Edit the generated `.env` file:
-```bash
-nano .env
-```
-- Set `DELTA_ENV`:
-  - `india_prod` for Delta India (api.india.delta.exchange)
-  - `global_prod` for Delta Global (api.delta.exchange)
-  - `india_testnet` for Testnet
-- Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
-
-### 3. Validate Exchange Connection
-
-Before starting, verify your credentials and market data availability:
-```bash
-./scripts/validate_exchange.sh
-```
-This script will:
-1. Fetch available markets from Delta.
-2. Save the market list to `user_data/reports/`.
-3. Verify that the pairs in `user_data/configs/config.delta.dryrun.json` exist and are active.
-
-If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
-
-### 4. Start Dry-Run
-
-Start the bot in Dry-Run mode (simulated trading with live data):
-```bash
-./scripts/run_dryrun.sh
-```
-- The bot will launch in the background.
-- Logs can be viewed with: `docker compose logs -f`
-- Access the UI at: http://localhost:8080 (Default login: `freqtrader` / `password` - Change this in config!)
-
-### 5. Go Live 🚀
-
-**WARNING:** This will trade with REAL funds.
-
-1. Ensure you have tested thoroughly in Dry-Run.
-2. Stop the dry-run bot:
-   ```bash
-   docker compose down
-   ```
-3. Run the live script:
-   ```bash
-   ./scripts/run_live.sh
-   ```
-   Confirm the prompt to start.
-
-## Troubleshooting
-
-- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
-- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
-- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
-- **Time Drift:** Ensure your server time is synced (`ntp`).
-
-## Directory Structure
-
-- `docker-compose.yml`: Main service definition.
-- `user_data/configs/`: Configuration files (dryrun vs live).
-- `scripts/`: Helper scripts for management.
-- `.env`: Secrets (Git-ignored).
-# Delta Exchange Trading Stack (Freqtrade)
-
-This repository is configured as a production-ready crypto trading stack for Delta Exchange (India + Global), built on Freqtrade.
-
 ## Quick Start
 
 1.  **Bootstrap**:
+    Initialize directories and configuration:
     ```bash
     ./scripts/bootstrap.sh
     ```
@@ -100,8 +25,11 @@ This repository is configured as a production-ready crypto trading stack for Del
 
 2.  **Configure**:
     Edit `.env` with your Delta Exchange credentials.
-    - `DELTA_ENV`: `india_prod`, `global_prod`, or `india_testnet`.
-    - `DELTA_API_KEY` / `SECRET`.
+    ```bash
+    nano .env
+    ```
+    - `DELTA_ENV`: `india_prod` (api.india.delta.exchange), `global_prod` (api.delta.exchange), or `india_testnet`.
+    - `DELTA_API_KEY` / `DELTA_API_SECRET`.
 
 3.  **Fetch Markets & Whitelist**:
     ```bash
@@ -109,17 +37,23 @@ This repository is configured as a production-ready crypto trading stack for Del
     ```
     This fetches active markets, validates schema, and generates `user_data/pairlists/whitelist.delta.json`.
 
+    **Validation:** This script will verify that the pairs in your config exist and are active. If validation fails, check the logs in `user_data/reports/`.
+
 4.  **Run Dry-Run**:
+    Start the bot in Dry-Run mode (simulated trading with live data):
     ```bash
     ./scripts/run_dryrun.sh
     ```
-    Starts Freqtrade in Docker with `config.delta.dryrun.json`.
+    - The bot will launch in the background.
+    - Logs can be viewed with: `docker compose logs -f`
+    - Access the UI at: http://localhost:8080 (Default login: `freqtrader` / `password` - Change this in config!)
 
 5.  **Run Live**:
+    **WARNING:** This uses real money. Ensure you have tested thoroughly.
     ```bash
     ./scripts/run_live.sh
     ```
-    **WARNING**: This uses real money. Ensure you have tested thoroughly.
+    Confirm the prompt to start.
 
 ## Key Features
 
@@ -166,6 +100,13 @@ Look for lines starting with `AUDIT_SIGNAL` in the logs (`user_data/logs/freqtra
 `AUDIT_SIGNAL | 2024-01-01T12:00:00+00:00 | BTC/USDT:USDT | long | Signal Confirmed | {'rsi': 25.5, 'volume': 1500, 'close': 42000.0}`
 
 This tells you exactly why the strategy entered/exited at that moment.
+
+## Troubleshooting
+
+- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
+- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
+- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
+- **Time Drift:** Ensure your server time is synced (`ntp`).
 
 ---
 

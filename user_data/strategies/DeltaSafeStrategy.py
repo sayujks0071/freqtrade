@@ -13,13 +13,14 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 # No Repainting: Only act on closed candles
 """
 
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
-import sys
 
 import talib.abstract as ta
 from pandas import DataFrame
 
+from freqtrade.persistence import Trade
 from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
@@ -131,6 +132,52 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             pair=pair,
             side=side,
             reason=entry_tag or "Signal Confirmed",
+            ts_utc=ts,
+            indicators_snapshot=indicators,
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade: Trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        sell_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        """
+        Called right before placing an exit trade.
+        """
+        # Get dataframe to log indicators
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+
+        # Helper to safely get value
+        indicators = {}
+        if not dataframe.empty:
+            last_candle = dataframe.iloc[-1].to_dict()
+            indicators = {
+                "rsi": last_candle.get("rsi"),
+                "volume": last_candle.get("volume"),
+                "close": last_candle.get("close"),
+            }
+
+        # Ensure we use UTC for logging
+        if current_time.tzinfo is None:
+            ts = current_time.replace(tzinfo=timezone.utc)  # noqa: UP017
+        else:
+            ts = current_time
+
+        # side is opposite of trade entry
+        exit_side = "sell" if trade.is_short is False else "buy"
+
+        self.log_signal(
+            pair=pair,
+            side=exit_side,
+            reason=sell_reason or "Exit Signal",
             ts_utc=ts,
             indicators_snapshot=indicators,
         )
