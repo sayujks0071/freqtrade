@@ -4,13 +4,15 @@ Regime Switcher Script
 Analyzes market conditions and updates the production config with the appropriate strategy.
 """
 
+import json
+import traceback
+from datetime import UTC, datetime
+from pathlib import Path
+
 import ccxt
 import pandas as pd
-import pandas_ta as ta
-import json
-from pathlib import Path
-from datetime import datetime, timezone
-import traceback
+import pandas_ta as ta  # noqa: F401
+
 
 # Configuration
 SYMBOL = "BTC/USDT"
@@ -83,7 +85,7 @@ def update_config(strategy_name):
         return False
 
     try:
-        with open(CONFIG_PATH, "r") as f:
+        with CONFIG_PATH.open() as f:
             config = json.load(f)
 
         current_strategy = config.get("strategy")
@@ -93,7 +95,7 @@ def update_config(strategy_name):
 
         config["strategy"] = strategy_name
 
-        with open(CONFIG_PATH, "w") as f:
+        with CONFIG_PATH.open("w") as f:
             json.dump(config, f, indent=4)
         print(f"Updated config to use {strategy_name}")
         return True
@@ -103,18 +105,23 @@ def update_config(strategy_name):
 
 
 def log_regime(regime, strategy, changed):
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    try:
+        timestamp = datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    except AttributeError:
+        # Fallback for Python < 3.11
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
     action = "Switched to" if changed else "Maintained"
     message = f"| {timestamp} | {regime} | {action} {strategy} |"
 
     print(message)
 
     if not LOG_PATH.exists():
-        with open(LOG_PATH, "w") as f:
+        with LOG_PATH.open("w") as f:
             f.write("| Timestamp | Regime | Action |\n")
             f.write("|---|---|---|\n")
 
-    with open(LOG_PATH, "a") as f:
+    with LOG_PATH.open("a") as f:
         f.write(message + "\n")
 
 
