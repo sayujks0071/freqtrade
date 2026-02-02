@@ -20,6 +20,7 @@ class AuditedStrategyMixin:
     config: dict[str, Any]
 
     def log_signal(
+        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
         self,
         pair: str,
         timeframe: str,
