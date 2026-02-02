@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -15,13 +15,14 @@ DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
 def get_db_connection():
     if not Path(DB_URL).exists():
         print(f"Database not found at {DB_URL}")
-        sys.exit(1)
+        sys.exit(0) # Exit cleanly if no DB yet
     return sqlite3.connect(DB_URL)
 
 
 def generate_report():
     conn = get_db_connection()
 
+    # SQLite uses string dates. Freqtrade stores them usually in UTC.
     query = """
     SELECT * FROM trades
     WHERE close_date >= datetime('now', '-1 day')
@@ -32,13 +33,16 @@ def generate_report():
         df = pd.read_sql_query(query, conn)
     except Exception as e:
         print(f"Error querying DB: {e}")
-        # Fallback to verify table exists
+        conn.close()
         sys.exit(1)
 
     conn.close()
 
-    date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
+
+    # Ensure dir exists
+    Path("user_data/reports").mkdir(parents=True, exist_ok=True)
 
     with Path(report_file).open("w") as f:
         f.write(f"# Daily Trading Report ({date_str})\n\n")
@@ -56,9 +60,9 @@ def generate_report():
         total_profit_abs = df["close_profit_abs"].sum()
 
         # Max Drawdown (Approximate from closed trades)
-        # For real max drawdown we need high res data, but we can use cumulative profit min
         df["cum_profit"] = df["close_profit_abs"].cumsum()
 
+        # Simple stats
         f.write("## Summary\n")
         f.write(f"- **Total Trades**: {total_trades}\n")
         f.write(f"- **Win Rate**: {win_rate:.2f}%\n")

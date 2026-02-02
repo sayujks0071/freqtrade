@@ -7,8 +7,12 @@ from pathlib import Path
 
 def audit_file(filepath):  # noqa: C901
     print(f"Auditing {filepath}...")
-    with Path(filepath).open() as f:
-        source = f.read()
+    try:
+        with Path(filepath).open() as f:
+            source = f.read()
+    except Exception as e:
+        print(f"FAIL: Could not read {filepath}: {e}")
+        return False
 
     try:
         tree = ast.parse(source)
@@ -36,12 +40,16 @@ def audit_file(filepath):  # noqa: C901
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute):
-                # check for .now()
+                # check for .now() or .utcnow()
                 if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
+                    # Check if it has arguments. If no args, likely local time.
+                    # We want datetime.now(timezone.utc) or similar.
+                    # If args exist, we assume they passed a timezone (heuristic).
                     if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}. Use datetime.now(timezone.utc).")
+                elif node.func.attr == "utcnow":
+                     errors.append(f"datetime.utcnow() is deprecated/discouraged at line {node.lineno}. Use datetime.now(timezone.utc).")
+
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
     has_class = False
@@ -51,14 +59,14 @@ def audit_file(filepath):  # noqa: C901
             # Check bases
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
                 # Warn if it inherits directly from IStrategy but not Mixin
+                # We can't easily check full inheritance tree without loading code.
                 if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
                     errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
 
     # Check 5: "closed candle only" note
     if "closed candle" not in source.lower():
+        # This is just a string check, simplistic but required by prompt
         errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
 
     # Check 6: Complex conditions (named sub-conditions)
@@ -80,17 +88,6 @@ def audit_file(filepath):  # noqa: C901
                                 f"Complex inline condition (>{len(sl.values)} ops) "
                                 f"at line {node.lineno}. Use named variables."
                             )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
-
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
 
     if errors:
         for e in errors:

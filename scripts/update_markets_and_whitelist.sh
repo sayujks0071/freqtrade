@@ -4,6 +4,11 @@ set -e
 # Ensure root
 cd "$(dirname "$0")/.."
 
+# Load env
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
 DELTA_ENV=${DELTA_ENV:-india_testnet}
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
 REPORTS_DIR="user_data/reports"
@@ -18,23 +23,12 @@ PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo ""
 
 echo "Fetching markets for $DELTA_ENV..."
 
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
-
-# We use a temporary file for the docker output because of potential log noise
+# Use a temp file for docker output
 TEMP_OUTPUT=$(mktemp)
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
-
+# Run list-markets.
+# We rely on config.delta.dryrun.json for exchange params, but override if needed.
+# We must capture ONLY the JSON output.
 docker compose run --rm freqtrade list-markets \
     --config /freqtrade/user_data/configs/config.delta.dryrun.json \
     --print-json > $TEMP_OUTPUT
@@ -46,29 +40,47 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
+# Freqtrade might output logs before the JSON.
+# We'll use a python script to extract the list.
+python3 -c "
+import sys, json, re
+try:
+    content = open('$TEMP_OUTPUT').read()
+    # Find list start and end
+    match = re.search(r'\[.*\]', content, re.DOTALL)
+    if match:
+        print(match.group(0))
+    else:
+        # Maybe it's a dict '{\"markets\": ...}'
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+            print(match.group(0))
+        else:
+            sys.exit(1)
+except Exception:
+    sys.exit(1)
+" > $MARKETS_FILE
 
-mv $TEMP_OUTPUT $MARKETS_FILE
+if [ ! -s "$MARKETS_FILE" ]; then
+    echo "Error: Failed to parse valid JSON from output."
+    cat $TEMP_OUTPUT
+    rm $TEMP_OUTPUT
+    rm $MARKETS_FILE
+    exit 1
+fi
+rm $TEMP_OUTPUT
 
 echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
+if python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"; then
+    echo "Validation Passed."
+else
+    echo "Validation Failed. Aborting whitelist update."
+    # We exit 1 here so CI fails
+    exit 1
+fi
 
 echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
-WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
-
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
-
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
-
-echo "Whitelist updated at $WHITELIST_JSON"
+python3 tools/generate_whitelist.py "$MARKETS_FILE"
 
 # Drift Report (Diff)
 if [ -n "$PREV_DUMP" ]; then
@@ -79,10 +91,32 @@ if [ -n "$PREV_DUMP" ]; then
     echo "Current: $MARKETS_FILE" >> $DIFF_FILE
     echo "" >> $DIFF_FILE
     echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+
+    # Generate simple diff of whitelist TXT
+    PREV_WL_TXT="$PAIRLISTS_DIR/whitelist.delta.txt" # This is the currently active one
+    NEW_WL_TXT="$PAIRLISTS_DIR/whitelist.delta.txt" # This was just overwritten, wait.
+
+    # We overwrote the whitelist.txt. Ideally we should have kept the old one for diffing.
+    # But generate_whitelist just overwrites.
+    # We can rely on git to show the diff if we commit it.
+
+    # Let's try to diff the JSONs directly using python for the report
+    python3 -c "
+import json
+try:
+    with open('$PREV_DUMP') as f: p = {m['symbol'] for m in json.load(f)}
+    with open('$MARKETS_FILE') as f: c = {m['symbol'] for m in json.load(f)}
+    added = c - p
+    removed = p - c
+    print('### Added')
+    for x in sorted(added): print(f'- {x}')
+    print('\n### Removed')
+    for x in sorted(removed): print(f'- {x}')
+except:
+    print('Could not generate detailed diff.')
+" >> $DIFF_FILE
+
+    echo "Drift report saved to $DIFF_FILE"
 fi
 
 # Clean up old dumps (keep last 7)

@@ -3,7 +3,7 @@ import json
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -38,28 +38,31 @@ def validate_market_structure(i, m, errors):
 
 
 def validate_symbol_format(symbol, errors):
-    # Symbol format: BASE/QUOTE:SETTLE for futures usually
-    # Reject whitespace/lowercase
+    # Symbol format: BASE/QUOTE:SETTLE for futures
+    # Reject whitespace
     if re.search(r"\s", symbol):
         errors.append(f"Symbol '{symbol}' contains whitespace")
+
+    # Reject lowercase
     if symbol != symbol.upper():
         errors.append(f"Symbol '{symbol}' is not uppercase")
-    # Strict check for futures format (must have settle currency)
+
+    # Strict check for futures format (must have settle currency delimiter)
     if ":" not in symbol:
-        errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
+        errors.append(f"Symbol '{symbol}' missing settle delimiter (:). Not a valid futures pair.")
 
 
 def validate_volume(m, symbol, errors):
     # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
     if "volume" in m:
         vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
-            errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
-        pass
+        # Ensure vol is a number
+        if isinstance(vol, (int, float)):
+            if vol < 1000 and STRICT_VOLUME:
+                errors.append(f"Low volume for {symbol}: {vol}")
+        else:
+            if STRICT_VOLUME:
+                errors.append(f"Volume is not a number for {symbol}: {vol}")
 
 
 def validate_schema(data):
@@ -147,7 +150,7 @@ def main():
         fail(f"Invalid JSON: {e}")
 
     # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
+    # or just a list.
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
 
@@ -157,15 +160,17 @@ def main():
         validate_drift(symbols, prev_path)
 
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(UTC).isoformat()}
+Date: {datetime.now(timezone.utc).isoformat()}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    # Write report
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
+        # Ensure dir exists
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
         write_report(report_file, report)
         print(f"Report written to {report_file}")
     except Exception as e:
