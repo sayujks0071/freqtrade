@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
+import argparse
 import ast
 import os
 import sys
-import argparse
-from pathlib import Path
 import tokenize
 from io import BytesIO
+from pathlib import Path
 
 HEADER_TEMPLATE = """
     # Strategy Name: {name}
@@ -31,6 +31,7 @@ REQUIRED_FIELDS = [
     "No Repainting",
 ]
 
+
 def check_header(docstring):
     if not docstring:
         return False, ["Missing module docstring (Header block)"]
@@ -41,83 +42,66 @@ def check_header(docstring):
             missing.append(f"Missing header field: {field}")
 
     if "closed candle" not in docstring.lower() and "no repainting" not in docstring.lower():
-         missing.append("Missing 'No Repainting' / 'closed candle' note in header")
+        missing.append("Missing 'No Repainting' / 'closed candle' note in header")
 
     return (len(missing) == 0), missing
 
-def fix_header(source, filepath):
-    # This is a basic fixer that prepends a docstring if missing.
-    # If a docstring exists but is incomplete, we assume manual intervention is better
-    # than trying to regex-edit a partial docstring.
-    # But for the task, "auto-insert if missing".
 
+def fix_header(source, filepath):
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return source
 
     if ast.get_docstring(tree):
-        # Docstring exists. We could try to append missing fields, but that's complex.
-        # For now, we only insert if NO docstring exists or it's empty.
-        # Check if it satisfies requirements?
         pass
     else:
-        # Insert header
         print(f"Fixing header for {filepath}")
         name = Path(filepath).stem
-        header = '"""' + HEADER_TEMPLATE.format(
-            name=name,
-            author="Unknown",
-            version="1.0",
-            timeframes="1h",
-            pair_format="Delta Futures (BTC/USDT:USDT)",
-            timezone_rule="UTC ISO-8601",
-            entry_conditions="Long on signal",
-            exit_conditions="Short on signal",
-            no_repainting="Only act on closed candles"
-        ) + '\n"""\n'
+        header = (
+            '"""'
+            + HEADER_TEMPLATE.format(
+                name=name,
+                author="Unknown",
+                version="1.0",
+                timeframes="1h",
+                pair_format="Delta Futures (BTC/USDT:USDT)",
+                timezone_rule="UTC ISO-8601",
+                entry_conditions="Long on signal",
+                exit_conditions="Short on signal",
+                no_repainting="Only act on closed candles",
+            )
+            + '\n"""\n'
+        )
         return header + source
 
     return source
 
+
 def check_complex_conditions(node, errors):
-    # Check for assignments to dataframe with complex BoolOp index
     if isinstance(node, ast.Assign):
-        # We look for dataframe.loc[...] = ...
         for target in node.targets:
             if isinstance(target, ast.Subscript):
-                # Check slice (index)
                 sl = target.slice
-                # Handle python < 3.9 where slice might be wrapped
                 if isinstance(sl, ast.Index):
                     sl = sl.value
 
-                # Logic: If the slice contains a specific number of binary operations
-                # or comparisons inline, flag it.
-                # Requirement: "named boolean sub-conditions (no giant unreadable one-liners)"
-                # Accepted: df.loc[condition_a & condition_b, ...]
-                # Rejected: df.loc[(df['x']>1) & (df['y']<2), ...]
-
                 has_inline_logic = False
-
-                # Recursive check for Compare or Call or Attribute access (like df['x'])
                 for child in ast.walk(sl):
                     if isinstance(child, ast.Compare):
                         has_inline_logic = True
                         break
-                    # If we see df['rsi'] < 30, that is a Compare.
-                    # If we see just boolean operators on names, that is fine.
 
                 if has_inline_logic:
-                     errors.append(
+                    errors.append(
                         f"Complex inline condition at line {node.lineno}. "
                         "Use named boolean variables (e.g., `long_cond = (df['rsi'] < 30)`)."
                     )
 
+
 def check_comments_in_function(node, tokens, errors):
-    # Check if there are comments inside the function body
     start_line = node.lineno
-    end_line = node.end_lineno if hasattr(node, 'end_lineno') else start_line + 10 # fallback
+    end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10
 
     has_comment = False
     for tok in tokens:
@@ -138,7 +122,7 @@ def audit_file(filepath, fix=False):
     if fix:
         new_source = fix_header(source, filepath)
         if new_source != source:
-            with Path(filepath).open('w') as f:
+            with Path(filepath).open("w") as f:
                 f.write(new_source)
             source = new_source
             print("  - Applied fixes (Header)")
@@ -151,18 +135,15 @@ def audit_file(filepath, fix=False):
 
     errors = []
 
-    # Get tokens for comment checking
     try:
-        tokens = list(tokenize.tokenize(BytesIO(source.encode('utf-8')).readline))
+        tokens = list(tokenize.tokenize(BytesIO(source.encode("utf-8")).readline))
     except tokenize.TokenError:
         tokens = []
 
-    # Check 1: Docstring (Header block)
     docstring = ast.get_docstring(tree)
-    valid_header, header_errors = check_header(docstring)
+    _, header_errors = check_header(docstring)
     errors.extend(header_errors)
 
-    # Check 2: Unsafe Imports
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for n in node.names:
@@ -172,15 +153,15 @@ def audit_file(filepath, fix=False):
             if node.module in ["requests", "urllib", "socket", "http"]:
                 errors.append(f"Unsafe import from: {node.module}")
 
-    # Check 3: datetime.now() usage
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
-                 # Check if arguments exist (timezone)
                 if not node.args and not node.keywords:
-                    errors.append(f"Naive datetime.now() usage at line {node.lineno}. Use datetime.now(timezone.utc)")
+                    errors.append(
+                        f"Naive datetime.now() usage at line {node.lineno}. "
+                        "Use datetime.now(timezone.utc)"
+                    )
 
-    # Check 4: Enforce AuditedStrategyMixin
     has_class = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -190,13 +171,17 @@ def audit_file(filepath, fix=False):
                 if filepath.endswith("DeltaSafeStrategy.py"):
                     errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
 
-            # Check methods populate_entry_trend, populate_exit_trend
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
-                    if item.name in ["populate_entry_trend", "populate_exit_trend", "populate_entry_trend_short", "populate_exit_trend_short"]:
-                         check_comments_in_function(item, tokens, errors)
-                         for stmt in item.body:
-                             check_complex_conditions(stmt, errors)
+                    if item.name in [
+                        "populate_entry_trend",
+                        "populate_exit_trend",
+                        "populate_entry_trend_short",
+                        "populate_exit_trend_short",
+                    ]:
+                        check_comments_in_function(item, tokens, errors)
+                        for stmt in item.body:
+                            check_complex_conditions(stmt, errors)
 
     if not has_class:
         pass

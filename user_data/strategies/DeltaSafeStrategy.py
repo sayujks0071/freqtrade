@@ -12,6 +12,7 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 # Exit Conditions: RSI > 70 and Volume > 0
 # No Repainting: Only act on closed candles
 """
+
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,7 +24,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -117,12 +118,12 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             indicators = {
                 "rsi": last_candle.get("rsi"),
                 "volume": last_candle.get("volume"),
-                "close": last_candle.get("close")
+                "close": last_candle.get("close"),
             }
 
         # Ensure we use UTC for logging
         if current_time.tzinfo is None:
-            ts = current_time.replace(tzinfo=timezone.utc)
+            ts = current_time.replace(tzinfo=timezone.utc)  # noqa: UP017
         else:
             ts = current_time
 

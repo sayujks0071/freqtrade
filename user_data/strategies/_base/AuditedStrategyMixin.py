@@ -12,10 +12,11 @@ Mixin class for strategies to enforce audit logging and safety checks.
 # Exit Conditions: N/A
 # No Repainting: Only act on closed candles (N/A)
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
