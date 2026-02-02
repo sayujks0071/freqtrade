@@ -2,9 +2,10 @@
 DeltaSafeStrategy
 A strategy with safety built-in for Delta Exchange.
 """
+from datetime import datetime
 import logging
-import sys
 from pathlib import Path
+import sys
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -88,7 +89,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time: object,
+        current_time: datetime,
         entry_tag: object,
         side: str,
         **kwargs,
@@ -101,7 +102,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             pair=pair,
             timeframe=self.timeframe,
             direction=side,
-            reason=entry_tag or "strategy_signal",
+            reason=str(entry_tag) if entry_tag else "strategy_signal",
             candle_date=current_time,
         )
 

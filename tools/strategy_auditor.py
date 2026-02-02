@@ -20,7 +20,7 @@ def audit_file(filepath):  # noqa: C901
         print(f"FAIL: Syntax Error in {filepath}: {exc}")
         return False
 
-    errors = []
+    errors: list[str] = []
 
     # Check 1: Docstring (Header block)
     if not ast.get_docstring(tree):

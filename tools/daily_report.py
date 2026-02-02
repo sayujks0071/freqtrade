@@ -15,7 +15,7 @@ DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
 def get_db_connection():
     if not Path(DB_URL).exists():
         print(f"Database not found at {DB_URL}")
-        sys.exit(0) # Exit cleanly if no DB yet
+        sys.exit(0)  # Exit cleanly if no DB yet
     return sqlite3.connect(DB_URL)
 
 
@@ -38,7 +38,7 @@ def generate_report():
 
     conn.close()
 
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
 
     # Ensure dir exists

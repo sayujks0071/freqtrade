@@ -36,7 +36,7 @@ class AuditedStrategyMixin:
         # Freqtrade logs are captured.
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(timezone.utc).isoformat()} | {pair} | "
+            f"AUDIT_SIGNAL | {datetime.now(timezone.utc).isoformat()} | {pair} | "  # noqa: UP017
             f"{direction} | {reason} | {candle_date}"
         )
         logger.info(msg)

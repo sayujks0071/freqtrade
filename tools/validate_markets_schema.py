@@ -164,9 +164,9 @@ Date: {datetime.now(timezone.utc).isoformat()}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
-"""
+"""  # noqa: UP017
     # Write report
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")  # noqa: UP017
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
         # Ensure dir exists

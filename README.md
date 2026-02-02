@@ -84,5 +84,5 @@ python3 tools/daily_report.py
 
 ## Workflows
 
-- **Delta Markets Refresh**: Runs daily at 06:30 IST (01:00 UTC) via GitHub Actions.
+- **Delta Markets Refresh**: Runs daily at 06:30 India Standard Time (01:00 UTC) via GitHub Actions.
 - **Strategy CI**: Runs on every PR to `user_data/strategies/`.
