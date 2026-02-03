@@ -13,7 +13,9 @@ from freqtrade.strategy import IStrategy
 
 
 # Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))
+base_path = Path(__file__).parent / "_base"
+if str(base_path) not in sys.path:
+    sys.path.append(str(base_path))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
