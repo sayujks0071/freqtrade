@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -288,8 +282,15 @@ def run_hyperopt_execution(worst_strategy):
     return result_hyperopt, strategy_json, backup_json, created_new
 
 
-def evaluate_results(worst_strategy, current_sharpe, current_drawdown,
-                     result_hyperopt, strategy_json, backup_json, created_new):
+def evaluate_results(
+    worst_strategy,
+    current_sharpe,
+    current_drawdown,
+    result_hyperopt,
+    strategy_json,
+    backup_json,
+    created_new,
+):
     """Evaluate optimization results."""
     # Apply new parameters
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
@@ -333,10 +334,7 @@ def evaluate_results(worst_strategy, current_sharpe, current_drawdown,
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
-    return (
-        sharpe_improved and drawdown_improved,
-        avg_profit_pct
-    )
+    return (sharpe_improved and drawdown_improved, avg_profit_pct)
 
 
 def prepare_branch(target_branch):
@@ -349,7 +347,7 @@ def prepare_branch(target_branch):
             ["git", "rev-parse", "--verify", target_branch],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if check_result.returncode == 0:
             # Branch exists, just switch to it
@@ -369,7 +367,7 @@ def confirm_push(target_branch, worst_strategy, backup_json):
     print(f"  - Create/update remote branch: {target_branch}")
     print("\nYou can then create a pull request to review and merge these changes.")
     response = input("\nProceed with push? [y/N]: ").strip().lower()
-    if response not in ['y', 'yes']:
+    if response not in ["y", "yes"]:
         print("Push cancelled. Changes are committed locally.")
         print(f"You can manually push later with: git push origin {target_branch}")
         if backup_json.exists():
@@ -398,8 +396,9 @@ def execute_git_push(target_branch, strategy_json, msg):
         print("Changes are committed locally. You can manually push later.")
 
 
-def git_push_workflow(args, worst_strategy, avg_profit_pct,
-                      strategy_json, backup_json, created_new):
+def git_push_workflow(
+    args, worst_strategy, avg_profit_pct, strategy_json, backup_json, created_new
+):
     """Handle git commit and push workflow."""
     print("Evaluation PASSED. Committing changes.")
     msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
@@ -463,26 +462,23 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
+        ),
     )
     parser.add_argument(
-        "--yes", "-y",
-        action="store_true",
-        help="Skip confirmation prompts before pushing"
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
@@ -504,8 +500,13 @@ Examples:
 
     # 3. Evaluate Results
     success, avg_profit_pct = evaluate_results(
-        worst_strategy, current_sharpe, current_drawdown,
-        result_hyperopt, strategy_json, backup_json, created_new
+        worst_strategy,
+        current_sharpe,
+        current_drawdown,
+        result_hyperopt,
+        strategy_json,
+        backup_json,
+        created_new,
     )
 
     if success:
