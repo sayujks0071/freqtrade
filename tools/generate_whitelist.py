@@ -11,9 +11,17 @@ FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
 ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
 
-def filter_markets(markets):
+def filter_markets(markets, filter_mode=None, allowlist_regex=None):
+    """
+    Filters markets based on the specified mode.
+    """
+    if filter_mode is None:
+        filter_mode = FILTER_MODE
+    if allowlist_regex is None:
+        allowlist_regex = ALLOWLIST_REGEX
+
     whitelist = []
-    regex = re.compile(ALLOWLIST_REGEX)
+    regex = re.compile(allowlist_regex)
 
     for m in markets:
         symbol = m["symbol"]
@@ -23,15 +31,15 @@ def filter_markets(markets):
             continue
 
         # Filter logic
-        if FILTER_MODE == "perps_usdt":
+        if filter_mode == "perps_usdt":
             # Check if quote is USDT and it's a perp
             # In ccxt/freqtrade, futures usually have 'linear' type or swap
             # We rely on symbol string mostly for Freqtrade
             if "/USDT:USDT" in symbol:
                 whitelist.append(symbol)
-        elif FILTER_MODE == "all_futures":
+        elif filter_mode == "all_futures":
             whitelist.append(symbol)
-        elif FILTER_MODE == "allowlist_regex":
+        elif filter_mode == "allowlist_regex":
             if regex.match(symbol):
                 whitelist.append(symbol)
         else:
@@ -47,8 +55,12 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    try:
+        with Path(sys.argv[1]).open() as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error reading input file: {e}")
+        sys.exit(1)
 
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
