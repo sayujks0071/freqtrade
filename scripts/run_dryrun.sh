@@ -4,12 +4,7 @@ source "$DIR/common.sh"
 
 export FREQTRADE_CONFIG_FILE="config.delta.dryrun.json"
 
-echo "Starting Freqtrade in DRY-RUN mode..."
-docker compose up -d
-
-echo "Container started."
-echo "View logs: docker compose logs -f"
-set -e
+echo "Starting Freqtrade in DRY-RUN mode ($DELTA_ENV)..."
 
 # Ensure we are in the root
 cd "$(dirname "$0")/.."
@@ -20,9 +15,7 @@ if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
     ./scripts/bootstrap.sh
 fi
 
-echo "Switching to DRY-RUN config..."
-cp user_data/configs/config.delta.dryrun.json user_data/config.json
+docker compose up -d
 
-echo "Starting Freqtrade in Docker..."
-docker compose up -d --remove-orphans
-docker compose logs -f
+echo "Container started."
+echo "View logs: docker compose logs -f"

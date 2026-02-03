@@ -1,85 +1,136 @@
 #!/usr/bin/env python3
-import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pandas as pd
+
+# Simple report generator reading directly from sqlite for speed/independence
+# usage: python tools/daily_report.py [db_path]
 
 
-# DB Path
-DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
+def get_db_path():
+    if len(sys.argv) > 1:
+        return sys.argv[1]
+    return "user_data/tradesv3.sqlite"
 
 
-def get_db_connection():
-    if not Path(DB_URL).exists():
-        print(f"Database not found at {DB_URL}")
-        sys.exit(1)
-    return sqlite3.connect(DB_URL)
+def generate_report(db_path):  # noqa: C901
+    if not Path(db_path).exists():
+        print(f"Database not found at {db_path}")
+        return
 
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
-def generate_report():
-    conn = get_db_connection()
-
-    query = """
-    SELECT * FROM trades
-    WHERE close_date >= datetime('now', '-1 day')
-    AND is_open = 0
-    """
+    # Time range: Last 24h
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    start_time = now - timedelta(days=1)
 
     try:
-        df = pd.read_sql_query(query, conn)
+        # Check if table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trades'")
+        if not cursor.fetchone():
+            print("No trades table found (fresh db?)")
+            return
+
+        cursor.execute("SELECT * FROM trades WHERE is_open=0 ORDER BY close_date DESC")
+        trades = cursor.fetchall()
     except Exception as e:
-        print(f"Error querying DB: {e}")
-        # Fallback to verify table exists
-        sys.exit(1)
+        print(f"Error querying trades: {e}")
+        return
+
+    todays_trades = []
+    for t in trades:
+        # Assuming close_date is text ISO
+        c_date_str = t["close_date"]
+        if not c_date_str:
+            continue
+
+        try:
+            # Handle potential variations
+            # Freqtrade often stores as '2023-01-01 12:00:00.000000'
+            # Simple check if it matches YYYY-MM-DD
+            c_date = datetime.fromisoformat(c_date_str)
+            if c_date.tzinfo is None:
+                c_date = c_date.replace(tzinfo=timezone.utc)  # noqa: UP017
+
+            if c_date >= start_time:
+                todays_trades.append(t)
+        except ValueError:
+            continue
+
+    # Stats
+    count = len(todays_trades)
+    wins = len([t for t in todays_trades if t["profit_ratio"] > 0])
+    winrate = (wins / count * 100) if count > 0 else 0.0
+    total_profit_abs = sum([t["profit_abs"] for t in todays_trades])
+    avg_profit_ratio = (
+        (sum([t["profit_ratio"] for t in todays_trades]) / count) if count > 0 else 0.0
+    )
+
+    # Best/Worst
+    sorted_trades = sorted(todays_trades, key=lambda x: x["profit_ratio"], reverse=True)
+    best = sorted_trades[0] if sorted_trades else None
+    worst = sorted_trades[-1] if sorted_trades else None
+
+    # Format helpers
+    best_str = "N/A"
+    if best:
+        best_str = (
+            f"{best['pair']} "
+            f"({best['profit_ratio']:.2%} / {best['profit_abs']:.2f})"
+        )
+
+    worst_str = "N/A"
+    if worst:
+        worst_str = (
+            f"{worst['pair']} "
+            f"({worst['profit_ratio']:.2%} / {worst['profit_abs']:.2f})"
+        )
+
+    # Markdown output
+    report = f"""# Daily Trading Report
+Date: {now.strftime("%Y-%m-%d")} (Last 24h)
+
+## Summary
+- **Trades:** {count}
+- **Win Rate:** {winrate:.2f}%
+- **Total PnL:** {total_profit_abs:.2f}
+- **Avg Return:** {avg_profit_ratio:.2%}
+
+## Top Performers
+- **Best:** {best_str}
+- **Worst:** {worst_str}
+
+## Recent Trades
+| Pair | Side | Profit % | Profit Abs | Exit Reason | Time |
+|---|---|---|---|---|---|
+"""
+
+    # Safely get fields (handling potential schema changes/missing fields)
+    for t in todays_trades[:20]:  # Show last 20
+        pair = t["pair"]
+        direction = t["trade_direction"] if "trade_direction" in t.keys() else "long"
+        p_ratio = t["profit_ratio"]
+        p_abs = t["profit_abs"]
+        reason = t["exit_reason"]
+        time = t["close_date"]
+        report += (
+            f"| {pair} | {direction} | {p_ratio:.2%} | {p_abs:.2f} | {reason} | {time} |\n"
+        )
+
+    filename = f"user_data/reports/daily_summary_{now.strftime('%Y%m%d')}.md"
+    try:
+        with Path(filename).open("w") as f:
+            f.write(report)
+        print(f"Report generated: {filename}")
+    except Exception as e:
+        print(f"Error writing report: {e}")
 
     conn.close()
 
-    date_str = datetime.utcnow().strftime("%Y-%m-%d")
-    report_file = f"user_data/reports/daily_summary_{date_str}.md"
-
-    with Path(report_file).open("w") as f:
-        f.write(f"# Daily Trading Report ({date_str})\n\n")
-
-        if df.empty:
-            f.write("No closed trades in the last 24 hours.\n")
-            print(f"Report written to {report_file} (Empty)")
-            return
-
-        # Metrics
-        total_trades = len(df)
-        wins = df[df["close_profit"] > 0]
-        win_rate = (len(wins) / total_trades) * 100
-        avg_return = df["close_profit"].mean() * 100
-        total_profit_abs = df["close_profit_abs"].sum()
-
-        # Max Drawdown (Approximate from closed trades)
-        # For real max drawdown we need high res data, but we can use cumulative profit min
-        df["cum_profit"] = df["close_profit_abs"].cumsum()
-
-        f.write("## Summary\n")
-        f.write(f"- **Total Trades**: {total_trades}\n")
-        f.write(f"- **Win Rate**: {win_rate:.2f}%\n")
-        f.write(f"- **Avg Return**: {avg_return:.2f}%\n")
-        f.write(f"- **Total Profit**: {total_profit_abs:.4f}\n\n")
-
-        f.write("## Top Pairs\n")
-        top_pairs = df["pair"].value_counts().head(5)
-        for pair, count in top_pairs.items():
-            f.write(f"- {pair}: {count} trades\n")
-        f.write("\n")
-
-        f.write("## Top Exit Reasons\n")
-        top_reasons = df["exit_reason"].value_counts().head(5)
-        for reason, count in top_reasons.items():
-            f.write(f"- {reason}: {count}\n")
-
-        f.write("\n_Generated by Daily Report Tool_")
-
-    print(f"Report written to {report_file}")
-
 
 if __name__ == "__main__":
-    generate_report()
+    generate_report(get_db_path())

@@ -1,33 +1,33 @@
 name: Strategy CI
 
 on:
-  pull_request:
-    branches: [ main, master ]
+  push:
     paths:
-      - 'user_data/strategies/**'
-      - 'tools/strategy_auditor.py'
+      - 'user_data/strategies/**.py'
+  pull_request:
+    paths:
+      - 'user_data/strategies/**.py'
 
 permissions:
   contents: read
 
 jobs:
-  audit_strategies:
+  audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
-        with:
-          python-version: '3.12'
+    - name: Set up Python
+      uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+      with:
+        python-version: '3.10'
 
-      - name: Compile Check
-        run: |
-          python3 -m compileall user_data/strategies/
+    - name: Run Strategy Auditor
+      run: |
+        python3 tools/strategy_auditor.py user_data/strategies/
 
-      - name: Run Strategy Auditor
-        run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+    - name: Syntax Check
+      run: |
+        python3 -m compileall user_data/strategies/
