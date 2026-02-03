@@ -212,7 +212,7 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
