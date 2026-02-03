@@ -38,9 +38,7 @@ class AuditedStrategyMixin:
         # Use datetime.now(timezone.utc) for compatibility with Python < 3.11
         now_ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
 
-        msg = (
-            f"AUDIT_SIGNAL | {now_ts} | {pair} | {side} | {reason} | {ts_utc} | {indicators_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {now_ts} | {pair} | {side} | {reason} | {ts_utc} | {indicators_str}"
         logger.info(msg)
 
     def assert_pair_in_whitelist(self, pair: str, whitelist: list[str] | None = None) -> bool:
@@ -51,9 +49,7 @@ class AuditedStrategyMixin:
             whitelist = self.config.get("exchange", {}).get("pair_whitelist", [])
 
         if whitelist and pair not in whitelist:
-            logger.warning(
-                f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-            )
+            logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
             return False
         return True
 

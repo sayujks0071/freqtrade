@@ -110,15 +110,15 @@ def check_logic(node, filepath):  # noqa: C901
                         # Check if mask is a BoolOp (and/or) or BinOp (bitwise & / |)
                         if isinstance(mask, ast.BoolOp):
                             issues.append(
-                                f"Line {child_node.lineno}: Method {method_name} has complex boolean "
-                                "condition (and/or) in .loc. Extract to named variable."
+                                f"Line {child_node.lineno}: Method {method_name} has complex "
+                                "boolean condition (and/or) in .loc. Extract to named variable."
                             )
                         elif isinstance(mask, ast.BinOp) and isinstance(
                             mask.op, (ast.BitAnd, ast.BitOr)
                         ):
                             issues.append(
-                                f"Line {child_node.lineno}: Method {method_name} has complex boolean "
-                                "condition (&/|) in .loc. Extract to named variable."
+                                f"Line {child_node.lineno}: Method {method_name} has complex "
+                                "boolean condition (&/|) in .loc. Extract to named variable."
                             )
 
     return issues
