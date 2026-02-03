@@ -67,15 +67,15 @@ def validate_volume(m, symbol, errors):
             if vol < 0:
                 errors.append(f"Negative volume for {symbol}: {vol}")
         except ValueError:
-            pass # Ignore if not convertible
+            pass  # Ignore if not convertible
 
     # Check limits
     if "limits" in m:
         limits = m.get("limits", {})
         for k, v in limits.items():
             if isinstance(v, dict):
-                 if v.get("min") is not None and v["min"] < 0:
-                     errors.append(f"Negative min limit for {symbol} {k}: {v['min']}")
+                if v.get("min") is not None and v["min"] < 0:
+                    errors.append(f"Negative min limit for {symbol} {k}: {v['min']}")
 
 
 def validate_schema(data):
@@ -159,9 +159,12 @@ def write_report(path, message):
     except Exception as e:
         warn(f"Could not write report: {e}")
 
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: validate_markets_schema.py <current_json> [previous_json] [report_out]")
+        print(
+            "Usage: validate_markets_schema.py <current_json> [previous_json] [report_out]"
+        )
         sys.exit(1)
 
     current_path = sys.argv[1]

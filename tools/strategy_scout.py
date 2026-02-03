@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import sys
-import requests
-import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+import requests
 
 # Strategy Scout: Finds open-source Freqtrade strategies on GitHub
 # Disclaimer: This is a discovery tool. All strategies must be audited.
@@ -11,18 +12,14 @@ from datetime import datetime, timezone
 GITHUB_API_URL = "https://api.github.com/search/repositories"
 QUERY = "freqtrade strategy language:python created:>2023-01-01"
 
+
 def search_strategies():
     print(f"Searching GitHub for: {QUERY}")
 
     # Check for rate limits or auth if provided (not implementing auth for simplicity unless needed)
     # Using public search, limited to 10 requests per minute usually.
 
-    params = {
-        "q": QUERY,
-        "sort": "stars",
-        "order": "desc",
-        "per_page": 20
-    }
+    params = {"q": QUERY, "sort": "stars", "order": "desc", "per_page": 20}
 
     try:
         response = requests.get(GITHUB_API_URL, params=params)
@@ -42,7 +39,7 @@ def search_strategies():
             "stars": item["stargazers_count"],
             "updated_at": item["updated_at"],
             "description": item["description"],
-            "license": item["license"]["name"] if item["license"] else "None"
+            "license": item["license"]["name"] if item["license"] else "None",
         }
 
         # Filter for license
@@ -53,6 +50,7 @@ def search_strategies():
 
     return results
 
+
 def generate_report(strategies):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report = f"# Strategy Scout Report ({now})\n\n"
@@ -62,16 +60,20 @@ def generate_report(strategies):
     report += "|---|---|---|---|---|\n"
 
     for s in strategies:
-        desc = (s['description'] or "").replace("|", "-")[:100]
-        report += f"| [{s['full_name']}]({s['url']}) | {s['stars']} | {s['updated_at'][:10]} | {s['license']} | {desc} |\n"
+        desc = (s["description"] or "").replace("|", "-")[:100]
+        report += (
+            f"| [{s['full_name']}]({s['url']}) | {s['stars']} | "
+            f"{s['updated_at'][:10]} | {s['license']} | {desc} |\n"
+        )
 
     filename = f"user_data/reports/strategy_shortlist_{now}.md"
     try:
-        with open(filename, "w") as f:
+        with Path(filename).open("w") as f:
             f.write(report)
         print(f"Report saved to {filename}")
     except Exception as e:
         print(f"Error saving report: {e}")
+
 
 if __name__ == "__main__":
     strategies = search_strategies()

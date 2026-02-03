@@ -49,8 +49,8 @@ def main():
 
     path = sys.argv[1]
     if not os.path.exists(path):
-         print(f"Error: {path} not found")
-         sys.exit(1)
+        print(f"Error: {path} not found")
+        sys.exit(1)
 
     with Path(path).open() as f:
         data = json.load(f)

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 import ast
-import sys
 import os
+import sys
 from pathlib import Path
+
 
 # Strategy Auditor: Checks for safety and code quality in strategies
 
 BANNED_IMPORTS = ["os", "subprocess", "shutil", "requests", "urllib", "socket"]
 BANNED_CALLS = ["eval", "exec", "input"]
-REQUIRED_BASE = "IStrategy" # Or AuditedStrategyMixin
+REQUIRED_BASE = "IStrategy"  # Or AuditedStrategyMixin
+
 
 class StrategyVisitor(ast.NodeVisitor):
     def __init__(self, filename):
@@ -19,12 +21,16 @@ class StrategyVisitor(ast.NodeVisitor):
     def visit_Import(self, node):
         for alias in node.names:
             if alias.name in BANNED_IMPORTS:
-                self.errors.append(f"Line {node.lineno}: Banned import '{alias.name}' detected.")
+                self.errors.append(
+                    f"Line {node.lineno}: Banned import '{alias.name}' detected."
+                )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
         if node.module in BANNED_IMPORTS:
-            self.errors.append(f"Line {node.lineno}: Banned import from '{node.module}' detected.")
+            self.errors.append(
+                f"Line {node.lineno}: Banned import from '{node.module}' detected."
+            )
         self.generic_visit(node)
 
     def visit_Call(self, node):
@@ -33,10 +39,17 @@ class StrategyVisitor(ast.NodeVisitor):
                 self.errors.append(f"Line {node.lineno}: Banned call '{node.func.id}' detected.")
         # Check for datetime.now() without UTC
         if isinstance(node.func, ast.Attribute):
-            if node.func.attr == 'now' and isinstance(node.func.value, ast.Name) and node.func.value.id == 'datetime':
+            if (
+                node.func.attr == "now"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "datetime"
+            ):
                 # Heuristic: check if arguments present (timezone)
                 if not node.args and not node.keywords:
-                    self.warnings.append(f"Line {node.lineno}: datetime.now() called without timezone. Use datetime.now(timezone.utc).")
+                    self.warnings.append(
+                        f"Line {node.lineno}: datetime.now() called without timezone. "
+                        f"Use datetime.now(timezone.utc)."
+                    )
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):
@@ -45,9 +58,10 @@ class StrategyVisitor(ast.NodeVisitor):
         # We want to encourage using AuditedStrategyMixin
         self.generic_visit(node)
 
+
 def audit_file(filepath):
     try:
-        with open(filepath, "r") as f:
+        with Path(filepath).open("r") as f:
             tree = ast.parse(f.read(), filename=filepath)
     except Exception as e:
         print(f"Error parsing {filepath}: {e}")
@@ -66,6 +80,7 @@ def audit_file(filepath):
     if visitor.errors:
         return False
     return True
+
 
 def main():
     if len(sys.argv) < 2:
@@ -88,6 +103,7 @@ def main():
     if not success:
         sys.exit(1)
     print("\nAudit passed.")
+
 
 if __name__ == "__main__":
     main()

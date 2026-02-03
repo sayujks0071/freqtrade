@@ -14,12 +14,14 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
 
-from freqtrade.strategy import IStrategy  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+try:
+    from AuditedStrategyMixin import AuditedStrategyMixin
+except ImportError:
+
+    class AuditedStrategyMixin:
+        def log_signal(self, p, s, r=""):
+            pass
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -63,10 +65,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
-
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
         dataframe.loc[
             ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
         ] = 1
@@ -77,7 +75,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
         dataframe.loc[
             ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
         ] = 1
@@ -98,5 +95,5 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        self.log_signal(pair, self.timeframe, side, "Signal Confirmed")
         return True

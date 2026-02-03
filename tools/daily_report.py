@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
+import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import sqlite3
+
 
 # Simple report generator reading directly from sqlite for speed/independence
 # usage: python tools/daily_report.py [db_path]
+
 
 def get_db_path():
     if len(sys.argv) > 1:
         return sys.argv[1]
     return "user_data/tradesv3.sqlite"
+
 
 def generate_report(db_path):
     if not Path(db_path).exists():
@@ -63,7 +66,9 @@ def generate_report(db_path):
     wins = len([t for t in todays_trades if t["profit_ratio"] > 0])
     winrate = (wins / count * 100) if count > 0 else 0.0
     total_profit_abs = sum([t["profit_abs"] for t in todays_trades])
-    avg_profit_ratio = (sum([t["profit_ratio"] for t in todays_trades]) / count) if count > 0 else 0.0
+    avg_profit_ratio = (
+        (sum([t["profit_ratio"] for t in todays_trades]) / count) if count > 0 else 0.0
+    )
 
     # Best/Worst
     sorted_trades = sorted(todays_trades, key=lambda x: x["profit_ratio"], reverse=True)
@@ -90,24 +95,27 @@ Date: {now.strftime("%Y-%m-%d")} (Last 24h)
 """
 
     # Safely get fields (handling potential schema changes/missing fields)
-    for t in todays_trades[:20]: # Show last 20
+    for t in todays_trades[:20]:  # Show last 20
         pair = t["pair"]
         direction = t["trade_direction"] if "trade_direction" in t.keys() else "long"
         p_ratio = t["profit_ratio"]
         p_abs = t["profit_abs"]
         reason = t["exit_reason"]
         time = t["close_date"]
-        report += f"| {pair} | {direction} | {p_ratio:.2%} | {p_abs:.2f} | {reason} | {time} |\n"
+        report += (
+            f"| {pair} | {direction} | {p_ratio:.2%} | {p_abs:.2f} | {reason} | {time} |\n"
+        )
 
     filename = f"user_data/reports/daily_summary_{now.strftime('%Y%m%d')}.md"
     try:
-        with open(filename, "w") as f:
+        with Path(filename).open("w") as f:
             f.write(report)
         print(f"Report generated: {filename}")
     except Exception as e:
         print(f"Error writing report: {e}")
 
     conn.close()
+
 
 if __name__ == "__main__":
     generate_report(get_db_path())
