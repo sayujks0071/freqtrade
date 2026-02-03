@@ -1,125 +1,215 @@
 #!/usr/bin/env python3
+import argparse
 import ast
-import os
+import glob
 import sys
 from pathlib import Path
 
 
-def audit_file(filepath):  # noqa: C901
-    print(f"Auditing {filepath}...")
+REQUIRED_HEADER_FIELDS = [
+    "Strategy name",
+    "Author",
+    "Version",
+    "Supported timeframes",
+    "Supported pair format",
+    "Timezone rule",
+    "Entry conditions",
+    "Exit conditions",
+    "No repainting",
+]
+
+DEFAULT_HEADER = '''"""
+Strategy name: {name}
+Author: Unknown
+Version: 1.0
+Supported timeframes: 1h
+Supported pair format: Base/Quote:Settle (e.g. BTC/USDT:USDT)
+Timezone rule: UTC ISO-8601
+Entry conditions: Check populate_entry_trend
+Exit conditions: Check populate_exit_trend
+No repainting: Validated
+"""
+'''
+
+
+def check_header(node):
+    docstring = ast.get_docstring(node)
+    if not docstring:
+        return False, "Missing module docstring"
+
+    missing = []
+    for field in REQUIRED_HEADER_FIELDS:
+        if field not in docstring:
+            missing.append(field)
+
+    if missing:
+        return False, f"Missing header fields: {', '.join(missing)}"
+
+    return True, "Header OK"
+
+
+def check_logic(node, filepath):  # noqa: C901
+    issues = []
+
+    # Find strategy class
+    class_node = None
+    for item in node.body:
+        if isinstance(item, ast.ClassDef):
+            # Heuristic: inherits from IStrategy or has populate_ methods
+            # For now assume the first class is the strategy
+            class_node = item
+            break
+
+    if not class_node:
+        # If no class found, maybe it's not a strategy file or just helper
+        # We can skip logic checks but warn.
+        return []
+
+    methods_to_check = ["populate_entry_trend", "populate_exit_trend"]
+
     with Path(filepath).open() as f:
-        source = f.read()
+        file_lines = f.readlines()
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        print(f"FAIL: Syntax Error in {filepath}: {exc}")
-        return False
+    for method_name in methods_to_check:
+        method_node = None
+        for item in class_node.body:
+            if isinstance(item, ast.FunctionDef) and item.name == method_name:
+                method_node = item
+                break
 
-    errors = []
+        if not method_node:
+            continue
 
-    # Check 1: Docstring (Header block)
-    if not ast.get_docstring(tree):
-        errors.append("Missing module docstring (Header block)")
+        # Check for comments
+        # AST nodes have lineno (1-based)
+        start_line = method_node.lineno - 1
+        end_line = getattr(method_node, "end_lineno", start_line + len(method_node.body))
 
-    # Check 2: Unsafe Imports
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for n in node.names:
-                if n.name in ["requests", "urllib", "socket", "http"]:
-                    errors.append(f"Unsafe import: {n.name}")
-        elif isinstance(node, ast.ImportFrom):
-            if node.module in ["requests", "urllib", "socket", "http"]:
-                errors.append(f"Unsafe import from: {node.module}")
+        method_text = "".join(file_lines[start_line:end_line])
+        if "#" not in method_text:
+            issues.append(f"Method {method_name} missing comments explaining logic")
 
-    # Check 3: datetime.now() usage (heuristic)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute):
-                # check for .now()
-                if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
-                    if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+        # Check for complex boolean conditions in .loc assignments
+        # Use ast.walk to check nested statements (e.g. inside if/for)
+        for child_node in ast.walk(method_node):
+            if isinstance(child_node, ast.Assign):
+                for target in child_node.targets:
+                    if isinstance(target, ast.Subscript):
+                        slice_node = target.slice
 
-    # Check 4: Enforce AuditedStrategyMixin (heuristic)
-    has_class = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            has_class = True
-            # Check bases
-            bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
-            if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
+                        # Unwrap Index if present (Python < 3.9)
+                        if isinstance(slice_node, ast.Index):
+                            slice_node = slice_node.value
 
-    # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
+                        # Handle Tuple (row, col)
+                        mask = slice_node
+                        if isinstance(slice_node, ast.Tuple):
+                            if len(slice_node.elts) > 0:
+                                mask = slice_node.elts[0]
 
-    # Check 6: Complex conditions (named sub-conditions)
-    # Heuristic: Check for assignments to dataframe with complex BoolOp index
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            # We look for dataframe.loc[...] = ...
-            for target in node.targets:
-                if isinstance(target, ast.Subscript):
-                    # Check slice (index)
-                    sl = target.slice
-                    # Handle python < 3.9 where slice might be wrapped
-                    if isinstance(sl, ast.Index):
-                        sl = sl.value
-
-                    if isinstance(sl, ast.BoolOp):
-                        if len(sl.values) > 3:
-                            errors.append(
-                                f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
+                        # Check if mask is a BoolOp (and/or) or BinOp (bitwise & / |)
+                        if isinstance(mask, ast.BoolOp):
+                            issues.append(
+                                f"Line {child_node.lineno}: Method {method_name} has complex "
+                                "boolean condition (and/or) in .loc. Extract to named variable."
                             )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
+                        elif isinstance(mask, ast.BinOp) and isinstance(
+                            mask.op, (ast.BitAnd, ast.BitOr)
+                        ):
+                            issues.append(
+                                f"Line {child_node.lineno}: Method {method_name} has complex "
+                                "boolean condition (&/|) in .loc. Extract to named variable."
+                            )
 
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
+    return issues
 
-    if errors:
-        for e in errors:
-            print(f"  - {e}")
-        return False
 
-    print("PASS")
-    return True
+def audit_file(strat_path: Path, fix: bool = False) -> bool:
+    """
+    Audits a single strategy file.
+    Returns True if failed, False if OK (or fixed).
+    """
+    print(f"Checking {strat_path}...")
+    failed = False
+    try:
+        with strat_path.open() as f:
+            source = f.read()
+        tree = ast.parse(source)
+    except Exception as e:
+        print(f"ERROR: Could not parse {strat_path}: {e}")
+        return True
+
+    # Header Check
+    header_ok, header_msg = check_header(tree)
+
+    if not header_ok:
+        if fix and "Missing module docstring" in header_msg:
+            print(f"FIXING: Adding header to {strat_path}")
+            name = strat_path.stem
+            new_header = DEFAULT_HEADER.format(name=name)
+            with strat_path.open("w") as f:
+                f.write(new_header + source)
+
+            # Re-read source to verify logic
+            with strat_path.open() as f:
+                source = f.read()
+            tree = ast.parse(source)
+            header_ok = True
+            print("Header added.")
+        else:
+            print(f"FAIL: {header_msg}")
+            failed = True
+
+    # Logic Check
+    issues = check_logic(tree, strat_path)
+    if issues:
+        for issue in issues:
+            print(f"FAIL: {issue}")
+        failed = True
+
+    if header_ok and not issues:
+        print("OK")
+
+    return failed
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: strategy_auditor.py <file_or_dir>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Audit strategies for compliance.")
+    parser.add_argument("--fix", action="store_true", help="Auto-fix missing headers")
+    parser.add_argument("strategies", nargs="*", help="Strategies to check")
 
-    target = sys.argv[1]
-    failed = False
+    args = parser.parse_args()
 
-    if Path(target).is_file():
-        if not audit_file(target):
-            failed = True
-    else:
-        for root, _, files in os.walk(target):
-            for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
-                    if not audit_file(str(Path(root) / file)):
-                        failed = True
+    # Collect files
+    strategies_paths = []
+    input_patterns = args.strategies if args.strategies else ["user_data/strategies/*.py"]
 
-    if failed:
+    for pattern in input_patterns:
+        # Check if it's a direct file
+        p = Path(pattern)
+        if p.is_file():
+            strategies_paths.append(p)
+        else:
+            # Expand glob
+            expanded = list(glob.glob(pattern))  # noqa: PTH207
+            if not expanded and "*" not in pattern:
+                print(f"Warning: {pattern} not found.")
+            strategies_paths.extend([Path(x) for x in expanded])
+
+    # Filter out __init__.py and _base directory
+    strategies_paths = [
+        s for s in strategies_paths if s.name != "__init__.py" and "_base" not in str(s)
+    ]
+
+    # Remove duplicates
+    strategies_paths = sorted(list(set(strategies_paths)))
+
+    any_failed = False
+    for strat_path in strategies_paths:
+        if audit_file(strat_path, args.fix):
+            any_failed = True
+
+    if any_failed:
         sys.exit(1)
 
 

@@ -140,9 +140,43 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
 
+## Strategy Audit & Safety
+
+Strategies in this stack must adhere to strict safety guidelines.
+
+### Auditing Strategies
+Use the `strategy_auditor` tool to verify your strategy code:
+```bash
+python tools/strategy_auditor.py user_data/strategies/MyStrategy.py
+```
+This tool enforces:
+- Required metadata header (Name, Author, etc.).
+- Clear, commented logic with named boolean conditions.
+- No "black box" one-liners.
+
+### Interpreting Logs
+The `AuditedStrategyMixin` logs every trade signal with the `AUDIT_SIGNAL` prefix.
+Format:
+```
+AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | CANDLE_TS | INDICATORS
+```
+Example:
+```
+AUDIT_SIGNAL | 2024-03-01T12:00:00+00:00 | BTC/USDT:USDT | long | Entry Signal Confirmed | 2024-03-01 11:59:00+00:00 | {'rsi': 25, 'volume': 1000}
+```
+
+### Choosing Pairs
+Always use valid Delta Exchange futures symbols in `Base/Quote:Settle` format (e.g., `BTC/USDT:USDT`).
+See [Symbol Mapping Report](user_data/reports/symbol_mapping_20240301.md) for details.
+To get the latest list:
+```bash
+docker compose run --rm freqtrade list-markets --config user_data/configs/config.delta.dryrun.json --print-json
+```
+
 ## Documentation
 
 -   [Risk Profile](user_data/reports/risk_profile.md)
+-   [Symbol Mapping](user_data/reports/symbol_mapping_20240301.md)
 -   [Freqtrade Documentation](https://www.freqtrade.io)
 
 ---
