@@ -47,9 +47,7 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(
-                        f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
-                    )
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
         except Exception as e:
@@ -67,9 +65,7 @@ class StrategyScout:
             params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
             try:
                 resp = self.session.get(
-                    f"{GITHUB_API_URL}/search/repositories",
-                    params=params,
-                    timeout=REQUEST_TIMEOUT
+                    f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
                 )
                 if resp.status_code == 200:
                     items = resp.json().get("items", [])
@@ -292,9 +288,7 @@ class StrategyScout:
                     adoption.append("Seems to support futures.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append(
-                    "Verify `stoploss` and `leverage` settings for Delta futures."
-                )
+                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
@@ -308,10 +302,7 @@ class StrategyScout:
                     score = repo.get("scout_score", 0)
                     stars = repo.get("stargazers_count", 0)
                     lic = repo.get("license_name", "Unknown")
-                    line = (
-                        f"| {i} | [{full}]({url}) | "
-                        f"{score} | {stars} | {lic} |\n"
-                    )
+                    line = f"| {i} | [{full}]({url}) | {score} | {stars} | {lic} |\n"
                     f.write(line)
                 f.write("\n")
 
@@ -366,9 +357,7 @@ class StrategyScout:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write(
-                            "Please check the original repository for full license details.\n"
-                        )
+                        f.write("Please check the original repository for full license details.\n")
 
                     count += 1
             except Exception as e:
@@ -377,9 +366,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
