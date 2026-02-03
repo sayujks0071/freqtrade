@@ -66,7 +66,7 @@ def validate_market_structure(i, m, errors):
             break
 
     if not has_type:
-         errors.append(f"Item {i} ({symbol}) missing type indicator")
+        errors.append(f"Item {i} ({symbol}) missing type indicator")
 
     return symbol
 
@@ -78,17 +78,17 @@ def validate_symbol_format(symbol, errors, is_futures=True):
         errors.append(f"Symbol '{symbol}' contains whitespace")
 
     if symbol != symbol.upper():
-         errors.append(f"Symbol '{symbol}' is not uppercase")
+        errors.append(f"Symbol '{symbol}' is not uppercase")
 
     if is_futures:
         if ":" not in symbol:
-             errors.append(f"Symbol '{symbol}' missing settle delimiter (:) for futures")
+            errors.append(f"Symbol '{symbol}' missing settle delimiter (:) for futures")
 
         parts = symbol.split(":")
         if len(parts) != 2:
-             errors.append(f"Symbol '{symbol}' has invalid structure (expected BASE/QUOTE:SETTLE)")
+            errors.append(f"Symbol '{symbol}' has invalid structure (expected BASE/QUOTE:SETTLE)")
         elif "/" not in parts[0]:
-             errors.append(f"Symbol '{symbol}' missing base/quote separator (/)")
+            errors.append(f"Symbol '{symbol}' missing base/quote separator (/)")
 
 
 def validate_numeric(m, symbol, errors):
@@ -113,8 +113,8 @@ def validate_numeric(m, symbol, errors):
     if STRICT_VOLUME:
         vol = m.get("volume")
         if vol is not None and isinstance(vol, (int, float)):
-             if vol < 1000:
-                  errors.append(f"Low volume for {symbol}: {vol} (STRICT_VOLUME=true)")
+            if vol < 1000:
+                errors.append(f"Low volume for {symbol}: {vol} (STRICT_VOLUME=true)")
 
 
 def load_markets(path):
@@ -148,7 +148,7 @@ def load_prev_whitelist(path):
             elif isinstance(pw_data, list):
                 return pw_data, None
             else:
-                 return [], "Previous Whitelist: Invalid format"
+                return [], "Previous Whitelist: Invalid format"
     except Exception as e:
         return [], f"Could not load previous whitelist: {e}"
 
@@ -165,6 +165,25 @@ def check_drift(candidate_whitelist, prev_whitelist):
         removal_ratio = len(removed) / len(prev_set)
 
     return prev_set, curr_set, added, removed, removal_ratio
+
+
+def validate_environment(markets_list, env):
+    # Heuristic check for environment mismatch
+    # Delta India vs Global
+    if not markets_list:
+        return
+
+    # Check a sample market
+    m = markets_list[0]
+    info = m.get("info", {})
+
+    # If we have 'info' which contains raw exchange data, we might spot URLs or IDs
+    # This is highly exchange specific. For Delta, we look for clues if possible.
+    # Often ccxt structure normalizes this away, but 'info' keeps the raw dict.
+
+    # If we can't find specific markers, we warn.
+    # For simulation purposes or generic ccxt dumps, this might be absent.
+    warn("Could not verify exchange environment from metadata (Not implemented for this exchange).")
 
 
 def main():
@@ -188,13 +207,16 @@ def main():
     try:
         markets_list = load_markets(args.markets)
     except ValueError as e:
-        fail(str(e))
+        fail(str(e), args.out_report, "\n".join(report_lines))
+
+    # Environment Sanity Check
+    validate_environment(markets_list, args.env)
 
     if len(markets_list) < MIN_MARKETS:
         fail(
             f"Market count {len(markets_list)} < MIN_MARKETS ({MIN_MARKETS})",
             args.out_report,
-            "\n".join(report_lines)
+            "\n".join(report_lines),
         )
 
     errors = []
@@ -208,7 +230,7 @@ def main():
         validate_symbol_format(symbol, errors, is_futures=True)
 
         if symbol.lower() in symbols_seen:
-             errors.append(f"Duplicate symbol '{symbol}' (case-insensitive)")
+            errors.append(f"Duplicate symbol '{symbol}' (case-insensitive)")
         symbols_seen.add(symbol.lower())
 
         validate_numeric(m, symbol, errors)
@@ -216,7 +238,7 @@ def main():
     if errors:
         error_msg = "Schema errors:\n" + "\n".join(errors[:20])
         if len(errors) > 20:
-             error_msg += f"\n... and {len(errors)-20} more."
+            error_msg += f"\n... and {len(errors) - 20} more."
         fail(error_msg, args.out_report, "\n".join(report_lines))
 
     report_lines.append(f"Total Markets: {len(markets_list)}")
@@ -224,9 +246,7 @@ def main():
 
     # Drift Check
     candidate_whitelist = generate_whitelist.filter_markets(
-        markets_list,
-        filter_mode=FILTER_MODE,
-        allowlist_regex=ALLOWLIST_REGEX
+        markets_list, filter_mode=FILTER_MODE, allowlist_regex=ALLOWLIST_REGEX
     )
 
     report_lines.append(f"Candidate Whitelist Size: {len(candidate_whitelist)}")

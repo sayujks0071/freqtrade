@@ -114,6 +114,7 @@ This repository is configured as a production-ready crypto trading stack for Del
     -   `MAX_REMOVAL_RATIO` (default 0.25): Fails if >25% of whitelist pairs are removed.
     -   `STRICT_VOLUME` (default false): Warn/Fail on low volume.
     -   `FILTER_MODE`: `perps_usdt` (default), `all_futures`, or `allowlist_regex`.
+    -   `ALLOWLIST_REGEX`: Regex pattern to allow specific pairs.
 
 4.  **Run Dry-Run**:
     ```bash
