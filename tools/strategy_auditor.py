@@ -90,9 +90,10 @@ def check_logic(node, filepath):  # noqa: C901
             issues.append(f"Method {method_name} missing comments explaining logic")
 
         # Check for complex boolean conditions in .loc assignments
-        for stmt in method_node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
+        # Use ast.walk to check nested statements (e.g. inside if/for)
+        for child_node in ast.walk(method_node):
+            if isinstance(child_node, ast.Assign):
+                for target in child_node.targets:
                     if isinstance(target, ast.Subscript):
                         slice_node = target.slice
 
@@ -109,18 +110,67 @@ def check_logic(node, filepath):  # noqa: C901
                         # Check if mask is a BoolOp (and/or) or BinOp (bitwise & / |)
                         if isinstance(mask, ast.BoolOp):
                             issues.append(
-                                f"Line {stmt.lineno}: Method {method_name} has complex boolean "
+                                f"Line {child_node.lineno}: Method {method_name} has complex boolean "
                                 "condition (and/or) in .loc. Extract to named variable."
                             )
                         elif isinstance(mask, ast.BinOp) and isinstance(
                             mask.op, (ast.BitAnd, ast.BitOr)
                         ):
                             issues.append(
-                                f"Line {stmt.lineno}: Method {method_name} has complex boolean "
+                                f"Line {child_node.lineno}: Method {method_name} has complex boolean "
                                 "condition (&/|) in .loc. Extract to named variable."
                             )
 
     return issues
+
+
+def audit_file(strat_path: Path, fix: bool = False) -> bool:
+    """
+    Audits a single strategy file.
+    Returns True if failed, False if OK (or fixed).
+    """
+    print(f"Checking {strat_path}...")
+    failed = False
+    try:
+        with strat_path.open() as f:
+            source = f.read()
+        tree = ast.parse(source)
+    except Exception as e:
+        print(f"ERROR: Could not parse {strat_path}: {e}")
+        return True
+
+    # Header Check
+    header_ok, header_msg = check_header(tree)
+
+    if not header_ok:
+        if fix and "Missing module docstring" in header_msg:
+            print(f"FIXING: Adding header to {strat_path}")
+            name = strat_path.stem
+            new_header = DEFAULT_HEADER.format(name=name)
+            with strat_path.open("w") as f:
+                f.write(new_header + source)
+
+            # Re-read source to verify logic
+            with strat_path.open() as f:
+                source = f.read()
+            tree = ast.parse(source)
+            header_ok = True
+            print("Header added.")
+        else:
+            print(f"FAIL: {header_msg}")
+            failed = True
+
+    # Logic Check
+    issues = check_logic(tree, strat_path)
+    if issues:
+        for issue in issues:
+            print(f"FAIL: {issue}")
+        failed = True
+
+    if header_ok and not issues:
+        print("OK")
+
+    return failed
 
 
 def main():
@@ -154,54 +204,12 @@ def main():
     # Remove duplicates
     strategies_paths = sorted(list(set(strategies_paths)))
 
-    failed = False
-
+    any_failed = False
     for strat_path in strategies_paths:
-        print(f"Checking {strat_path}...")
+        if audit_file(strat_path, args.fix):
+            any_failed = True
 
-        try:
-            with strat_path.open() as f:
-                source = f.read()
-            tree = ast.parse(source)
-        except Exception as e:
-            print(f"ERROR: Could not parse {strat_path}: {e}")
-            failed = True
-            continue
-
-        # Header Check
-        header_ok, header_msg = check_header(tree)
-
-        if not header_ok:
-            if args.fix and "Missing module docstring" in header_msg:
-                print(f"FIXING: Adding header to {strat_path}")
-                name = strat_path.stem
-                new_header = DEFAULT_HEADER.format(name=name)
-                with strat_path.open("w") as f:
-                    f.write(new_header + source)
-
-                # Re-read source to verify logic
-                with strat_path.open() as f:
-                    source = f.read()
-                tree = ast.parse(source)
-                header_ok = True
-                print("Header added.")
-            else:
-                print(f"FAIL: {header_msg}")
-                # Use --fix to add empty one if missing?
-                # If fields missing, we can't auto-fix easily without parsing docstring content.
-                failed = True
-
-        # Logic Check
-        issues = check_logic(tree, strat_path)
-        if issues:
-            for issue in issues:
-                print(f"FAIL: {issue}")
-            failed = True
-
-        if header_ok and not issues:
-            print("OK")
-
-    if failed:
+    if any_failed:
         sys.exit(1)
 
 
