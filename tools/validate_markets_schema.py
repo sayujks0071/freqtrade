@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 # Try to import generate_whitelist from the same directory
 try:
     import generate_whitelist
@@ -93,11 +94,13 @@ def validate_symbol_format(symbol, errors, is_futures=True):
 def validate_numeric(m, symbol, errors):
     # Requirement D
     def check_val(val, name):
-        if val is None: return
-        if not isinstance(val, (int, float)): return
+        if val is None:
+            return
+        if not isinstance(val, (int, float)):
+            return
         if val < 0:
             errors.append(f"{symbol}: Negative {name} ({val})")
-        if val != val: # NaN
+        if val != val:  # NaN
             errors.append(f"{symbol}: NaN {name}")
 
     if "limits" in m and isinstance(m["limits"], dict):
@@ -176,10 +179,10 @@ def main():
     print(f"Validating {args.markets} for env {args.env}...")
 
     report_lines = [
-        f"# Markets Schema Validation Report",
-        f"Date: {datetime.now(timezone.utc).isoformat()}",
+        "# Markets Schema Validation Report",
+        f"Date: {datetime.now(timezone.utc).isoformat()}",  # noqa: UP017
         f"Environment: {args.env}",
-        f"File: {args.markets}"
+        f"File: {args.markets}",
     ]
 
     try:
@@ -188,14 +191,19 @@ def main():
         fail(str(e))
 
     if len(markets_list) < MIN_MARKETS:
-        fail(f"Market count {len(markets_list)} < MIN_MARKETS ({MIN_MARKETS})", args.out_report, "\n".join(report_lines))
+        fail(
+            f"Market count {len(markets_list)} < MIN_MARKETS ({MIN_MARKETS})",
+            args.out_report,
+            "\n".join(report_lines)
+        )
 
     errors = []
     symbols_seen = set()
 
     for i, m in enumerate(markets_list):
         symbol = validate_market_structure(i, m, errors)
-        if not symbol: continue
+        if not symbol:
+            continue
 
         validate_symbol_format(symbol, errors, is_futures=True)
 
@@ -207,7 +215,8 @@ def main():
 
     if errors:
         error_msg = "Schema errors:\n" + "\n".join(errors[:20])
-        if len(errors) > 20: error_msg += f"\n... and {len(errors)-20} more."
+        if len(errors) > 20:
+             error_msg += f"\n... and {len(errors)-20} more."
         fail(error_msg, args.out_report, "\n".join(report_lines))
 
     report_lines.append(f"Total Markets: {len(markets_list)}")
@@ -225,12 +234,14 @@ def main():
     prev_whitelist, load_err = load_prev_whitelist(args.prev_whitelist)
     if load_err:
         report_lines.append(load_err)
-    if prev_whitelist is None: # File didn't exist
+    if prev_whitelist is None:  # File didn't exist
         prev_whitelist = []
 
-    prev_set, curr_set, added, removed, removal_ratio = check_drift(candidate_whitelist, prev_whitelist)
+    prev_set, curr_set, added, removed, removal_ratio = check_drift(
+        candidate_whitelist, prev_whitelist
+    )
 
-    report_lines.append(f"Drift Stats:")
+    report_lines.append("Drift Stats:")
     report_lines.append(f"- Previous Count: {len(prev_set)}")
     report_lines.append(f"- Current Count: {len(curr_set)}")
     report_lines.append(f"- Added: {len(added)}")
@@ -238,7 +249,10 @@ def main():
     report_lines.append(f"- Removal Ratio: {removal_ratio:.2f}")
 
     if removal_ratio > MAX_REMOVAL_RATIO:
-        fail_msg = f"Large delist drift — manual review required. Removal ratio {removal_ratio:.2f} > {MAX_REMOVAL_RATIO}"
+        fail_msg = (
+            f"Large delist drift — manual review required. "
+            f"Removal ratio {removal_ratio:.2f} > {MAX_REMOVAL_RATIO}"
+        )
         fail(fail_msg, args.out_report, "\n".join(report_lines))
 
     report_lines.append("Status: PASS")
