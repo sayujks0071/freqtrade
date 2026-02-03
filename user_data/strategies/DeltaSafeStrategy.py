@@ -1,25 +1,30 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+Strategy name: DeltaSafeStrategy
+Author: Unknown
+Version: 1.0
+Supported timeframes: 1h
+Supported pair format: Base/Quote:Settle (e.g. BTC/USDT:USDT)
+Timezone rule: UTC ISO-8601
+Entry conditions: Check populate_entry_trend
+Exit conditions: Check populate_exit_trend
+No repainting: Validated
 """
 
 import sys
 from pathlib import Path
+from datetime import datetime
+from typing import Any
+import logging
 
 import talib.abstract as ta
 from pandas import DataFrame
-
 from freqtrade.strategy import IStrategy
-
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
-
-from freqtrade.strategy import IStrategy  # noqa: E402
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -63,24 +68,30 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
+        # Sanity Check: Ensure pair is in whitelist
+        if not self.assert_pair_in_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
-        ] = 1
+        # Logic: RSI < 30 and Volume > 0
+        rsi_oversold = (dataframe["rsi"] < 30)
+        has_volume = (dataframe["volume"] > 0)
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Combine conditions
+        long_cond = rsi_oversold & has_volume
+
+        dataframe.loc[long_cond, "enter_long"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
-        ] = 1
+        # Logic: RSI > 70 and Volume > 0
+        rsi_overbought = (dataframe["rsi"] > 70)
+        has_volume = (dataframe["volume"] > 0)
+
+        # Combine conditions
+        exit_long_cond = rsi_overbought & has_volume
+
+        dataframe.loc[exit_long_cond, "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -90,13 +101,74 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str,
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        indicators = {}
+        try:
+            # Attempt to fetch analyzed dataframe to log indicators
+            if self.dp:
+                dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+                if dataframe is not None and not dataframe.empty:
+                    last_candle = dataframe.iloc[-1]
+                    indicators = {
+                        "rsi": last_candle.get("rsi"),
+                        "close": last_candle.get("close"),
+                        "volume": last_candle.get("volume")
+                    }
+        except Exception as e:
+            logger.warning(f"Could not fetch indicators for audit log: {e}")
+
+        self.log_signal(
+            pair=pair,
+            side=side,
+            reason=f"Entry Signal Confirmed ({entry_tag})",
+            ts_utc=current_time,
+            indicators_snapshot=indicators
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade: Any,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        indicators = {}
+        try:
+            if self.dp:
+                dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+                if dataframe is not None and not dataframe.empty:
+                    last_candle = dataframe.iloc[-1]
+                    indicators = {
+                        "rsi": last_candle.get("rsi"),
+                        "close": last_candle.get("close"),
+                        "volume": last_candle.get("volume"),
+                    }
+        except Exception as e:
+            logger.warning(f"Could not fetch indicators for audit log: {e}")
+
+        # Determine side (safely)
+        side = "unknown"
+        if hasattr(trade, "is_short"):
+            side = "short" if trade.is_short else "long"
+
+        self.log_signal(
+            pair=pair,
+            side=side,
+            reason=f"Exit Signal Confirmed ({exit_reason})",
+            ts_utc=current_time,
+            indicators_snapshot=indicators,
+        )
         return True

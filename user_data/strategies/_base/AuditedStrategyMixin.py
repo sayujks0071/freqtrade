@@ -4,8 +4,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 
 logger = logging.getLogger(__name__)
@@ -20,40 +20,45 @@ class AuditedStrategyMixin:
     config: dict[str, Any]
 
     def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators_snapshot: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
+        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | CANDLE_TS | INDICATORS
+        indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
+
+        # Use datetime.now(timezone.utc) for compatibility with Python < 3.11
+        now_ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
+            f"AUDIT_SIGNAL | {now_ts} | {pair} | "
+            f"{side} | {reason} | {ts_utc} | {indicators_str}"
         )
         logger.info(msg)
 
-    def check_whitelist(self, pair: str) -> bool:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: Optional[list[str]] = None) -> bool:
         """
         Assert pair is in current whitelist.
         """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
-                return False
+        if whitelist is None:
+            whitelist = self.config.get("exchange", {}).get("pair_whitelist", [])
+
+        if whitelist and pair not in whitelist:
+            logger.warning(
+                f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
+            )
+            return False
         return True
 
     def normalize_pair(self, pair: str) -> str:
         """
         Normalize pair to uppercase.
         """
+        # Basic normalization: uppercase
         return pair.upper()
