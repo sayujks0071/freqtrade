@@ -1,36 +1,51 @@
 # Risk Profile & Guardrails
 
-## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+This document outlines the risk configuration for the Delta Exchange Freqtrade bot.
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+## Hard Constraints
+These limits are enforced by the configuration and custom protections.
 
-## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
+### 1. Daily Loss Limit
+- **Mechanism:** `DailyLossLimit` Protection (Custom Plugin).
+- **Trigger:** If Realized Daily PnL < `limit` (default -5%).
+- **Action:** Stops entering new trades for the rest of the day.
+- **Config:** `user_data/protections/daily_loss_limit.py`.
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+### 2. Position Limits
+- **Max Open Trades:** 3 (Configurable in `config.json`).
+- **Stake Amount:** Fixed amount (e.g., 100 USDT) or dynamic ratio.
+- **Leverage:** Defaults to low leverage (e.g., 1x-3x).
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+### 3. Market Safety (Schema Gatekeeper)
+- **Whitelist Updates:** Blocked if drift > 25% or schema validation fails.
+- **Volume Filter:** `STRICT_VOLUME=true` (env) can enforce min volume.
+- **Symbol Check:** Must be valid futures format (`BASE/QUOTE:SETTLE`).
+
+### 4. Execution Safety
+- **Order Types:** Limit orders for Entry/Exit to avoid slippage.
+- **Timeouts:** Unfilled limit orders are cancelled or converted to market after timeout.
+- **Dry Run:** Default mode to prevent accidental real trading.
 
 ## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+To adjust risk parameters, edit `user_data/configs/config.delta.live.json`:
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+```json
+"max_open_trades": 5,
+"stake_amount": "unlimited",
+"tradable_balance_ratio": 0.99,
+```
+
+To adjust protections:
+```json
+"protections": [
+    {
+        "method": "DailyLossLimit",
+        "limit": -0.05,
+        "stop_duration_candles": 200
+    },
+    {
+        "method": "CooldownPeriod",
+        "stop_duration_candles": 2
+    }
+]
+```

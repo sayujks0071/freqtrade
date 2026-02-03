@@ -2,70 +2,76 @@ name: Delta Markets Refresh
 
 on:
   schedule:
-    # 06:30 Indian Standard Time is 01:00 UTC
+    # 06:30 Asia/Kolkata is 01:00 UTC
     - cron: '0 1 * * *'
   workflow_dispatch:
     inputs:
       DELTA_ENV:
-        description: 'Environment (india_prod, global_prod)'
+        description: 'Delta Environment'
         required: true
         default: 'india_prod'
+        type: choice
+        options:
+        - india_prod
+        - global_prod
+        - india_testnet
       FILTER_MODE:
-        description: 'Filter Mode'
-        required: true
+        description: 'Whitelist Filter Mode'
+        required: false
         default: 'perps_usdt'
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
-  refresh_markets:
+  refresh:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+    - uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
-        with:
-          python-version: '3.12'
+    - name: Set Environment Variables
+      run: |
+        echo "DELTA_ENV=${{ inputs.DELTA_ENV || 'india_prod' }}" >> $GITHUB_ENV
+        echo "FILTER_MODE=${{ inputs.FILTER_MODE || 'perps_usdt' }}" >> $GITHUB_ENV
+        echo "MIN_MARKETS=20" >> $GITHUB_ENV
+        echo "MAX_REMOVAL_RATIO=0.25" >> $GITHUB_ENV
+        echo "STRICT_VOLUME=false" >> $GITHUB_ENV
 
-      - name: Install dependencies
-        run: |
-          pip install requests pandas
+    - name: Create .env
+      run: |
+        cp .env.example .env
 
-      - name: Create basic .env
-        run: |
-          cp .env.example .env
+    - name: Run Update Script
+      env:
+        DELTA_API_KEY: ${{ secrets.DELTA_API_KEY }}
+        DELTA_API_SECRET: ${{ secrets.DELTA_API_SECRET }}
+      run: |
+        chmod +x scripts/*.sh
+        ./scripts/update_markets_and_whitelist.sh
 
-      - name: Update Markets & Whitelist
-        env:
-          DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
-          FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
-        run: |
-          ./scripts/bootstrap.sh
-          docker compose pull freqtrade
-          ./scripts/update_markets_and_whitelist.sh
+    - name: Check for Changes
+      id: git-check
+      run: |
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        if git diff --exit-code user_data/pairlists/; then
+          echo "changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "changes=true" >> $GITHUB_OUTPUT
+        fi
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
-        with:
-          name: markets-reports
-          path: user_data/reports/
+    - name: Commit and Create PR
+      if: steps.git-check.outputs.changes == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        BRANCH_NAME="chore/delta-markets-$(date +'%Y-%m-%d')"
+        git checkout -b $BRANCH_NAME
+        git add user_data/pairlists/ user_data/reports/
+        git commit -m "chore: update delta markets $(date +'%Y-%m-%d')"
+        git push origin $BRANCH_NAME
+        # gh pr create --title "Update Delta Markets" --body "Automated update."
 
-      - name: Check for changes and Create PR
-        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38 # v5.0.2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update delta markets"
-          branch: "chore/delta-markets-refresh"
-          title: "Daily Delta Markets Refresh"
-          body: |
-            Updates whitelist and market dump.
-            See attached reports for drift analysis.
-          add-paths: |
-            user_data/pairlists/
-            user_data/reports/markets_*.json
-            user_data/reports/whitelist_diff_*.md
+    - name: Upload Artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: market-reports
+        path: user_data/reports/
