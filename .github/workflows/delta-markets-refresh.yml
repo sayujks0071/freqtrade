@@ -50,12 +50,14 @@ jobs:
           ./scripts/update_markets_and_whitelist.sh
 
       - name: Upload Artifacts
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
         with:
           name: markets-reports
           path: user_data/reports/
 
       - name: Check for changes and Create PR
+        if: success()
         uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38 # v5.0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
