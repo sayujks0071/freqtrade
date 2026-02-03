@@ -231,7 +231,7 @@ Examples:
         default=None,
         help=(
             "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "(default: 'main')"
         )
     )
     parser.add_argument(
@@ -386,20 +386,20 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+                print(f"  Branch: main")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
             # Determine target branch
             if args.branch:
                 target_branch = args.branch
             else:
-                target_branch = f"optimize-{datetime.now().strftime('%Y%m%d')}"
+                target_branch = "main"
 
             current_branch = get_current_branch()
 
             # Create and switch to feature branch if not already on it
             if current_branch != target_branch:
-                print(f"\nCreating feature branch: {target_branch}")
+                print(f"\nSwitching to target branch: {target_branch}")
                 # Check if branch already exists
                 check_result = subprocess.run(
                     ["git", "rev-parse", "--verify", target_branch],
@@ -416,7 +416,7 @@ Examples:
                     result = run_command(["git", "checkout", "-b", target_branch], capture=True)
 
                 if result.returncode != 0:
-                    print("Failed to create or switch to feature branch.")
+                    print("Failed to create or switch to target branch.")
                     if result.stderr:
                         print(f"Git error: {result.stderr}")
                     print("Reverting changes...")
