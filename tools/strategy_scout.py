@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import base64
 import json
+import logging
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
 
 # Strategy Scout: Finds open-source Freqtrade strategies on GitHub
 # Disclaimer: This is a discovery tool. All strategies must be audited.
@@ -12,12 +14,22 @@ from pathlib import Path
 GITHUB_API_URL = "https://api.github.com/search/repositories"
 QUERY = "freqtrade strategy language:python created:>2023-01-01"
 
+logger = logging.getLogger(__name__)
+
 
 def get_json(url):
+    # Validate scheme to satisfy S310
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        logger.error(f"Invalid URL scheme: {url}")
+        return None
+
     try:
-        req = urllib.request.Request(url)
+        # S310: Audit URL open for permitted schemes.
+        # We validated scheme above.
+        req = urllib.request.Request(url)  # noqa: S310
         req.add_header("User-Agent", "Freqtrade-Scout")
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:  # noqa: S310
             return json.loads(response.read().decode("utf-8"))
     except Exception as e:
         print(f"Error fetching {url}: {e}")
@@ -44,7 +56,9 @@ def check_repo_safety(repo_full_name):
             if "futures" in content_lower:
                 score += 1
             return score
-        except Exception:
+        except Exception as e:
+            # Ignore decoding errors or other processing issues
+            logger.debug(f"Error parsing readme for {repo_full_name}: {e}")
             pass
     return 0
 

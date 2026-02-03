@@ -20,7 +20,8 @@ try:
     from AuditedStrategyMixin import AuditedStrategyMixin
 except ImportError:
     if TYPE_CHECKING:
-        # Just for mypy to know the name exists if import failed (which shouldn't happen in runtime with sys.path hack)
+        # Just for mypy to know the name exists if import failed
+        # (which shouldn't happen in runtime with sys.path hack)
         class AuditedStrategyMixin:  # type: ignore
             def log_signal(self, p, s, r=""):
                 pass

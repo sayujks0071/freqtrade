@@ -75,6 +75,21 @@ def generate_report(db_path):  # noqa: C901
     best = sorted_trades[0] if sorted_trades else None
     worst = sorted_trades[-1] if sorted_trades else None
 
+    # Format helpers
+    best_str = "N/A"
+    if best:
+        best_str = (
+            f"{best['pair']} "
+            f"({best['profit_ratio']:.2%} / {best['profit_abs']:.2f})"
+        )
+
+    worst_str = "N/A"
+    if worst:
+        worst_str = (
+            f"{worst['pair']} "
+            f"({worst['profit_ratio']:.2%} / {worst['profit_abs']:.2f})"
+        )
+
     # Markdown output
     report = f"""# Daily Trading Report
 Date: {now.strftime("%Y-%m-%d")} (Last 24h)
@@ -86,8 +101,8 @@ Date: {now.strftime("%Y-%m-%d")} (Last 24h)
 - **Avg Return:** {avg_profit_ratio:.2%}
 
 ## Top Performers
-- **Best:** {best["pair"] if best else "N/A"} ({best["profit_ratio"]:.2%} / {best["profit_abs"]:.2f})
-- **Worst:** {worst["pair"] if worst else "N/A"} ({worst["profit_ratio"]:.2%} / {worst["profit_abs"]:.2f})
+- **Best:** {best_str}
+- **Worst:** {worst_str}
 
 ## Recent Trades
 | Pair | Side | Profit % | Profit Abs | Exit Reason | Time |
