@@ -13,8 +13,8 @@ from freqtrade.strategy import IStrategy
 
 
 # Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+sys.path.append(str(Path(__file__).parent / "_base"))
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -55,21 +55,15 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     @property
     def protections(self):
         return [
-            {
-                "method": "CooldownPeriod",
-                "stop_duration_candles": 5
-            },
+            {"method": "CooldownPeriod", "stop_duration_candles": 5},
             {
                 "method": "MaxDrawdown",
                 "lookback_period_candles": 48,
                 "trade_limit": 20,
                 "stop_duration_candles": 12,
-                "max_allowed_drawdown": 0.2
+                "max_allowed_drawdown": 0.2,
             },
-            {
-                "method": "DailyLossLimit",
-                "max_daily_loss": 0.05
-            }
+            {"method": "DailyLossLimit", "max_daily_loss": 0.05},
         ]
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

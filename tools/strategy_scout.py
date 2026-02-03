@@ -169,7 +169,7 @@ class StrategyScout:
             repo["age_days"] = 9999
         return score
 
-    def deep_inspect(self, limit=15):  # noqa: C901
+    def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -230,8 +230,8 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"DEBUG: Error checking path {path}: {e}")
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):
