@@ -40,9 +40,7 @@ class AuditedStrategyMixin:
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
             if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
+                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
                 return False
         return True
 
