@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -300,7 +294,9 @@ def run_hyperopt_execution(worst_strategy):
     return strategy_json, backup_json, created_new
 
 
-def evaluate_results(worst_strategy, strategy_json, backup_json, created_new, current_sharpe, current_drawdown):
+def evaluate_results(
+    worst_strategy, strategy_json, backup_json, created_new, current_sharpe, current_drawdown
+):
     """Run verification backtest and evaluate improvement."""
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy)
@@ -347,10 +343,11 @@ def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_
     msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
     if args.dry_run:
+        default_branch = f"optimize-{datetime.now().strftime('%Y%m%d')}"
         print("\n[DRY-RUN MODE] Would have committed and pushed:")
         print(f"  File: {strategy_json}")
         print(f"  Message: {msg}")
-        print(f"  Branch: {args.branch or f'optimize-{datetime.now().strftime('%Y%m%d')}'}")
+        print(f"  Branch: {args.branch or default_branch}")
         print("\nNo changes were made. Use without --dry-run to apply changes.")
     else:
         target_branch = args.branch or f"optimize-{datetime.now().strftime('%Y%m%d')}"
@@ -362,7 +359,7 @@ def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_
                 ["git", "rev-parse", "--verify", target_branch],
                 capture_output=True,
                 text=True,
-                check=False
+                check=False,
             )
             if check_result.returncode == 0:
                 print(f"Branch '{target_branch}' already exists, switching to it...")
@@ -426,14 +423,11 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(
-        "--yes", "-y",
-        action="store_true",
-        help="Skip confirmation prompts before pushing"
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
