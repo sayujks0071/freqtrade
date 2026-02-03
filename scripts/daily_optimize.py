@@ -204,7 +204,7 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
-def main():
+def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -239,17 +239,10 @@ Examples:
         action="store_true",
         help="Skip confirmation prompts before pushing"
     )
+    return parser.parse_args()
 
-    args = parser.parse_args()
 
-    # Check git status before starting (unless in dry-run mode)
-    if not args.dry_run:
-        if not check_git_status():
-            print("\nPlease commit or stash your changes before running this script.")
-            print("Or use --dry-run to test without making git changes.")
-            sys.exit(1)
-
-    # 1. Establish Baseline
+def establish_baseline():
     latest_file = get_latest_backtest_file()
 
     backtest_data = None
@@ -275,12 +268,10 @@ Examples:
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+    return worst_strategy, current_sharpe, current_drawdown
 
-    print(f"Selected Strategy: {worst_strategy}")
-    print(f"Current Sharpe: {current_sharpe}")
-    print(f"Current Drawdown: {current_drawdown}")
 
-    # 2. Hyperopt Execution
+def execute_hyperopt(worst_strategy):
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
     backup_json = strategy_json.with_suffix(".json.bak")
     created_new = False
@@ -334,16 +325,132 @@ Examples:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
         # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
             strategy_json.unlink()
         sys.exit(1)
+
+    return strategy_json, backup_json, created_new
+
+
+def push_to_git(args, strategy_json, msg):
+    # Determine target branch
+    if args.branch:
+        target_branch = args.branch
+    else:
+        target_branch = "main"
+
+    current_branch = get_current_branch()
+
+    # Create and switch to feature branch if not already on it
+    if current_branch != target_branch:
+        print(f"\nSwitching to target branch: {target_branch}")
+        # Check if branch already exists
+        check_result = subprocess.run(
+            ["git", "rev-parse", "--verify", target_branch],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if check_result.returncode == 0:
+            # Branch exists, just switch to it
+            print(f"Branch '{target_branch}' already exists, switching to it...")
+            result = run_command(["git", "checkout", target_branch], capture=True)
+        else:
+            # Branch doesn't exist, create it
+            result = run_command(["git", "checkout", "-b", target_branch], capture=True)
+
+        if result.returncode != 0:
+            print("Failed to create or switch to target branch.")
+            if result.stderr:
+                print(f"Git error: {result.stderr}")
+            return False
+
+    # Use -f to force add in case user_data is gitignored
+    run_command(["git", "add", "-f", str(strategy_json)])
+    run_command(["git", "commit", "-m", msg])
+
+    # Confirm before pushing
+    if not args.yes:
+        print(f"\nReady to push changes to branch '{target_branch}'")
+        print("This will:")
+        print("  - Push optimized strategy parameters")
+        print(f"  - Create/update remote branch: {target_branch}")
+        print("\nYou can then create a pull request to review and merge these changes.")
+        response = input("\nProceed with push? [y/N]: ").strip().lower()
+        if response not in ["y", "yes"]:
+            print("Push cancelled. Changes are committed locally.")
+            print(f"You can manually push later with: git push origin {target_branch}")
+            return True  # Committed but not pushed is still a "success" for the script
+
+    print(f"\nPushing to {target_branch}...")
+    result = run_command(["git", "push", "origin", target_branch], capture=True)
+
+    if result.returncode == 0:
+        print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
+        print("\nNext steps:")
+        print(f"  1. Create a pull request from '{target_branch}' to your main branch")
+        print("  2. Review the changes and test the optimized strategy")
+        print("  3. Merge the pull request after verification")
+        return True
+    else:
+        print(f"\nFailed to push to {target_branch}")
+        print("Changes are committed locally. You can manually push later.")
+        return True  # Committed but not pushed
+
+
+def commit_and_push(args, strategy_json, backup_json, created_new, worst_strategy, avg_profit_pct):
+    msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
+
+    if args.dry_run:
+        print("\n[DRY-RUN MODE] Would have committed and pushed:")
+        print(f"  File: {strategy_json}")
+        print(f"  Message: {msg}")
+        if args.branch:
+            print(f"  Branch: {args.branch}")
+        else:
+            print("  Branch: main")
+        print("\nNo changes were made. Use without --dry-run to apply changes.")
+        if backup_json.exists():
+            backup_json.unlink()
+        return
+
+    success = push_to_git(args, strategy_json, msg)
+
+    if not success:
+        print("Reverting changes...")
+        if not created_new:
+            shutil.move(backup_json, strategy_json)
+        else:
+            if strategy_json.exists():
+                strategy_json.unlink()
+        sys.exit(1)
+
+    if backup_json.exists():
+        backup_json.unlink()
+
+
+def main():
+    args = parse_arguments()
+
+    # Check git status before starting (unless in dry-run mode)
+    if not args.dry_run:
+        if not check_git_status():
+            print("\nPlease commit or stash your changes before running this script.")
+            print("Or use --dry-run to test without making git changes.")
+            sys.exit(1)
+
+    # 1. Establish Baseline
+    worst_strategy, current_sharpe, current_drawdown = establish_baseline()
+
+    print(f"Selected Strategy: {worst_strategy}")
+    print(f"Current Sharpe: {current_sharpe}")
+    print(f"Current Drawdown: {current_drawdown}")
+
+    # 2. Hyperopt Execution
+    strategy_json, backup_json, created_new = execute_hyperopt(worst_strategy)
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
@@ -377,91 +484,9 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
-        msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
-
-        if args.dry_run:
-            print("\n[DRY-RUN MODE] Would have committed and pushed:")
-            print(f"  File: {strategy_json}")
-            print(f"  Message: {msg}")
-            if args.branch:
-                print(f"  Branch: {args.branch}")
-            else:
-                print(f"  Branch: main")
-            print("\nNo changes were made. Use without --dry-run to apply changes.")
-        else:
-            # Determine target branch
-            if args.branch:
-                target_branch = args.branch
-            else:
-                target_branch = "main"
-
-            current_branch = get_current_branch()
-
-            # Create and switch to feature branch if not already on it
-            if current_branch != target_branch:
-                print(f"\nSwitching to target branch: {target_branch}")
-                # Check if branch already exists
-                check_result = subprocess.run(
-                    ["git", "rev-parse", "--verify", target_branch],
-                    capture_output=True,
-                    text=True,
-                    check=False
-                )
-                if check_result.returncode == 0:
-                    # Branch exists, just switch to it
-                    print(f"Branch '{target_branch}' already exists, switching to it...")
-                    result = run_command(["git", "checkout", target_branch], capture=True)
-                else:
-                    # Branch doesn't exist, create it
-                    result = run_command(["git", "checkout", "-b", target_branch], capture=True)
-
-                if result.returncode != 0:
-                    print("Failed to create or switch to target branch.")
-                    if result.stderr:
-                        print(f"Git error: {result.stderr}")
-                    print("Reverting changes...")
-                    if not created_new:
-                        shutil.move(backup_json, strategy_json)
-                    else:
-                        if strategy_json.exists():
-                            strategy_json.unlink()
-                    sys.exit(1)
-
-            # Use -f to force add in case user_data is gitignored
-            run_command(["git", "add", "-f", str(strategy_json)])
-            run_command(["git", "commit", "-m", msg])
-
-            # Confirm before pushing
-            if not args.yes:
-                print(f"\nReady to push changes to branch '{target_branch}'")
-                print("This will:")
-                print(f"  - Push optimized strategy parameters for {worst_strategy}")
-                print(f"  - Create/update remote branch: {target_branch}")
-                print("\nYou can then create a pull request to review and merge these changes.")
-                response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ['y', 'yes']:
-                    print("Push cancelled. Changes are committed locally.")
-                    print(f"You can manually push later with: git push origin {target_branch}")
-                    if backup_json.exists():
-                        backup_json.unlink()
-                    return
-
-            print(f"\nPushing to {target_branch}...")
-            result = run_command(["git", "push", "origin", target_branch], capture=True)
-
-            if result.returncode == 0:
-                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
-                print("\nNext steps:")
-                print(f"  1. Create a pull request from '{target_branch}' to your main branch")
-                print("  2. Review the changes and test the optimized strategy")
-                print("  3. Merge the pull request after verification")
-            else:
-                print(f"\nFailed to push to {target_branch}")
-                print("Changes are committed locally. You can manually push later.")
-
-        if backup_json.exists():
-            backup_json.unlink()
-
+        commit_and_push(
+            args, strategy_json, backup_json, created_new, worst_strategy, avg_profit_pct
+        )
     else:
         print("Evaluation FAILED. Reverting changes.")
         if not created_new:
