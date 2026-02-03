@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import ast
 import argparse
-import sys
+import ast
 import glob
+import sys
 from pathlib import Path
+
 
 REQUIRED_HEADER_FIELDS = [
     "Strategy name",
@@ -14,7 +15,7 @@ REQUIRED_HEADER_FIELDS = [
     "Timezone rule",
     "Entry conditions",
     "Exit conditions",
-    "No repainting"
+    "No repainting",
 ]
 
 DEFAULT_HEADER = '''"""
@@ -29,6 +30,7 @@ Exit conditions: Check populate_exit_trend
 No repainting: Validated
 """
 '''
+
 
 def check_header(node):
     docstring = ast.get_docstring(node)
@@ -45,7 +47,8 @@ def check_header(node):
 
     return True, "Header OK"
 
-def check_logic(node, filepath):
+
+def check_logic(node, filepath):  # noqa: C901
     issues = []
 
     # Find strategy class
@@ -62,9 +65,9 @@ def check_logic(node, filepath):
         # We can skip logic checks but warn.
         return []
 
-    methods_to_check = ['populate_entry_trend', 'populate_exit_trend']
+    methods_to_check = ["populate_entry_trend", "populate_exit_trend"]
 
-    with open(filepath, 'r') as f:
+    with Path(filepath).open() as f:
         file_lines = f.readlines()
 
     for method_name in methods_to_check:
@@ -80,7 +83,7 @@ def check_logic(node, filepath):
         # Check for comments
         # AST nodes have lineno (1-based)
         start_line = method_node.lineno - 1
-        end_line = getattr(method_node, 'end_lineno', start_line + len(method_node.body))
+        end_line = getattr(method_node, "end_lineno", start_line + len(method_node.body))
 
         method_text = "".join(file_lines[start_line:end_line])
         if "#" not in method_text:
@@ -105,11 +108,20 @@ def check_logic(node, filepath):
 
                         # Check if mask is a BoolOp (and/or) or BinOp (bitwise & / |)
                         if isinstance(mask, ast.BoolOp):
-                            issues.append(f"Line {stmt.lineno}: Method {method_name} has complex boolean condition (and/or) in .loc. Extract to named variable.")
-                        elif isinstance(mask, ast.BinOp) and isinstance(mask.op, (ast.BitAnd, ast.BitOr)):
-                            issues.append(f"Line {stmt.lineno}: Method {method_name} has complex boolean condition (&/|) in .loc. Extract to named variable.")
+                            issues.append(
+                                f"Line {stmt.lineno}: Method {method_name} has complex boolean "
+                                "condition (and/or) in .loc. Extract to named variable."
+                            )
+                        elif isinstance(mask, ast.BinOp) and isinstance(
+                            mask.op, (ast.BitAnd, ast.BitOr)
+                        ):
+                            issues.append(
+                                f"Line {stmt.lineno}: Method {method_name} has complex boolean "
+                                "condition (&/|) in .loc. Extract to named variable."
+                            )
 
     return issues
+
 
 def main():
     parser = argparse.ArgumentParser(description="Audit strategies for compliance.")
@@ -129,13 +141,15 @@ def main():
             strategies_paths.append(p)
         else:
             # Expand glob
-            expanded = list(glob.glob(pattern))
+            expanded = list(glob.glob(pattern))  # noqa: PTH207
             if not expanded and "*" not in pattern:
-                 print(f"Warning: {pattern} not found.")
+                print(f"Warning: {pattern} not found.")
             strategies_paths.extend([Path(x) for x in expanded])
 
     # Filter out __init__.py and _base directory
-    strategies_paths = [s for s in strategies_paths if s.name != "__init__.py" and "_base" not in str(s)]
+    strategies_paths = [
+        s for s in strategies_paths if s.name != "__init__.py" and "_base" not in str(s)
+    ]
 
     # Remove duplicates
     strategies_paths = sorted(list(set(strategies_paths)))
@@ -146,7 +160,7 @@ def main():
         print(f"Checking {strat_path}...")
 
         try:
-            with open(strat_path, 'r') as f:
+            with strat_path.open() as f:
                 source = f.read()
             tree = ast.parse(source)
         except Exception as e:
@@ -162,11 +176,11 @@ def main():
                 print(f"FIXING: Adding header to {strat_path}")
                 name = strat_path.stem
                 new_header = DEFAULT_HEADER.format(name=name)
-                with open(strat_path, 'w') as f:
+                with strat_path.open("w") as f:
                     f.write(new_header + source)
 
                 # Re-read source to verify logic
-                with open(strat_path, 'r') as f:
+                with strat_path.open() as f:
                     source = f.read()
                 tree = ast.parse(source)
                 header_ok = True
@@ -189,6 +203,7 @@ def main():
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -10,19 +10,22 @@ Exit conditions: Check populate_exit_trend
 No repainting: Validated
 """
 
-import sys
-from pathlib import Path
-from datetime import datetime
-from typing import Any
 import logging
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 import talib.abstract as ta
 from pandas import DataFrame
+
 from freqtrade.strategy import IStrategy
+
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +76,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             return dataframe
 
         # Logic: RSI < 30 and Volume > 0
-        rsi_oversold = (dataframe["rsi"] < 30)
-        has_volume = (dataframe["volume"] > 0)
+        rsi_oversold = dataframe["rsi"] < 30
+        has_volume = dataframe["volume"] > 0
 
         # Combine conditions
         long_cond = rsi_oversold & has_volume
@@ -85,8 +88,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Logic: RSI > 70 and Volume > 0
-        rsi_overbought = (dataframe["rsi"] > 70)
-        has_volume = (dataframe["volume"] > 0)
+        rsi_overbought = dataframe["rsi"] > 70
+        has_volume = dataframe["volume"] > 0
 
         # Combine conditions
         exit_long_cond = rsi_overbought & has_volume
@@ -119,7 +122,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                     indicators = {
                         "rsi": last_candle.get("rsi"),
                         "close": last_candle.get("close"),
-                        "volume": last_candle.get("volume")
+                        "volume": last_candle.get("volume"),
                     }
         except Exception as e:
             logger.warning(f"Could not fetch indicators for audit log: {e}")
@@ -129,7 +132,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason=f"Entry Signal Confirmed ({entry_tag})",
             ts_utc=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True
 

@@ -3,9 +3,11 @@ AuditedStrategyMixin
 Mixin class for strategies to enforce audit logging and safety checks.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +27,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         ts_utc: datetime,
-        indicators_snapshot: Optional[dict[str, Any]] = None,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -37,12 +39,11 @@ class AuditedStrategyMixin:
         now_ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
 
         msg = (
-            f"AUDIT_SIGNAL | {now_ts} | {pair} | "
-            f"{side} | {reason} | {ts_utc} | {indicators_str}"
+            f"AUDIT_SIGNAL | {now_ts} | {pair} | {side} | {reason} | {ts_utc} | {indicators_str}"
         )
         logger.info(msg)
 
-    def assert_pair_in_whitelist(self, pair: str, whitelist: Optional[list[str]] = None) -> bool:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str] | None = None) -> bool:
         """
         Assert pair is in current whitelist.
         """
