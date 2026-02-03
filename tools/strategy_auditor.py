@@ -90,11 +90,11 @@ def main():
     target = sys.argv[1]
     success = True
 
-    if os.path.isdir(target):
+    if Path(target).is_dir():
         for root, dirs, files in os.walk(target):
             for file in files:
                 if file.endswith(".py") and file != "__init__.py":
-                    if not audit_file(os.path.join(root, file)):
+                    if not audit_file(Path(root) / file):
                         success = False
     else:
         if not audit_file(target):

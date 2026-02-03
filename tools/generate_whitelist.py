@@ -47,12 +47,12 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    path = sys.argv[1]
-    if not os.path.exists(path):
+    path = Path(sys.argv[1])
+    if not path.exists():
         print(f"Error: {path} not found")
         sys.exit(1)
 
-    with Path(path).open() as f:
+    with path.open() as f:
         data = json.load(f)
 
     if isinstance(data, dict) and "markets" in data:

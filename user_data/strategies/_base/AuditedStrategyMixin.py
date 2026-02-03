@@ -13,8 +13,7 @@ class AuditedStrategyMixin:
         """
         Logs a signal event in a structured way for audit purposes.
         """
-        # noqa: UP017 - Use timezone.utc for compatibility with older python versions
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()  # noqa: UP017
         # Structured log format: UTC | PAIR | SIGNAL | REASON
         msg = f"AUDIT_LOG | {now} | {pair} | {signal} | {reason}"
         logger.info(msg)

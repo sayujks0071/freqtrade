@@ -197,14 +197,14 @@ Date: {datetime.now(timezone.utc).isoformat()}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
-"""
+"""  # noqa: UP017
 
     if report_path:
         write_report(report_path, report)
         print(f"Report written to {report_path}")
     else:
         # Default fallback
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")  # noqa: UP017
         write_report(f"user_data/reports/markets_schema_report_{ts}.md", report)
 
     print("VALIDATION PASS")

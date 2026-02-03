@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-import sys
-import time
+import base64
+import json
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-
-import requests
 
 # Strategy Scout: Finds open-source Freqtrade strategies on GitHub
 # Disclaimer: This is a discovery tool. All strategies must be audited.
@@ -13,33 +13,68 @@ GITHUB_API_URL = "https://api.github.com/search/repositories"
 QUERY = "freqtrade strategy language:python created:>2023-01-01"
 
 
+def get_json(url):
+    try:
+        req = urllib.request.Request(url)
+        req.add_header("User-Agent", "Freqtrade-Scout")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        print(f"Error fetching {url}: {e}")
+        return None
+
+
+def check_repo_safety(repo_full_name):
+    """
+    Heuristic check of README for risk keywords.
+    """
+    url = f"https://api.github.com/repos/{repo_full_name}/readme"
+    data = get_json(url)
+    if data and "content" in data:
+        try:
+            content = base64.b64decode(data["content"]).decode(
+                "utf-8", errors="ignore"
+            )
+            score = 0
+            content_lower = content.lower()
+            if "stoploss" in content_lower:
+                score += 1
+            if "risk" in content_lower:
+                score += 1
+            if "futures" in content_lower:
+                score += 1
+            return score
+        except Exception:
+            pass
+    return 0
+
+
 def search_strategies():
     print(f"Searching GitHub for: {QUERY}")
 
-    # Check for rate limits or auth if provided (not implementing auth for simplicity unless needed)
-    # Using public search, limited to 10 requests per minute usually.
+    # Manual query construction
+    params = f"?q={urllib.parse.quote(QUERY)}&sort=stars&order=desc&per_page=20"
+    url = GITHUB_API_URL + params
 
-    params = {"q": QUERY, "sort": "stars", "order": "desc", "per_page": 20}
-
-    try:
-        response = requests.get(GITHUB_API_URL, params=params)
-        response.raise_for_status()
-        data = response.json()
-    except Exception as e:
-        print(f"Error searching GitHub: {e}")
-        # Return mock data if API fails (e.g., rate limit) for demonstration
+    data = get_json(url)
+    if not data:
         return []
 
     results = []
     for item in data.get("items", []):
+        repo_name = item["full_name"]
+        print(f"Inspecting {repo_name}...")
+        risk_score = check_repo_safety(repo_name)
+
         repo = {
             "name": item["name"],
-            "full_name": item["full_name"],
+            "full_name": repo_name,
             "url": item["html_url"],
             "stars": item["stargazers_count"],
             "updated_at": item["updated_at"],
             "description": item["description"],
             "license": item["license"]["name"] if item["license"] else "None",
+            "risk_score": risk_score,
         }
 
         # Filter for license
@@ -52,18 +87,19 @@ def search_strategies():
 
 
 def generate_report(strategies):
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
     report = f"# Strategy Scout Report ({now})\n\n"
-    report += "Top open-source Freqtrade strategies found on GitHub (with licenses).\n\n"
+    report += "Top open-source Freqtrade strategies found on GitHub (with licenses).\n"
+    report += "Risk score based on keywords (stoploss, risk, futures) in README.\n\n"
 
-    report += "| Name | Stars | Updated | License | Description |\n"
-    report += "|---|---|---|---|---|\n"
+    report += "| Name | Stars | Updated | License | Risk Score | Description |\n"
+    report += "|---|---|---|---|---|---|\n"
 
     for s in strategies:
         desc = (s["description"] or "").replace("|", "-")[:100]
         report += (
             f"| [{s['full_name']}]({s['url']}) | {s['stars']} | "
-            f"{s['updated_at'][:10]} | {s['license']} | {desc} |\n"
+            f"{s['updated_at'][:10]} | {s['license']} | {s['risk_score']} | {desc} |\n"
         )
 
     filename = f"user_data/reports/strategy_shortlist_{now}.md"

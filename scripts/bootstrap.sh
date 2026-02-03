@@ -23,8 +23,9 @@ fi
 
 # Ensure initial whitelist exists to prevent crash
 if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Creating empty whitelist..."
-    echo '{"exchange": {"pair_whitelist": []}}' > user_data/pairlists/whitelist.delta.json
+    echo "Creating default whitelist..."
+    # Use valid format for Delta Futures (examples)
+    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT", "ETH/USDT:USDT"]}}' > user_data/pairlists/whitelist.delta.json
 fi
 
 echo "Bootstrap complete."

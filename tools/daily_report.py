@@ -15,7 +15,7 @@ def get_db_path():
     return "user_data/tradesv3.sqlite"
 
 
-def generate_report(db_path):
+def generate_report(db_path):  # noqa: C901
     if not Path(db_path).exists():
         print(f"Database not found at {db_path}")
         return
@@ -25,7 +25,7 @@ def generate_report(db_path):
     cursor = conn.cursor()
 
     # Time range: Last 24h
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)  # noqa: UP017
     start_time = now - timedelta(days=1)
 
     try:
@@ -54,7 +54,7 @@ def generate_report(db_path):
             # Simple check if it matches YYYY-MM-DD
             c_date = datetime.fromisoformat(c_date_str)
             if c_date.tzinfo is None:
-                c_date = c_date.replace(tzinfo=timezone.utc)
+                c_date = c_date.replace(tzinfo=timezone.utc)  # noqa: UP017
 
             if c_date >= start_time:
                 todays_trades.append(t)

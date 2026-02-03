@@ -5,6 +5,7 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -18,10 +19,11 @@ sys.path.append(str(Path(__file__).parent / "_base"))
 try:
     from AuditedStrategyMixin import AuditedStrategyMixin
 except ImportError:
-
-    class AuditedStrategyMixin:
-        def log_signal(self, p, s, r=""):
-            pass
+    if TYPE_CHECKING:
+        # Just for mypy to know the name exists if import failed (which shouldn't happen in runtime with sys.path hack)
+        class AuditedStrategyMixin:  # type: ignore
+            def log_signal(self, p, s, r=""):
+                pass
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
