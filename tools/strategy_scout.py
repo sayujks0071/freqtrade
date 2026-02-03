@@ -60,7 +60,8 @@ class StrategyScout:
 
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(
-                        reset, tz=datetime.timezone.utc  # noqa: UP017
+                        reset,
+                        tz=datetime.timezone.utc,  # noqa: UP017
                     )
                     logger.warning(
                         f"Rate limit low ({remaining}). Resets at {reset_time}. "
@@ -88,9 +89,7 @@ class StrategyScout:
             params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
             try:
                 resp = self.session.get(
-                    f"{GITHUB_API_URL}/search/repositories",
-                    params=params,
-                    timeout=TIMEOUT
+                    f"{GITHUB_API_URL}/search/repositories", params=params, timeout=TIMEOUT
                 )
                 if resp.status_code == 200:
                     items = resp.json().get("items", [])
@@ -124,7 +123,7 @@ class StrategyScout:
                 # Try finding links with specific pattern in the main container
                 links = soup.find_all("a", href=True)
                 for link in links:
-                    href = link['href']
+                    href = link["href"]
                     # Check if it looks like /user/repo
                     parts = href.strip("/").split("/")
                     if len(parts) == 2 and not href.startswith("/search") and "login" not in href:
@@ -138,7 +137,7 @@ class StrategyScout:
                                 "stargazers_count": 0,
                                 "description": "Scraped result",
                                 "pushed_at": None,
-                                "license": None
+                                "license": None,
                             }
             else:
                 logger.warning(f"Scraping failed with status {resp.status_code}")
@@ -197,9 +196,7 @@ class StrategyScout:
             age_days = 9999
             if pushed_at:
                 try:
-                    pushed_dt = datetime.datetime.strptime(
-                        pushed_at, "%Y-%m-%dT%H:%M:%SZ"
-                    ).replace(
+                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ").replace(
                         tzinfo=datetime.timezone.utc  # noqa: UP017
                     )
                     age_days = (
@@ -360,9 +357,7 @@ class StrategyScout:
                     adoption.append("Seems to support futures.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append(
-                    "Verify `stoploss` and `leverage` settings for Delta futures."
-                )
+                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n\n")
 
             if rest_candidates:
@@ -435,9 +430,7 @@ class StrategyScout:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write(
-                            "Please check the original repository for full license details.\n"
-                        )
+                        f.write("Please check the original repository for full license details.\n")
                     count += 1
             except Exception as e:
                 logger.error(f"Error vendoring {full_name}: {e}")
@@ -445,9 +438,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
