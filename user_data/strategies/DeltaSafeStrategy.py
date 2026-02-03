@@ -15,11 +15,6 @@ from freqtrade.strategy import IStrategy
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
-
-from freqtrade.strategy import IStrategy  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -57,6 +52,26 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
+    @property
+    def protections(self):
+        return [
+            {
+                "method": "CooldownPeriod",
+                "stop_duration_candles": 5
+            },
+            {
+                "method": "MaxDrawdown",
+                "lookback_period_candles": 48,
+                "trade_limit": 20,
+                "stop_duration_candles": 12,
+                "max_allowed_drawdown": 0.2
+            },
+            {
+                "method": "DailyLossLimit",
+                "max_daily_loss": 0.05
+            }
+        ]
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
@@ -67,9 +82,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             return dataframe
 
         dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
-        ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.
@@ -78,9 +90,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
-        ] = 1
         return dataframe
 
     def confirm_trade_entry(
