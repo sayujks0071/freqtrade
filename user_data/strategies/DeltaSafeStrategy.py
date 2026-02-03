@@ -14,12 +14,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
-
-from freqtrade.strategy import IStrategy  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -44,7 +39,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     ignore_roi_if_entry_signal = False
 
     # Number of candles the strategy requires before producing valid signals
-    startup_candle_count: int = 30
+    startup_candle_count: int = 200
 
     # Optional order type mapping.
     order_types = {
@@ -60,15 +55,21 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        # EMA 200
+        dataframe["ema_200"] = ta.EMA(dataframe, timeperiod=200)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
         dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
+            (
+                (dataframe["rsi"] < 30)
+                & (dataframe["volume"] > 0)
+                & (dataframe["close"] > dataframe["ema_200"])
+            ),
+            "enter_long",
         ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
@@ -78,9 +79,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
-        ] = 1
         return dataframe
 
     def confirm_trade_entry(
