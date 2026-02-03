@@ -59,7 +59,12 @@ async def validate_ws_token(
     api_config: dict[str, Any] = Depends(get_api_config),
 ):
     secret_ws_token = api_config.get("ws_token", None)
-    secret_jwt_key = api_config.get("jwt_secret_key", "super-secret")
+    secret_jwt_key = api_config.get("jwt_secret_key")
+
+    if not isinstance(secret_jwt_key, str):
+        logger.error("jwt_secret_key is missing or invalid")
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
     # Check if ws_token is/in secret_ws_token
     if ws_token and secret_ws_token:
@@ -110,8 +115,14 @@ def http_basic_or_jwt_token(
     token: str = Depends(oauth2_scheme),
     api_config=Depends(get_api_config),
 ):
+    jwt_secret = api_config.get("jwt_secret_key")
     if token:
-        return get_user_from_token(token, api_config.get("jwt_secret_key", "super-secret"))
+        if not isinstance(jwt_secret, str):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Server configuration error",
+            )
+        return get_user_from_token(token, jwt_secret)
     elif form_data and verify_auth(api_config, form_data.username, form_data.password):
         return form_data.username
 
@@ -127,14 +138,21 @@ def token_login(
 ):
     if verify_auth(api_config, form_data.username, form_data.password):
         token_data = {"identity": {"u": form_data.username}}
+        jwt_secret = api_config.get("jwt_secret_key")
+        if not isinstance(jwt_secret, str):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Server configuration error",
+            )
+
         access_token = create_token(
             token_data,
-            api_config.get("jwt_secret_key", "super-secret"),
+            jwt_secret,
             token_type="access",  # noqa: S106
         )
         refresh_token = create_token(
             token_data,
-            api_config.get("jwt_secret_key", "super-secret"),
+            jwt_secret,
             token_type="refresh",  # noqa: S106
         )
         return {
@@ -150,12 +168,18 @@ def token_login(
 
 @router_login.post("/token/refresh", response_model=AccessToken)
 def token_refresh(token: str = Depends(oauth2_scheme), api_config=Depends(get_api_config)):
+    jwt_secret = api_config.get("jwt_secret_key")
+    if not isinstance(jwt_secret, str):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error",
+        )
     # Refresh token
-    u = get_user_from_token(token, api_config.get("jwt_secret_key", "super-secret"), "refresh")
+    u = get_user_from_token(token, jwt_secret, "refresh")
     token_data = {"identity": {"u": u}}
     access_token = create_token(
         token_data,
-        api_config.get("jwt_secret_key", "super-secret"),
+        jwt_secret,
         token_type="access",  # noqa: S106
     )
     return {"access_token": access_token}

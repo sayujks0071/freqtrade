@@ -1,4 +1,5 @@
 import logging
+import secrets
 from ipaddress import ip_address
 from typing import Any
 
@@ -130,6 +131,13 @@ class ApiServer(RPCHandler):
         ApiServer.__initialized = True
 
         api_config = self._config["api_server"]
+
+        if api_config.get("jwt_secret_key", "super-secret") in ("super-secret", "somethingrandom"):
+            api_config["jwt_secret_key"] = secrets.token_hex(32)
+            logger.warning(
+                "Generated random jwt_secret_key. Sessions will not persist on restart. "
+                "Please set jwt_secret_key in config.json to persist sessions."
+            )
 
         self.app = FastAPI(
             title="Freqtrade API",
