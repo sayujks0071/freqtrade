@@ -21,7 +21,10 @@
             "rateLimit": 200
         },
         "pair_whitelist": [],
-        "pair_blacklist": []
+        "pair_blacklist": [
+            "(BNB)/.*",
+            ".*(_PREMIUM|0.7|0.65).*"
+        ]
     },
     "pairlists": [
         {
@@ -37,7 +40,7 @@
         "enabled": true,
         "listen_ip_address": "0.0.0.0",
         "listen_port": 8080,
-        "verbosity": "error",
+        "verbosity": "info",
         "jwt_secret_key": "somethingrandom",
         "CORS_origins": [],
         "username": "freqtrader",
