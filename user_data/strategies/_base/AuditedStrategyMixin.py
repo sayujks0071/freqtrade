@@ -4,8 +4,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class AuditedStrategyMixin:
     """
 
     # Type hint for the config attribute expected from IStrategy
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
     def log_signal(
         self,
@@ -24,7 +24,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         ts_utc: datetime,
-        indicators_snapshot: Dict[str, Any] = None,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -47,7 +47,7 @@ class AuditedStrategyMixin:
         """
         return pair.upper()
 
-    def assert_pair_in_whitelist(self, pair: str, whitelist: List[str]) -> None:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:
         """
         Assert pair is in current whitelist.
         """

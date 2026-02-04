@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+import argparse
 import ast
 import os
-import sys
 import re
-import argparse
+import sys
 from pathlib import Path
+
 
 HEADER_TEMPLATE = """\"\"\"
 Strategy Name: {name}
@@ -30,14 +31,16 @@ No Repainting:
 \"\"\"
 """
 
+
 def get_strategy_class_node(tree):
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             # Check if it inherits from IStrategy (heuristic)
             for base in node.bases:
-                if isinstance(base, ast.Name) and base.id == 'IStrategy':
+                if isinstance(base, ast.Name) and base.id == "IStrategy":
                     return node
     return None
+
 
 def check_header(source, tree, filepath, fix=False):
     docstring = ast.get_docstring(tree)
@@ -50,19 +53,25 @@ def check_header(source, tree, filepath, fix=False):
         long_entry="Fill me",
         long_exit="Fill me",
         short_entry="Fill me",
-        short_exit="Fill me"
+        short_exit="Fill me",
     )
 
     if docstring:
         # Check if it contains required sections
-        required = ["Strategy Name", "Supported Pair Format", "Timezone Rule", "Entry/Exit Definitions", "No Repainting"]
+        required = [
+            "Strategy Name",
+            "Supported Pair Format",
+            "Timezone Rule",
+            "Entry/Exit Definitions",
+            "No Repainting",
+        ]
         missing = [r for r in required if r not in docstring]
         if not missing:
             return True, source
         else:
             print(f"  [Header] Partial header found. Missing: {missing}")
             if fix:
-                print(f"  [Header] Normalizing header (replacing existing).")
+                print("  [Header] Normalizing header (replacing existing).")
                 # Try to replace existing docstring using regex to find it at start of file
                 # Match first triple quoted string (double or single quotes)
                 # We assume it's at the start (ignoring shebang/encoding for simplicity or handle it)
@@ -74,23 +83,30 @@ def check_header(source, tree, filepath, fix=False):
                     end = match.end()
                     return True, prefix + new_header.strip() + "\n" + source[end:]
                 else:
-                    # Could not match easily, maybe it's not a triple quoted string? (ast.get_docstring handles others)
+                    # Could not match easily, maybe it's not a triple quoted string?
+                    # (ast.get_docstring handles others)
                     # Fallback: Prepend
-                    print("  [Header] Could not reliably locate old docstring to replace. Prepending.")
+                    print(
+                        "  [Header] Could not reliably locate old docstring to replace. Prepending."
+                    )
                     return True, new_header + source
             return False, source
     else:
-        print(f"  [Header] Missing header.")
+        print("  [Header] Missing header.")
         if fix:
-            print(f"  [Header] Inserting header template.")
+            print("  [Header] Inserting header template.")
             # Insert at top
             return True, new_header + source
         return False, source
 
+
 def check_logic(tree):
     errors = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name in ['populate_entry_trend', 'populate_exit_trend']:
+        if isinstance(node, ast.FunctionDef) and node.name in [
+            "populate_entry_trend",
+            "populate_exit_trend",
+        ]:
             for subnode in ast.walk(node):
                 if isinstance(subnode, ast.Assign):
                     # Check assignments to dataframe loc
@@ -99,7 +115,10 @@ def check_logic(tree):
                         if isinstance(target, ast.Subscript):
                             # Check if target is dataframe.loc
                             is_loc = False
-                            if isinstance(target.value, ast.Attribute) and target.value.attr == 'loc':
+                            if (
+                                isinstance(target.value, ast.Attribute)
+                                and target.value.attr == "loc"
+                            ):
                                 is_loc = True
 
                             if is_loc:
@@ -118,18 +137,24 @@ def check_logic(tree):
                                 # Check if condition is "complex"
                                 # We enforce named boolean variable.
                                 # So condition should be ast.Name.
-                                # If it is BinOp (A & B) or BoolOp (A and B) or Compare, it is inline.
+                                # If it is BinOp (A & B) or BoolOp (A and B) or Compare,
+                                # it is inline.
                                 if isinstance(condition, (ast.BinOp, ast.BoolOp)):
                                     # Allow very simple ones?
-                                    # Prompt: "named boolean sub-conditions (no giant unreadable one-liners)"
+                                    # Prompt: "named boolean sub-conditions
+                                    # (no giant unreadable one-liners)"
                                     # Let's be strict: Must be Name.
-                                    errors.append(f"Complex inline condition in {node.name} at line {subnode.lineno}. Use named boolean variables.")
+                                    errors.append(
+                                        f"Complex inline condition in {node.name} "
+                                        f"at line {subnode.lineno}. Use named boolean variables."
+                                    )
                                 elif isinstance(condition, ast.Compare):
                                     # Single comparison might be OK? "dataframe['rsi'] < 30"
-                                    # But "named boolean sub-conditions" suggests extracting even that.
-                                    # Let's allow single Compare but warn on BinOp/BoolOp.
+                                    # But "named boolean sub-conditions" suggests extracting
+                                    # even that.
                                     pass
     return errors
+
 
 def check_sanity(tree):
     errors = []
@@ -145,15 +170,19 @@ def check_sanity(tree):
 
         # Naive datetime.now()
         if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute) and node.func.attr == 'now':
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
                 # Check args for timezone
                 if not node.args and not node.keywords:
-                     errors.append(f"Potential naive datetime.now() at line {node.lineno}. Use datetime.now(timezone.utc).")
+                    errors.append(
+                        f"Potential naive datetime.now() at line {node.lineno}. "
+                        "Use datetime.now(timezone.utc)."
+                    )
     return errors
+
 
 def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
-    with Path(filepath).open('r', encoding='utf-8') as f:
+    with Path(filepath).open("r", encoding="utf-8") as f:
         source = f.read()
 
     try:
@@ -165,7 +194,7 @@ def audit_file(filepath, fix=False):
     # Header
     header_ok, new_source = check_header(source, tree, filepath, fix)
     if fix and source != new_source:
-        with Path(filepath).open('w', encoding='utf-8') as f:
+        with Path(filepath).open("w", encoding="utf-8") as f:
             f.write(new_source)
         # Re-parse
         tree = ast.parse(new_source)
@@ -189,10 +218,13 @@ def audit_file(filepath, fix=False):
     print("  [OK] Passed.")
     return True
 
+
 def main():
     parser = argparse.ArgumentParser(description="Strategy Auditor")
     parser.add_argument("path", help="Path to strategy file or directory")
-    parser.add_argument("--fix", action="store_true", help="Auto-fix issues (e.g. insert header)")
+    parser.add_argument(
+        "--fix", action="store_true", help="Auto-fix issues (e.g. insert header)"
+    )
     args = parser.parse_args()
 
     target = Path(args.path)
@@ -220,6 +252,7 @@ def main():
     else:
         print("All strategies passed audit.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

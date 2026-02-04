@@ -22,8 +22,8 @@ No Repainting:
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 import talib.abstract as ta
 from pandas import DataFrame
