@@ -4,41 +4,28 @@ source "$DIR/common.sh"
 
 export FREQTRADE_CONFIG_FILE="config.delta.live.json"
 
-echo "!!! WARNING: STARTING LIVE TRADING !!!"
-echo "Are you sure? (y/N)"
-read -r response
-if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-then
-    echo "Aborted."
+echo "!!! WARNING: STARTING LIVE TRADING ON DELTA ($DELTA_ENV) !!!"
+echo "This involves REAL MONEY."
+echo "Config: $FREQTRADE_CONFIG_FILE"
+
+if [ -t 0 ]; then
+    read -p "Are you ABSOLUTELY sure? (Type 'yes' to confirm): " confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "Aborted."
+        exit 1
+    fi
+else
+    echo "Non-interactive mode detected. Ensure you know what you are doing."
+fi
+
+# Pre-flight check
+if [ ! -f "user_data/pairlists/whitelist.delta.json" ]; then
+    echo "ERROR: Whitelist file not found!"
+    echo "You must run 'scripts/validate_exchange.sh' first."
     exit 1
 fi
 
-echo "Starting Freqtrade in LIVE mode..."
 docker compose up -d
 
-echo "Container started."
+echo "LIVE TRADING STARTED."
 echo "View logs: docker compose logs -f"
-set -e
-
-# Ensure we are in the root
-cd "$(dirname "$0")/.."
-
-# Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Please run update_markets_and_whitelist.sh first or bootstrap."
-    exit 1
-fi
-
-echo "WARNING: Switching to LIVE TRADING config..."
-read -p "Are you sure you want to trade real money? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    exit 1
-fi
-
-cp user_data/configs/config.delta.live.json user_data/config.json
-
-echo "Starting Freqtrade in Docker (LIVE)..."
-docker compose up -d --remove-orphans
-docker compose logs -f

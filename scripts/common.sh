@@ -1,18 +1,15 @@
 #!/bin/bash
 
-# Load .env
+# Load .env if exists
 if [ -f .env ]; then
-    # echo "Loading .env..."
     set -a
     . .env
     set +a
-else
-    echo "No .env file found. Proceeding with environment variables..."
 fi
 
 if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
+    echo "DELTA_ENV is not set. Defaulting to india_testnet."
+    DELTA_ENV="india_testnet"
 fi
 
 # Determine Base URL
@@ -28,12 +25,12 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
         echo "Unknown DELTA_ENV: $DELTA_ENV"
         echo "Supported: india_prod, global_prod, india_testnet"
-        exit 1
+        # Don't exit here to allow sourcing, but warn loudly
+        echo "WARNING: Unknown environment, proceeding with defaults or manual overrides."
         ;;
 esac
 
@@ -42,17 +39,26 @@ if [ -n "$DELTA_BASE_URL" ]; then
     BASE_URL="$DELTA_BASE_URL"
 fi
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
-
 # Export Freqtrade Variables
-export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
-export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
+export FREQTRADE__EXCHANGE__KEY="${DELTA_API_KEY}"
+export FREQTRADE__EXCHANGE__SECRET="${DELTA_API_SECRET}"
 
 # CCXT Config for URLs
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
+# These env vars are picked up by Freqtrade's configuration system
+# if they match the structure FREQTRADE__<SECTION>__<KEY>.
+# However, deep nested dicts in env vars can be tricky.
+# Freqtrade supports flat ENV vars overriding config.
+# FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public
+# This maps to exchange.ccxt_config.urls.api.public
 
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
+if [ -n "$BASE_URL" ]; then
+    export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
+    export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
 fi
+
+if [ -n "$WWW_URL" ]; then
+    export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
+fi
+
+# Log (to stderr to avoid breaking json pipes if sourced)
+echo "Configuration: ENV=$DELTA_ENV | URL=${BASE_URL:-default}" >&2
