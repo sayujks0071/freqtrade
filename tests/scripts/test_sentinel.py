@@ -1,12 +1,15 @@
-import unittest
-from unittest.mock import MagicMock, patch
 import sys
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add scripts directory to path to import sentinel
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / 'scripts'))
+sys.path.append(
+    str(Path(__file__).resolve().parent.parent.parent / "scripts")
+)  # noqa: E402
 
-from sentinel import Sentinel
+from sentinel import Sentinel  # noqa: E402
+
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
@@ -16,17 +19,23 @@ class TestSentinel(unittest.TestCase):
         self.webhook = "http://webhook"
 
         # Patch ccxt and requests
-        self.ccxt_patcher = patch('sentinel.ccxt.gateio')
+        self.ccxt_patcher = patch("sentinel.ccxt.gateio")
         self.mock_ccxt_class = self.ccxt_patcher.start()
         self.mock_exchange = self.mock_ccxt_class.return_value
 
-        self.requests_get_patcher = patch('sentinel.requests.get')
+        self.requests_get_patcher = patch("sentinel.requests.get")
         self.mock_get = self.requests_get_patcher.start()
 
-        self.requests_post_patcher = patch('sentinel.requests.post')
+        self.requests_post_patcher = patch("sentinel.requests.post")
         self.mock_post = self.requests_post_patcher.start()
 
-        self.sentinel = Sentinel(self.rpc_url, self.rpc_user, self.rpc_pass, self.webhook, check_interval=1)
+        self.sentinel = Sentinel(
+            self.rpc_url,
+            self.rpc_user,
+            self.rpc_pass,
+            self.webhook,
+            check_interval=1,
+        )
 
     def tearDown(self):
         self.ccxt_patcher.stop()
@@ -83,7 +92,9 @@ class TestSentinel(unittest.TestCase):
             f"{self.rpc_url}/stop", auth=(self.rpc_user, self.rpc_pass), timeout=10
         )
         self.mock_post.assert_any_call(
-            f"{self.rpc_url}/forceexit", auth=(self.rpc_user, self.rpc_pass), timeout=10
+            f"{self.rpc_url}/forceexit",
+            auth=(self.rpc_user, self.rpc_pass),
+            timeout=10,
         )
 
         # Verify Webhook
@@ -97,30 +108,31 @@ class TestSentinel(unittest.TestCase):
         # Iteration 2: Balance 900, Price 50000 -> Trigger Drawdown
 
         self.mock_get.side_effect = [
-            MagicMock(status_code=200, json=lambda: {'total': 1000}),
-            MagicMock(status_code=200, json=lambda: {'total': 900}),
+            MagicMock(status_code=200, json=lambda: {"total": 1000}),
+            MagicMock(status_code=200, json=lambda: {"total": 900}),
         ]
 
         self.mock_exchange.fetch_ticker.side_effect = [
-            {'last': 50000},
-            {'last': 50000},
+            {"last": 50000},
+            {"last": 50000},
         ]
 
         # We need to run sentinel.run(), but break the loop when tripped.
         # run() loops while not tripped.
 
-        # To avoid infinite loop in case of failure, run in a separate thread or just trust the logic.
+        # To avoid infinite loop in case of failure, run in a separate thread
+        # or just trust the logic.
         # Since tripped is checked in loop, it should exit after 2nd iteration.
 
         # We need to ensure sleep doesn't actually sleep long
-        with patch('time.sleep', return_value=None):
+        with patch("time.sleep", return_value=None):
             self.sentinel.run()
 
         self.assertTrue(self.sentinel.tripped)
         self.mock_post.assert_any_call(
             self.webhook,
             json={"content": "CRITICAL ALERT: Drawdown > 5% (-10.00%)"},
-            timeout=10
+            timeout=10,
         )
 
     def test_run_loop_crash(self):
@@ -129,24 +141,25 @@ class TestSentinel(unittest.TestCase):
         # Iteration 2: Balance 1000, Price 40000 -> Trigger Crash
 
         self.mock_get.side_effect = [
-            MagicMock(status_code=200, json=lambda: {'total': 1000}),
-            MagicMock(status_code=200, json=lambda: {'total': 1000}),
+            MagicMock(status_code=200, json=lambda: {"total": 1000}),
+            MagicMock(status_code=200, json=lambda: {"total": 1000}),
         ]
 
         self.mock_exchange.fetch_ticker.side_effect = [
-            {'last': 50000},
-            {'last': 40000},
+            {"last": 50000},
+            {"last": 40000},
         ]
 
-        with patch('time.sleep', return_value=None):
+        with patch("time.sleep", return_value=None):
             self.sentinel.run()
 
         self.assertTrue(self.sentinel.tripped)
         self.mock_post.assert_any_call(
             self.webhook,
             json={"content": "CRITICAL ALERT: Bitcoin Drop > 10% (-20.00%)"},
-            timeout=10
+            timeout=10,
         )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
