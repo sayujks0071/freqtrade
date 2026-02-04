@@ -2,70 +2,75 @@ name: Delta Markets Refresh
 
 on:
   schedule:
-    # 06:30 Indian Standard Time is 01:00 UTC
-    - cron: '0 1 * * *'
+    - cron: '0 1 * * *' # 01:00 UTC = 06:30 Asia/Kolkata
   workflow_dispatch:
     inputs:
       DELTA_ENV:
-        description: 'Environment (india_prod, global_prod)'
+        description: 'Delta Environment'
         required: true
         default: 'india_prod'
+        type: choice
+        options:
+          - india_prod
+          - global_prod
+          - india_testnet
       FILTER_MODE:
         description: 'Filter Mode'
         required: true
         default: 'perps_usdt'
-
-permissions:
-  contents: write
-  pull-requests: write
+        type: choice
+        options:
+          - perps_usdt
+          - all_futures
+          - allowlist_regex
 
 jobs:
-  refresh_markets:
+  refresh-markets:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: '3.12'
+          python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          pip install requests pandas
+        run: pip install ccxt requests pandas
 
-      - name: Create basic .env
-        run: |
-          cp .env.example .env
+      - name: Bootstrap
+        run: bash scripts/bootstrap.sh
 
       - name: Update Markets & Whitelist
         env:
           DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
           FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
-        run: |
-          ./scripts/bootstrap.sh
-          docker compose pull freqtrade
-          ./scripts/update_markets_and_whitelist.sh
+          MIN_MARKETS: 20
+          MAX_REMOVAL_RATIO: 0.25
+        run: bash scripts/update_markets_and_whitelist.sh
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
+      - name: Upload Reports
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: markets-reports
           path: user_data/reports/
 
-      - name: Check for changes and Create PR
-        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38 # v5.0.2
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@67ccf781d68cd99b580ae25a5c18a1cc84ffff1f # v7.0.6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update delta markets"
-          branch: "chore/delta-markets-refresh"
-          title: "Daily Delta Markets Refresh"
+          branch: chore/delta-markets-refresh
+          title: "chore: Daily Markets Refresh"
           body: |
-            Updates whitelist and market dump.
-            See attached reports for drift analysis.
-          add-paths: |
-            user_data/pairlists/
-            user_data/reports/markets_*.json
-            user_data/reports/whitelist_diff_*.md
+            Daily update of markets and whitelist for Delta Exchange.
+            Environment: ${{ inputs.DELTA_ENV || 'india_prod' }}
+
+            Check the attached reports for details.
+          base: main

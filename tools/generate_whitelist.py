@@ -1,69 +1,63 @@
 #!/usr/bin/env python3
+import argparse
 import json
-import os
 import re
-import sys
 from pathlib import Path
 
 
-# Env
-FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
-ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
-
-
-def filter_markets(markets):
+def filter_markets(markets, filter_mode, allowlist_regex):
     whitelist = []
-    regex = re.compile(ALLOWLIST_REGEX)
 
     for m in markets:
-        symbol = m["symbol"]
-
-        # Basic active check
-        if not m.get("active", True):
+        if not m.get("active"):
             continue
 
-        # Filter logic
-        if FILTER_MODE == "perps_usdt":
-            # Check if quote is USDT and it's a perp
-            # In ccxt/freqtrade, futures usually have 'linear' type or swap
-            # We rely on symbol string mostly for Freqtrade
-            if "/USDT:USDT" in symbol:
+        symbol = m["symbol"]
+
+        # Basic check for futures format if not strictly checking 'type'
+        # But we assume the dump is from a fetch_markets call that might have already filtered,
+        # or not. We rely on symbol format mostly for freqtrade.
+
+        if filter_mode == "perps_usdt":
+            if symbol.endswith("/USDT:USDT"):
                 whitelist.append(symbol)
-        elif FILTER_MODE == "all_futures":
+        elif filter_mode == "all_futures":
+            # Accept any valid futures symbol
             whitelist.append(symbol)
-        elif FILTER_MODE == "allowlist_regex":
-            if regex.match(symbol):
+        elif filter_mode == "allowlist_regex":
+            if re.match(allowlist_regex, symbol):
                 whitelist.append(symbol)
+
+    whitelist.sort()
+    return whitelist
+
+
+def generate_whitelist(markets_file, filter_mode, allowlist_regex):
+    with Path(markets_file).open() as f:
+        markets_data = json.load(f)
+        if isinstance(markets_data, dict):
+            markets = list(markets_data.values())
         else:
-            # Default to perps_usdt
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
+            markets = markets_data
 
-    return sorted(list(set(whitelist)))
-
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: generate_whitelist.py <markets_json>")
-        sys.exit(1)
-
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
-
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
-
-    whitelist = filter_markets(data)
-
-    # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
-
-    # JSON format for Freqtrade inclusion
-    output_obj = {"exchange": {"pair_whitelist": whitelist}}
-
-    print(json.dumps(output_obj, indent=4))
+    return filter_markets(markets, filter_mode, allowlist_regex)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--markets", required=True)
+    parser.add_argument("--filter-mode", required=True)
+    parser.add_argument("--allowlist-regex", default=".*")
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--output-txt")
+
+    args = parser.parse_args()
+
+    whitelist = generate_whitelist(args.markets, args.filter_mode, args.allowlist_regex)
+
+    with Path(args.output).open("w") as f:
+        json.dump(whitelist, f, indent=4)
+
+    if args.output_txt:
+        with Path(args.output_txt).open("w") as f:
+            f.write("\n".join(whitelist))
