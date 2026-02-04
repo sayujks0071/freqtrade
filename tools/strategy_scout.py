@@ -10,7 +10,7 @@ import datetime
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import requests
 
@@ -30,7 +30,7 @@ TIMEOUT = 10
 
 
 class StrategyScout:
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: str | None = None):
         self.token = token
         self.session = requests.Session()
         if self.token:
@@ -38,7 +38,7 @@ class StrategyScout:
             self.session.headers.update(auth_header)
         accept_header = {"Accept": "application/vnd.github.v3+json"}
         self.session.headers.update(accept_header)
-        self.candidates: List[Dict[str, Any]] = []
+        self.candidates: list[dict[str, Any]] = []
 
     def check_rate_limit(self) -> bool:
         try:
@@ -61,7 +61,7 @@ class StrategyScout:
             print(f"Error checking rate limit: {e}")
             return True
 
-    def _search_query(self, query: str, found_repos: Dict[str, Any]):
+    def _search_query(self, query: str, found_repos: dict[str, Any]):
         if not self.check_rate_limit():
             return
 
@@ -83,7 +83,7 @@ class StrategyScout:
         except Exception as e:
             print(f"Exception during search: {e}")
 
-    def _add_known_source(self, source: str, found_repos: Dict[str, Any]):
+    def _add_known_source(self, source: str, found_repos: dict[str, Any]):
         if source in found_repos:
             return
         if not self.check_rate_limit():
@@ -98,7 +98,7 @@ class StrategyScout:
 
     def search_github(self):
         print("Searching GitHub...")
-        found_repos: Dict[str, Any] = {}
+        found_repos: dict[str, Any] = {}
 
         for query in SEARCH_QUERIES:
             self._search_query(query, found_repos)
@@ -111,8 +111,8 @@ class StrategyScout:
         print(f"Total unique candidates found: {len(self.candidates)}")
 
     def _calculate_score(
-        self, repo: Dict[str, Any]
-    ) -> Tuple[int, List[str], str, int]:
+        self, repo: dict[str, Any]
+    ) -> tuple[int, list[str], str, int]:
         score = 0
         notes = []
         full_name = repo["full_name"]
@@ -186,7 +186,7 @@ class StrategyScout:
 
     def _find_strategy_files(
         self, full_name: str
-    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    ) -> tuple[list[dict[str, Any]], str | None]:
         strategies = []
         found_path = None
         paths_to_check = ["user_data/strategies", "strategies", "."]
@@ -209,11 +209,13 @@ class StrategyScout:
                             found_path = path
                             break
             except Exception:
+                # S110: Intentionally suppressing exception during search
+                # to continue with other paths
                 pass
         return strategies, found_path
 
     def _analyze_strategy_content(
-        self, strat_file: Dict[str, Any], repo: Dict[str, Any]
+        self, strat_file: dict[str, Any], repo: dict[str, Any]
     ):
         try:
             download_url = strat_file.get("download_url")
@@ -272,7 +274,7 @@ class StrategyScout:
             self.candidates, key=lambda x: x["scout_score"], reverse=True
         )
 
-    def generate_report(self) -> List[Dict[str, Any]]:
+    def generate_report(self) -> list[dict[str, Any]]:
         print("Generating report...")
         report_dir = Path("user_data/reports")
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -343,7 +345,7 @@ class StrategyScout:
         return top_10
 
     def vendor_strategies(
-        self, candidates: List[Dict[str, Any]], top_n: int = 5
+        self, candidates: list[dict[str, Any]], top_n: int = 5
     ):
         print(f"Vendoring top {top_n} strategies...")
         vendor_base_dir = Path("user_data/strategies_vendor")

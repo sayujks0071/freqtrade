@@ -11,6 +11,7 @@ import sys
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional, Tuple
 
 
 # Configuration
@@ -311,25 +312,16 @@ def execute_git_push(args, target_branch, strategy_json, msg, backup_json):
         print("Changes are committed locally. You can manually push later.")
 
 
-def evaluate_and_push(
-    args,
-    strategy_json,
-    backup_json,
-    worst_strategy,
-    current_sharpe,
-    current_drawdown,
-    created_new,
-):
+def verify_performance(
+    worst_strategy: str, current_sharpe: float, current_drawdown: float
+) -> Tuple[bool, bool, float]:
+    """Runs backtest and compares performance metrics."""
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
-        sys.exit(1)
+        return False, False, 0.0
 
     new_stats = new_backtest_data["strategy"][worst_strategy]
     new_sharpe = new_stats.get("sharpe", -float("inf"))
@@ -347,6 +339,23 @@ def evaluate_and_push(
 
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
+
+    return sharpe_improved, drawdown_improved, avg_profit_pct
+
+
+def evaluate_and_push(
+    args,
+    strategy_json,
+    backup_json,
+    worst_strategy,
+    current_sharpe,
+    current_drawdown,
+    created_new,
+):
+    """Verifies performance improvement and pushes changes if valid."""
+    sharpe_improved, drawdown_improved, avg_profit_pct = verify_performance(
+        worst_strategy, current_sharpe, current_drawdown
+    )
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
@@ -385,15 +394,8 @@ def evaluate_and_push(
                 strategy_json.unlink()
 
 
-def main():
-    args = parse_args()
-
-    if not args.dry_run:
-        if not check_git_status():
-            print("\nPlease commit/stash changes before running.")
-            print("Or use --dry-run.")
-            sys.exit(1)
-
+def establish_baseline() -> Tuple[Optional[dict], Optional[str], float, float]:
+    """Establish baseline metrics from latest backtest."""
     latest_file = get_latest_backtest_file()
 
     backtest_data = None
@@ -406,36 +408,26 @@ def main():
         fallback_strategy = find_available_strategy()
         if not fallback_strategy:
             print("No strategy file found.")
-            sys.exit(1)
+            return None, None, 0.0, 0.0
         backtest_data = run_backtest_job(fallback_strategy)
 
     if not backtest_data:
         print("Failed to produce backtest baseline.")
-        sys.exit(1)
+        return None, None, 0.0, 0.0
 
     worst_strategy, current_sharpe, current_stats = find_worst_strategy(
         backtest_data
     )
     if not worst_strategy:
         print("No strategy found in backtest results.")
-        sys.exit(1)
+        return None, None, 0.0, 0.0
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+    return backtest_data, worst_strategy, current_sharpe, current_drawdown
 
-    print(f"Selected Strategy: {worst_strategy}")
-    print(f"Current Sharpe: {current_sharpe}")
-    print(f"Current Drawdown: {current_drawdown}")
 
-    strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
-    backup_json = strategy_json.with_suffix(".json.bak")
-    created_new = False
-
-    if strategy_json.exists():
-        print(f"Backing up {strategy_json} to {backup_json}")
-        shutil.copy(strategy_json, backup_json)
-    else:
-        created_new = True
-
+def run_hyperopt(worst_strategy: str) -> Optional[subprocess.CompletedProcess]:
+    """Run hyperopt for the selected strategy."""
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
         "freqtrade",
@@ -465,23 +457,69 @@ def main():
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
         print(result_hyperopt.stderr)
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
-        sys.exit(1)
+        return None
+    return result_hyperopt
 
+
+def apply_hyperopt_results(
+    result_hyperopt, strategy_json, backup_json, created_new
+) -> bool:
+    """Extracts and saves hyperopt results to json file."""
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
     if new_params:
         print(f"Applying new parameters to {strategy_json}")
         with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
+        return True
     else:
         print("Could not extract new parameters from hyperopt output.")
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
             strategy_json.unlink()
+        return False
+
+
+def main():
+    args = parse_args()
+
+    if not args.dry_run:
+        if not check_git_status():
+            print("\nPlease commit/stash changes before running.")
+            print("Or use --dry-run.")
+            sys.exit(1)
+
+    backtest_data, worst_strategy, current_sharpe, current_drawdown = (
+        establish_baseline()
+    )
+    if not worst_strategy:
+        sys.exit(1)
+
+    print(f"Selected Strategy: {worst_strategy}")
+    print(f"Current Sharpe: {current_sharpe}")
+    print(f"Current Drawdown: {current_drawdown}")
+
+    strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
+    backup_json = strategy_json.with_suffix(".json.bak")
+    created_new = False
+
+    if strategy_json.exists():
+        print(f"Backing up {strategy_json} to {backup_json}")
+        shutil.copy(strategy_json, backup_json)
+    else:
+        created_new = True
+
+    result_hyperopt = run_hyperopt(worst_strategy)
+    if not result_hyperopt:
+        if strategy_json.exists() and not created_new:
+            shutil.move(backup_json, strategy_json)
+        elif created_new and strategy_json.exists():
+            strategy_json.unlink()
+        sys.exit(1)
+
+    if not apply_hyperopt_results(
+        result_hyperopt, strategy_json, backup_json, created_new
+    ):
         sys.exit(1)
 
     evaluate_and_push(
