@@ -1,91 +1,65 @@
 #!/bin/bash
 set -e
 
-# Ensure root
-cd "$(dirname "$0")/.."
-
-DELTA_ENV=${DELTA_ENV:-india_testnet}
-TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
-REPORTS_DIR="user_data/reports"
-PAIRLISTS_DIR="user_data/pairlists"
-MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
-
-mkdir -p $REPORTS_DIR
-mkdir -p $PAIRLISTS_DIR
-
-# Find latest previous dump
-PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
-
-echo "Fetching markets for $DELTA_ENV..."
-
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
+# Load env
 if [ -f .env ]; then
-    export $(cat .env | xargs)
+    export $(cat .env | grep -v '#' | xargs)
 fi
 
-# We use a temporary file for the docker output because of potential log noise
-TEMP_OUTPUT=$(mktemp)
+DELTA_ENV=${DELTA_ENV:-india_prod}
+FILTER_MODE=${FILTER_MODE:-perps_usdt}
+MIN_MARKETS=${MIN_MARKETS:-20}
+MAX_REMOVAL_RATIO=${MAX_REMOVAL_RATIO:-0.25}
+STRICT_VOLUME=${STRICT_VOLUME:-false}
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
+DATE=$(date -u +"%Y-%m-%d")
+MARKETS_FILE="user_data/reports/markets_${DATE}.json"
+WHITELIST_FILE="user_data/pairlists/whitelist.delta.json"
+WHITELIST_TXT="user_data/pairlists/whitelist.delta.txt"
+# If whitelist exists, use it as previous for drift check
+if [ -f "$WHITELIST_FILE" ]; then
+    PREV_WHITELIST_FILE="$WHITELIST_FILE"
+else
+    PREV_WHITELIST_FILE=""
+fi
+REPORT_FILE="user_data/reports/markets_schema_report_${DATE}.md"
 
-docker compose run --rm freqtrade list-markets \
-    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
-    --print-json > $TEMP_OUTPUT
+echo "Updating markets for $DELTA_ENV with filter $FILTER_MODE..."
 
-# Check if successful
-if [ $? -ne 0 ]; then
-    echo "Failed to fetch markets"
-    rm $TEMP_OUTPUT
-    exit 1
+# Fetch
+python3 tools/fetch_markets.py --exchange delta --output "$MARKETS_FILE" --env "$DELTA_ENV"
+
+# Validate
+echo "Validating markets..."
+if [ "$STRICT_VOLUME" = "true" ]; then
+    STRICT_FLAG="--strict-volume"
+else
+    STRICT_FLAG=""
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
-
-mv $TEMP_OUTPUT $MARKETS_FILE
-
-echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
-
-echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
-WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
-
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
-
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
-
-echo "Whitelist updated at $WHITELIST_JSON"
-
-# Drift Report (Diff)
-if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+if [ -n "$PREV_WHITELIST_FILE" ]; then
+    PREV_FLAG="--prev-whitelist $PREV_WHITELIST_FILE"
+else
+    PREV_FLAG=""
 fi
 
-# Clean up old dumps (keep last 7)
-ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+python3 tools/validate_markets_schema.py \
+    --markets "$MARKETS_FILE" \
+    --min-markets "$MIN_MARKETS" \
+    --max-removal-ratio "$MAX_REMOVAL_RATIO" \
+    $PREV_FLAG \
+    --out-report "$REPORT_FILE" \
+    --env "$DELTA_ENV" \
+    $STRICT_FLAG
 
-echo "Done."
+echo "Validation passed. Generating whitelist..."
+
+# Generate Whitelist
+python3 tools/generate_whitelist.py \
+    --markets "$MARKETS_FILE" \
+    --filter-mode "$FILTER_MODE" \
+    --allowlist-regex "${ALLOWLIST_REGEX:-.*}" \
+    --output "$WHITELIST_FILE" \
+    --output-txt "$WHITELIST_TXT"
+
+echo "Whitelist generated at $WHITELIST_FILE"
