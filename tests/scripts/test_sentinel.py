@@ -1,11 +1,10 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import sys
-import os
-from datetime import datetime, timedelta
+from pathlib import Path
 
 # Add scripts directory to path to import sentinel
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../scripts')))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent / 'scripts'))
 
 from sentinel import Sentinel
 
@@ -62,7 +61,7 @@ class TestSentinel(unittest.TestCase):
 
     def test_crash_check_no_crash(self):
         self.sentinel.update_history(1000, 50000)
-        is_crash, val = self.sentinel.check_crash()
+        is_crash, _ = self.sentinel.check_crash()
         self.assertFalse(is_crash)
 
     def test_crash_check_trigger(self):
@@ -80,11 +79,17 @@ class TestSentinel(unittest.TestCase):
         self.assertTrue(self.sentinel.tripped)
 
         # Verify RPC calls
-        self.mock_post.assert_any_call(f"{self.rpc_url}/stop", auth=(self.rpc_user, self.rpc_pass), timeout=10)
-        self.mock_post.assert_any_call(f"{self.rpc_url}/forceexit", auth=(self.rpc_user, self.rpc_pass), timeout=10)
+        self.mock_post.assert_any_call(
+            f"{self.rpc_url}/stop", auth=(self.rpc_user, self.rpc_pass), timeout=10
+        )
+        self.mock_post.assert_any_call(
+            f"{self.rpc_url}/forceexit", auth=(self.rpc_user, self.rpc_pass), timeout=10
+        )
 
         # Verify Webhook
-        self.mock_post.assert_any_call(self.webhook, json={"content": "CRITICAL ALERT: Test Reason"}, timeout=10)
+        self.mock_post.assert_any_call(
+            self.webhook, json={"content": "CRITICAL ALERT: Test Reason"}, timeout=10
+        )
 
     def test_run_loop_drawdown(self):
         # Setup mock returns
@@ -112,7 +117,11 @@ class TestSentinel(unittest.TestCase):
             self.sentinel.run()
 
         self.assertTrue(self.sentinel.tripped)
-        self.mock_post.assert_any_call(self.webhook, json={"content": "CRITICAL ALERT: Drawdown > 5% (-10.00%)"}, timeout=10)
+        self.mock_post.assert_any_call(
+            self.webhook,
+            json={"content": "CRITICAL ALERT: Drawdown > 5% (-10.00%)"},
+            timeout=10
+        )
 
     def test_run_loop_crash(self):
         # Setup mock returns
@@ -133,7 +142,11 @@ class TestSentinel(unittest.TestCase):
             self.sentinel.run()
 
         self.assertTrue(self.sentinel.tripped)
-        self.mock_post.assert_any_call(self.webhook, json={"content": "CRITICAL ALERT: Bitcoin Drop > 10% (-20.00%)"}, timeout=10)
+        self.mock_post.assert_any_call(
+            self.webhook,
+            json={"content": "CRITICAL ALERT: Bitcoin Drop > 10% (-20.00%)"},
+            timeout=10
+        )
 
 if __name__ == '__main__':
     unittest.main()
