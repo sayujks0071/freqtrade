@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("Sentinel")
 
@@ -174,5 +174,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    sentinel = Sentinel(args.rpc_url, args.rpc_user, args.rpc_password, args.webhook_url, args.check_interval)
+    sentinel = Sentinel(
+        args.rpc_url, args.rpc_user, args.rpc_password, args.webhook_url, args.check_interval
+    )
     sentinel.run()
