@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import ast
-import os
 import re
 import sys
 from pathlib import Path
@@ -74,7 +73,8 @@ def check_header(source, tree, filepath, fix=False):
                 print("  [Header] Normalizing header (replacing existing).")
                 # Try to replace existing docstring using regex to find it at start of file
                 # Match first triple quoted string (double or single quotes)
-                # We assume it's at the start (ignoring shebang/encoding for simplicity or handle it)
+                # We assume it's at the start
+                # (ignoring shebang/encoding for simplicity or handle it)
                 # simple regex: start of string, optional whitespace/comments, then docstring.
                 match = re.match(r'(\s*?)(""".*?"""|\'\'\'.*?\'\'\')', source, re.DOTALL)
                 if match:
@@ -100,7 +100,7 @@ def check_header(source, tree, filepath, fix=False):
         return False, source
 
 
-def check_logic(tree):
+def check_logic(tree):  # noqa: C901
     errors = []
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name in [

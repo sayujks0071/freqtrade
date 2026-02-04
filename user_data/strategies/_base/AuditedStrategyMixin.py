@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,10 +36,7 @@ class AuditedStrategyMixin:
         snapshot_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT
-        msg = (
-            f"AUDIT_SIGNAL | {ts_str} | {pair} | "
-            f"{side} | {reason} | {snapshot_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_str} | {pair} | {side} | {reason} | {snapshot_str}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:

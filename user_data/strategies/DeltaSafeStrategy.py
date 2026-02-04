@@ -24,11 +24,14 @@ No Repainting:
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import talib.abstract as ta
 from pandas import DataFrame
 
+from freqtrade.persistence import Trade
 from freqtrade.strategy import IStrategy
+
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -116,7 +119,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_time: datetime,
         entry_tag: str | None,
         side: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
         """
         Called right before placing a trade.
@@ -147,14 +150,14 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def confirm_trade_exit(
         self,
         pair: str,
-        trade,
+        trade: Trade,
         order_type: str,
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time: datetime,
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
         indicators = {}
         if self.dp:
@@ -173,7 +176,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         self.log_signal(
             pair=pair,
             side=trade.trade_direction,  # long or short
-            reason=sell_reason,
+            reason=exit_reason,
             ts_utc=current_time,
             indicators_snapshot=indicators,
         )
