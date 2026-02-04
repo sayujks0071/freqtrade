@@ -3,7 +3,10 @@ DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 
+from __future__ import annotations
+
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -84,7 +87,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:

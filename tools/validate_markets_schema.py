@@ -135,7 +135,7 @@ def validate_volume(m, symbol, strict_volume, errors):
         pass
 
 
-def validate_schema(data, min_markets, strict_volume):
+def validate_schema(data, min_markets, strict_volume):  # noqa: C901
     markets_list = []
     if isinstance(data, list):
         markets_list = data
@@ -265,7 +265,7 @@ def write_report(path, status, stats, errors, drift_info, args, message=None):
 
     report = f"""# Markets Schema Validation Report
 
-**Date:** {datetime.now(timezone.utc).isoformat()}
+**Date:** {datetime.now(timezone.utc).isoformat()}  # noqa: UP017
 **Status:** {status}
 **File:** {args.markets}
 **Environment:** {args.env}
