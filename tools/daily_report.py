@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def generate_daily_report(db_path, date_str, output_file):  # noqa: C901
+def generate_daily_report(db_path, date_str, output_file):
     if not Path(db_path).exists():
         print(f"No database found at {db_path}")
         # Write empty report to avoid workflow errors
