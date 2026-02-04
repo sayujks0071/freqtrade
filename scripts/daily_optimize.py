@@ -163,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -227,8 +224,7 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes (default: create feature branch "
-            "'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(
@@ -397,8 +393,9 @@ def execute_git_push(args, strategy_json, worst_strategy, avg_profit_pct):
     return True
 
 
-def evaluate_and_push(args, worst_strategy, current_sharpe, current_drawdown,
-                      strategy_json, backup_json, created_new):
+def evaluate_and_push(
+    args, worst_strategy, current_sharpe, current_drawdown, strategy_json, backup_json, created_new
+):
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy)
@@ -483,8 +480,15 @@ def main():
         restore_strategy(strategy_json, backup_json, created_new)
         sys.exit(1)
 
-    evaluate_and_push(args, worst_strategy, current_sharpe, current_drawdown,
-                      strategy_json, backup_json, created_new)
+    evaluate_and_push(
+        args,
+        worst_strategy,
+        current_sharpe,
+        current_drawdown,
+        strategy_json,
+        backup_json,
+        created_new,
+    )
 
 
 if __name__ == "__main__":
