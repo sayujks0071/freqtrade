@@ -10,6 +10,7 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OPTIMIZATION_LOG = REPO_ROOT / "optimization_log.txt"
