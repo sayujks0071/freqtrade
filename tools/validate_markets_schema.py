@@ -27,7 +27,11 @@ DEFAULT_MAX_REMOVAL_RATIO = 0.25
 ENV_URLS = {
     "india_prod": ["api.india.delta.exchange", "india.delta.exchange"],
     "global_prod": ["api.delta.exchange", "www.delta.exchange"],
-    "india_testnet": ["testnet.deltaex.org", "testnet.delta.exchange", "cdn-ind.testnet.deltaex.org"],
+    "india_testnet": [
+        "testnet.deltaex.org",
+        "testnet.delta.exchange",
+        "cdn-ind.testnet.deltaex.org",
+    ],
 }
 
 
@@ -68,10 +72,16 @@ def validate_environment(data, env):
                 break
 
         if not found_match:
-            warn(f"Environment mismatch? DELTA_ENV={env} expects domains {expected_domains}, but found none in 'urls' metadata.")
+            warn(
+                f"Environment mismatch? DELTA_ENV={env} expects domains {expected_domains}, "
+                f"but found none in 'urls' metadata."
+            )
     else:
         # If input is just a list of markets, we can't check exchange metadata
-        warn("Input data does not contain exchange metadata (urls). Skipping environment sanity check.")
+        warn(
+            "Input data does not contain exchange metadata (urls). "
+            "Skipping environment sanity check."
+        )
 
 
 def validate_market_structure(i, m, errors):
@@ -84,7 +94,9 @@ def validate_market_structure(i, m, errors):
 
     has_type = any(f in m for f in type_fields)
     if not has_type:
-         errors.append(f"Item {i} ({m.get('symbol', 'unknown')}) missing type/contract indicator")
+        errors.append(
+            f"Item {i} ({m.get('symbol', 'unknown')}) missing type/contract indicator"
+        )
 
     symbol = m.get("symbol", "")
     if not symbol:
@@ -112,7 +124,9 @@ def validate_volume(m, symbol, strict_volume, errors):
                 if isinstance(v, dict):
                     for subk, subv in v.items():
                         if isinstance(subv, (int, float)) and subv < 0:
-                             errors.append(f"Symbol '{symbol}' has negative limit {k}.{subk}: {subv}")
+                            errors.append(
+                                f"Symbol '{symbol}' has negative limit {k}.{subk}: {subv}"
+                            )
 
     # Optional strict volume check (e.g. check 24h volume if available)
     # Since 'list-markets' might not provide volume, we skip unless we find it.
@@ -126,14 +140,14 @@ def validate_schema(data, min_markets, strict_volume):
     if isinstance(data, list):
         markets_list = data
     elif isinstance(data, dict) and "markets" in data:
-         if isinstance(data["markets"], dict):
-             markets_list = list(data["markets"].values())
-         elif isinstance(data["markets"], list):
-             markets_list = data["markets"]
+        if isinstance(data["markets"], dict):
+            markets_list = list(data["markets"].values())
+        elif isinstance(data["markets"], list):
+            markets_list = data["markets"]
     elif isinstance(data, dict):
-         first_val = next(iter(data.values())) if data else None
-         if isinstance(first_val, dict) and "symbol" in first_val:
-             markets_list = list(data.values())
+        first_val = next(iter(data.values())) if data else None
+        if isinstance(first_val, dict) and "symbol" in first_val:
+            markets_list = list(data.values())
 
     if not markets_list:
         raise ValidationFailure("Could not find markets list in input data")
@@ -148,7 +162,7 @@ def validate_schema(data, min_markets, strict_volume):
     if eligible_count < min_markets:
         raise ValidationFailure(
             f"Eligible market count {eligible_count} < MIN_MARKETS ({min_markets})",
-            stats=(total_count, eligible_count, 0)
+            stats=(total_count, eligible_count, 0),
         )
 
     symbols = set()
@@ -170,7 +184,7 @@ def validate_schema(data, min_markets, strict_volume):
         raise ValidationFailure(
             "Schema errors found",
             stats=(total_count, eligible_count, len(symbols)),
-            errors=errors
+            errors=errors,
         )
 
     return symbols, total_count, eligible_count, errors
@@ -180,13 +194,13 @@ def validate_drift(current_symbols, previous_path, max_removal_ratio):
     prev_path_obj = Path(previous_path)
     if not previous_path or not prev_path_obj.exists():
         print("No previous whitelist found. Skipping drift check.")
-        return [], 0.0, 0, 0 # removed, ratio, added_count, prev_count
+        return [], 0.0, 0, 0  # removed, ratio, added_count, prev_count
 
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
             if "exchange" in prev_data and "pair_whitelist" in prev_data["exchange"]:
-                 prev_symbols = set(prev_data["exchange"]["pair_whitelist"])
+                prev_symbols = set(prev_data["exchange"]["pair_whitelist"])
             elif isinstance(prev_data, list):
                 prev_symbols = set(prev_data)
             else:
@@ -210,9 +224,14 @@ def validate_drift(current_symbols, previous_path, max_removal_ratio):
 
     if removal_ratio > max_removal_ratio:
         raise ValidationFailure(
-            f"Large delist drift — manual review required! Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO ({max_removal_ratio}).",
-            stats=(0, 0, len(current_symbols)), # We don't have total/eligible here easily unless passed, but we can assume prior steps passed
-            drift_info=drift_info
+            f"Large delist drift — manual review required! "
+            f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO ({max_removal_ratio}).",
+            stats=(
+                0,
+                0,
+                len(current_symbols),
+            ),  # We don't have total/eligible here easily
+            drift_info=drift_info,
         )
 
     return drift_info
@@ -233,14 +252,16 @@ def write_report(path, status, stats, errors, drift_info, args, message=None):
     drift_section += f"- Previous Whitelist Size: {prev_count}\n"
     drift_section += f"- Added Pairs: {added_count}\n"
     drift_section += f"- Removed Pairs: {len(removed_list)}\n"
-    drift_section += f"- Removal Ratio: {removal_ratio:.2f} (Max: {args.max_removal_ratio})\n"
+    drift_section += (
+        f"- Removal Ratio: {removal_ratio:.2f} (Max: {args.max_removal_ratio})\n"
+    )
 
     if removed_list:
         drift_section += "\n### Removed Pairs (Sample)\n"
         for p in removed_list[:10]:
             drift_section += f"- {p}\n"
         if len(removed_list) > 10:
-             drift_section += f"... and {len(removed_list) - 10} more\n"
+            drift_section += f"... and {len(removed_list) - 10} more\n"
 
     report = f"""# Markets Schema Validation Report
 
@@ -275,9 +296,23 @@ def main():
     parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON")
     parser.add_argument("--out-report", required=True, help="Path to output markdown report")
 
-    parser.add_argument("--min-markets", type=int, default=int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS)))
-    parser.add_argument("--max-removal-ratio", type=float, default=float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)))
-    parser.add_argument("--strict-volume", action="store_true", default=os.environ.get("STRICT_VOLUME", "false").lower() == "true")
+    parser.add_argument(
+        "--min-markets",
+        type=int,
+        default=int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS)),
+    )
+    parser.add_argument(
+        "--max-removal-ratio",
+        type=float,
+        default=float(
+            os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)
+        ),
+    )
+    parser.add_argument(
+        "--strict-volume",
+        action="store_true",
+        default=os.environ.get("STRICT_VOLUME", "false").lower() == "true",
+    )
 
     args = parser.parse_args()
 
@@ -294,7 +329,9 @@ def main():
         validate_environment(data, args.env)
 
         # Schema Validation
-        symbols, total_count, eligible_count, errors = validate_schema(data, args.min_markets, args.strict_volume)
+        symbols, total_count, eligible_count, errors = validate_schema(
+            data, args.min_markets, args.strict_volume
+        )
         stats = (total_count, eligible_count, len(symbols))
 
         # Drift Check
@@ -308,18 +345,36 @@ def main():
         # Use stats from exception if available, otherwise what we have
         final_stats = e.stats if e.stats != (0, 0, 0) else stats
         # If drift caused failure, we might have drift info
-        final_drift = e.drift_info if e.drift_info != ([], 0.0, 0, 0) else drift_info
+        final_drift = (
+            e.drift_info if e.drift_info != ([], 0.0, 0, 0) else drift_info
+        )
         final_errors = e.errors if e.errors else []
 
-        write_report(args.out_report, "FAIL", final_stats, final_errors, final_drift, args, message=e.message)
+        write_report(
+            args.out_report,
+            "FAIL",
+            final_stats,
+            final_errors,
+            final_drift,
+            args,
+            message=e.message,
+        )
         sys.exit(2)
 
     except Exception as e:
         print(f"CRITICAL ERROR: {e}")
         # Try to write a crash report
         try:
-             write_report(args.out_report, "CRASH", stats, [str(e)], drift_info, args, message="Script Crashed")
-        except:
+            write_report(
+                args.out_report,
+                "CRASH",
+                stats,
+                [str(e)],
+                drift_info,
+                args,
+                message="Script Crashed",
+            )
+        except Exception:  # noqa: S110
             pass
         sys.exit(2)
 
