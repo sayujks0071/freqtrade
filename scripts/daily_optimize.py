@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -169,7 +166,7 @@ def get_current_branch():
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         capture_output=True,
         text=True,
-        check=False
+        check=False,
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -246,11 +243,26 @@ def run_hyperopt_flow(worst_strategy):
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
-        "freqtrade", "hyperopt", "--config", str(CONFIG_FILE),
-        "--strategy", worst_strategy, "--epochs", str(EPOCHS),
-        "--spaces", *SPACES, "--hyperopt-loss", HYPEROPT_LOSS,
-        "--min-trades", "1", "--timerange", get_timerange(),
-        "--no-color", "--print-json", "-j", "1"
+        "freqtrade",
+        "hyperopt",
+        "--config",
+        str(CONFIG_FILE),
+        "--strategy",
+        worst_strategy,
+        "--epochs",
+        str(EPOCHS),
+        "--spaces",
+        *SPACES,
+        "--hyperopt-loss",
+        HYPEROPT_LOSS,
+        "--min-trades",
+        "1",
+        "--timerange",
+        get_timerange(),
+        "--no-color",
+        "--print-json",
+        "-j",
+        "1",
     ]
 
     result_hyperopt = run_command(cmd_hyperopt, capture=True)
@@ -278,8 +290,15 @@ def run_hyperopt_flow(worst_strategy):
         sys.exit(1)
 
 
-def evaluate_and_push(args, worst_strategy, current_sharpe, current_drawdown,
-                      strategy_json, backup_json, created_new):
+def evaluate_and_push(
+    args,
+    worst_strategy,
+    current_sharpe,
+    current_drawdown,
+    strategy_json,
+    backup_json,
+    created_new,
+):
     """
     Evaluates the new strategy performance and commits/pushes if improved.
     """
@@ -312,7 +331,9 @@ def evaluate_and_push(args, worst_strategy, current_sharpe, current_drawdown,
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
-        handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json, created_new)
+        handle_git_operations(
+            args, msg, worst_strategy, strategy_json, backup_json, created_new
+        )
         if backup_json.exists():
             backup_json.unlink()
     else:
@@ -324,7 +345,9 @@ def evaluate_and_push(args, worst_strategy, current_sharpe, current_drawdown,
                 strategy_json.unlink()
 
 
-def handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json, created_new):
+def handle_git_operations(
+    args, msg, worst_strategy, strategy_json, backup_json, created_new
+):
     """Handles git add, commit, and push operations."""
     if args.dry_run:
         print("\n[DRY-RUN MODE] Would have committed and pushed:")
@@ -342,13 +365,17 @@ def handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json,
         print(f"\nCreating feature branch: {target_branch}")
         check_result = subprocess.run(
             ["git", "rev-parse", "--verify", target_branch],
-            capture_output=True, text=True, check=False
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if check_result.returncode == 0:
             print(f"Branch '{target_branch}' already exists, switching to it...")
             result = run_command(["git", "checkout", target_branch], capture=True)
         else:
-            result = run_command(["git", "checkout", "-b", target_branch], capture=True)
+            result = run_command(
+                ["git", "checkout", "-b", target_branch], capture=True
+            )
 
         if result.returncode != 0:
             print("Failed to create or switch to feature branch.")
@@ -370,11 +397,15 @@ def handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json,
         print("This will:")
         print(f"  - Push optimized strategy parameters for {worst_strategy}")
         print(f"  - Create/update remote branch: {target_branch}")
-        print("\nYou can then create a pull request to review and merge these changes.")
+        print(
+            "\nYou can then create a pull request to review and merge these changes."
+        )
         response = input("\nProceed with push? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
+        if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
-            print(f"You can manually push later with: git push origin {target_branch}")
+            print(
+                f"You can manually push later with: git push origin {target_branch}"
+            )
             if backup_json.exists():
                 backup_json.unlink()
             return
@@ -384,7 +415,9 @@ def handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json,
     if result.returncode == 0:
         print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
         print("\nNext steps:")
-        print(f"  1. Create a pull request from '{target_branch}' to your main branch")
+        print(
+            f"  1. Create a pull request from '{target_branch}' to your main branch"
+        )
         print("  2. Review the changes and test the optimized strategy")
         print("  3. Merge the pull request after verification")
     else:
@@ -406,14 +439,25 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Run optimization without committing or pushing changes")
-    parser.add_argument("--branch", type=str, default=None,
-                        help="Target branch for pushing changes (default: optimize-YYYYMMDD)")
-    parser.add_argument("--yes", "-y", action="store_true",
-                        help="Skip confirmation prompts before pushing")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run optimization without committing or pushing changes",
+    )
+    parser.add_argument(
+        "--branch",
+        type=str,
+        default=None,
+        help="Target branch for pushing changes (default: optimize-YYYYMMDD)",
+    )
+    parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompts before pushing",
+    )
     args = parser.parse_args()
 
     if not args.dry_run and not check_git_status():
@@ -435,8 +479,15 @@ Examples:
     strategy_json, backup_json, created_new, _ = run_hyperopt_flow(worst_strategy)
 
     # Evaluate and Push
-    evaluate_and_push(args, worst_strategy, current_sharpe, current_drawdown,
-                      strategy_json, backup_json, created_new)
+    evaluate_and_push(
+        args,
+        worst_strategy,
+        current_sharpe,
+        current_drawdown,
+        strategy_json,
+        backup_json,
+        created_new,
+    )
 
 
 if __name__ == "__main__":

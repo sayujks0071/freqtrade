@@ -28,7 +28,6 @@ TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
 
 
-
 class StrategyScout:
     def __init__(self, token: str | None = None):
         self.token = token
@@ -40,8 +39,6 @@ class StrategyScout:
 
     def check_rate_limit(self):
         try:
-            resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=10)
-            resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=TIMEOUT)
             resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
@@ -102,11 +99,7 @@ class StrategyScout:
                 if not self.check_rate_limit():
                     break
                 try:
-                    resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=10)
-                    resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=TIMEOUT)
-                    resp = self.session.get(
-                        f"{GITHUB_API_URL}/repos/{source}", timeout=REQUEST_TIMEOUT
-                    )
+                    resp = self.session.get(f"{GITHUB_API_URL}/repos/{source}", timeout=REQUEST_TIMEOUT)
                     if resp.status_code == 200:
                         found_repos[source] = resp.json()
                 except Exception as e:
@@ -122,9 +115,6 @@ class StrategyScout:
 
             # Metadata filtering
             full_name = repo["full_name"]
-            # stars = repo.get('stargazers_count', 0)  # Unused
-            # stars = repo.get('stargazers_count', 0) # Unused
-            # stars = repo.get("stargazers_count", 0)
             pushed_at = repo.get("pushed_at")
             license_data = repo.get("license")
 
@@ -169,15 +159,6 @@ class StrategyScout:
                 if pushed_at
                 else 9999
             )
-            if pushed_at:
-                dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                repo["age_days"] = (datetime.datetime.now() - dt).days
-                repo["age_days"] = (
-                    datetime.datetime.now()
-                    - datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                ).days
-            else:
-                repo["age_days"] = 9999
 
             scored_candidates.append(repo)
 
@@ -185,12 +166,9 @@ class StrategyScout:
         self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
         print(f"Candidates after filtering: {len(self.candidates)}")
 
-    def deep_inspect(self, limit=15):  # noqa: C901
+    def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
-
-        # Use found_path from inspection or default
-        paths_to_check = ["user_data/strategies", "strategies", "."]
 
         for repo in self.candidates:
             if inspected_count >= limit:
@@ -205,9 +183,6 @@ class StrategyScout:
 
             strategies, found_path = self._find_strategy_files(full_name)
 
-            # Additional check if not found by helper (logic was duplicated in old file, simplifying)
-            # If helper didn't find, we might want to try other paths, but helper checks common paths.
-
             repo["strategy_count"] = len(strategies)
             repo["strategy_path"] = found_path
 
@@ -219,7 +194,7 @@ class StrategyScout:
                 strat_file = strategies[0]
                 self._analyze_strategy_content(strat_file, repo)
             else:
-                 repo["scout_score"] -= 5
+                repo["scout_score"] -= 5
 
             inspected_count += 1
 
@@ -248,8 +223,8 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error checking path {path}: {e}")
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):
@@ -279,10 +254,6 @@ class StrategyScout:
                         repo["scout_notes"].append("Martingale detected (Risk!)")
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
-
-    def generate_report(self):
-        print("Generating report...")
-        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
 
     def generate_report(self):
         print("Generating report...")
@@ -344,14 +315,6 @@ class StrategyScout:
                     stars = repo.get("stargazers_count", 0)
                     lic = repo.get("license_name", "Unknown")
                     f.write(f"| {i} | [{full}]({url}) | {score} | {stars} | {lic} |\n")
-                    repo_score = repo.get("scout_score", 0)
-                    repo_stars = repo.get("stargazers_count", 0)
-                    repo_license = repo.get("license_name", "Unknown")
-                    line = (
-                        f"| {i} | [{repo['full_name']}]({repo['html_url']}) | "
-                        f"{repo_score} | {repo_stars} | {repo_license} |\n"
-                    )
-                    f.write(line)
                 f.write("\n")
 
         print(f"Report written to {filename}")
@@ -367,55 +330,60 @@ class StrategyScout:
             if count >= top_n:
                 break
 
-            full_name = repo["full_name"]
-            repo_name = repo["name"]
-            safe_name = full_name.replace("/", "_")
-            path = repo.get("strategy_path")
+            if self._vendor_repo(repo, vendor_base_dir):
+                count += 1
 
-            if not path:
-                continue
+    def _vendor_repo(self, repo, vendor_base_dir):
+        full_name = repo["full_name"]
+        repo_name = repo["name"]
+        safe_name = full_name.replace("/", "_")
+        path = repo.get("strategy_path")
 
-            print(f"Vendoring from {full_name}...")
+        if not path:
+            return False
 
-            vendor_dir = vendor_base_dir / safe_name
-            vendor_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Vendoring from {full_name}...")
 
-            try:
-                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
-                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
-                if resp.status_code == 200:
-                    contents = resp.json()
-                    downloaded = 0
-                    if isinstance(contents, list):
-                        for file_info in contents:
-                            is_py = file_info["name"].endswith(".py")
-                            is_init = file_info["name"] == "__init__.py"
-                            if is_py and not is_init:
-                                if downloaded >= 3:
-                                    # Limit to 3 files per repo to save bandwidth/noise
-                                    break
+        vendor_dir = vendor_base_dir / safe_name
+        vendor_dir.mkdir(parents=True, exist_ok=True)
 
-                                raw_url = file_info.get("download_url")
-                                if raw_url:
-                                    r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
-                                    if r.status_code == 200:
-                                        # Save file
-                                        with (vendor_dir / file_info["name"]).open("w") as f:
-                                            f.write(r.text)
-                                        downloaded += 1
+        try:
+            url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                contents = resp.json()
+                downloaded = 0
+                if isinstance(contents, list):
+                    for file_info in contents:
+                        is_py = file_info["name"].endswith(".py")
+                        is_init = file_info["name"] == "__init__.py"
+                        if is_py and not is_init:
+                            if downloaded >= 3:
+                                # Limit to 3 files per repo to save bandwidth/noise
+                                break
 
-                    license_file = vendor_dir / "LICENSE_NOTE.md"
-                    with license_file.open("w") as f:
-                        f.write(f"# License Note for {repo_name}\n\n")
-                        f.write(f"Source: {repo['html_url']}\n")
-                        f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write(
-                            "Please check the original repository for full license details.\n"
-                        )
+                            raw_url = file_info.get("download_url")
+                            if raw_url:
+                                r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
+                                if r.status_code == 200:
+                                    # Save file
+                                    with (vendor_dir / file_info["name"]).open("w") as f:
+                                        f.write(r.text)
+                                    downloaded += 1
 
-                    count += 1
-            except Exception as e:
-                print(f"Error vendoring {full_name}: {e}")
+                license_file = vendor_dir / "LICENSE_NOTE.md"
+                with license_file.open("w") as f:
+                    f.write(f"# License Note for {repo_name}\n\n")
+                    f.write(f"Source: {repo['html_url']}\n")
+                    f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
+                    f.write(
+                        "Please check the original repository for full license details.\n"
+                    )
+
+                return True
+        except Exception as e:
+            print(f"Error vendoring {full_name}: {e}")
+            return False
 
 
 def main():
