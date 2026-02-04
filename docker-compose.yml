@@ -34,3 +34,4 @@ services:
       --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
       --config /freqtrade/user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
       --config /freqtrade/user_data/pairlists/whitelist.delta.json
+      --strategy DeltaSafeStrategy
