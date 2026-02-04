@@ -12,6 +12,7 @@ import ssl
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 
 # Constants
@@ -31,7 +32,7 @@ TIMEOUT = 10
 class StrategyScout:
     def __init__(self, token: str | None = None):
         self.token = token
-        self.candidates = []
+        self.candidates: list[dict[str, Any]] = []
         self.context = ssl.create_default_context()
 
     def _make_request(self, url: str, params: dict | None = None) -> dict | None:
@@ -61,7 +62,8 @@ class StrategyScout:
                 reset = e.headers.get("X-RateLimit-Reset")
                 if reset:
                     reset_time = datetime.datetime.fromtimestamp(
-                        int(reset), datetime.timezone.utc  # noqa: UP017
+                        int(reset),
+                        datetime.timezone.utc,  # noqa: UP017
                     )
                     print(f"Rate limit resets at {reset_time}")
             else:
@@ -145,9 +147,7 @@ class StrategyScout:
             age_days = 9999
             if pushed_at:
                 try:
-                    pushed_dt = datetime.datetime.strptime(
-                        pushed_at, "%Y-%m-%dT%H:%M:%SZ"
-                    ).replace(
+                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ").replace(
                         tzinfo=datetime.timezone.utc  # noqa: UP017
                     )
                     age_days = (
@@ -390,9 +390,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
