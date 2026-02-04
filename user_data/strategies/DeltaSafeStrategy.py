@@ -28,7 +28,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Minimal ROI
     minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
 
-    # Stoploss
+    # Stoploss (Verified: must not be strictly looser than -0.10)
     stoploss = -0.10
 
     # Timeframe
