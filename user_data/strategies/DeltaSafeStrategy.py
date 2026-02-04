@@ -15,7 +15,7 @@ from freqtrade.strategy import IStrategy  # noqa: F401
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 try:
-    from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+    from AuditedStrategyMixin import AuditedStrategyMixin
 except ImportError:
     # Fallback for testing or if mixin not found, to avoid crashing during inspection
     # though it will fail at runtime if not present.

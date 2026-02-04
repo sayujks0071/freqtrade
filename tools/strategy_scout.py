@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import argparse
-import json
-import sys
 from datetime import datetime
+from pathlib import Path
 
 import requests
 
@@ -15,7 +14,7 @@ def scout_strategies(keywords, min_stars, limit, output_file):
     headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Freqtrade-Scout"}
 
     try:
-        response = requests.get(base_url, params=params, headers=headers)
+        response = requests.get(base_url, params=params, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
     except Exception as e:
@@ -47,7 +46,7 @@ def scout_strategies(keywords, min_stars, limit, output_file):
                 score += 20
             elif days_since_update > 365:
                 score -= 10
-        except:
+        except Exception:
             updated_at = item["updated_at"]
 
         results.append(
@@ -80,7 +79,7 @@ def scout_strategies(keywords, min_stars, limit, output_file):
         lines.append(f"- Description: {r['description']}")
         lines.append("")
 
-    with open(output_file, "w") as f:
+    with Path(output_file).open("w") as f:
         f.write("\n".join(lines))
 
     print(f"Report saved to {output_file}")

@@ -2,7 +2,7 @@
 import argparse
 import json
 import re
-import sys
+from pathlib import Path
 
 
 def filter_markets(markets, filter_mode, allowlist_regex):
@@ -15,8 +15,8 @@ def filter_markets(markets, filter_mode, allowlist_regex):
         symbol = m["symbol"]
 
         # Basic check for futures format if not strictly checking 'type'
-        # But we assume the dump is from a fetch_markets call that might have already filtered, or not.
-        # We rely on symbol format mostly for freqtrade.
+        # But we assume the dump is from a fetch_markets call that might have already filtered,
+        # or not. We rely on symbol format mostly for freqtrade.
 
         if filter_mode == "perps_usdt":
             if symbol.endswith("/USDT:USDT"):
@@ -33,7 +33,7 @@ def filter_markets(markets, filter_mode, allowlist_regex):
 
 
 def generate_whitelist(markets_file, filter_mode, allowlist_regex):
-    with open(markets_file, "r") as f:
+    with Path(markets_file).open() as f:
         markets_data = json.load(f)
         if isinstance(markets_data, dict):
             markets = list(markets_data.values())
@@ -55,9 +55,9 @@ if __name__ == "__main__":
 
     whitelist = generate_whitelist(args.markets, args.filter_mode, args.allowlist_regex)
 
-    with open(args.output, "w") as f:
+    with Path(args.output).open("w") as f:
         json.dump(whitelist, f, indent=4)
 
     if args.output_txt:
-        with open(args.output_txt, "w") as f:
+        with Path(args.output_txt).open("w") as f:
             f.write("\n".join(whitelist))

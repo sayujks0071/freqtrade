@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+from pathlib import Path
 
 import ccxt
 
@@ -54,7 +55,7 @@ def fetch_markets(exchange_id, output_file, env="india_prod"):
             if not m.get("option"):
                 filtered_data.append(m)
 
-    with open(output_file, "w") as f:
+    with Path(output_file).open("w") as f:
         json.dump(filtered_data, f, indent=4)
 
     print(f"Fetched {len(filtered_data)} futures/swap markets to {output_file}")

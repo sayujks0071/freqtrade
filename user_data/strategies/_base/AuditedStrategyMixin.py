@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Any
 
 from freqtrade.persistence import Trade
 from freqtrade.strategy import IStrategy
@@ -15,11 +16,11 @@ class AuditedStrategyMixin(IStrategy):
     Mixin to enforce audit logging and risk controls.
     """
 
-    def log_signal(self, pair: str, signal: str, reason: str, details: dict = None):
+    def log_signal(self, pair: str, signal: str, reason: str, details: dict | None = None):
         """
         Structured audit log for signals.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc).isoformat()  # noqa: UP017
         log_entry = {
             "timestamp": now,
             "pair": pair,
@@ -42,10 +43,13 @@ class AuditedStrategyMixin(IStrategy):
 
         try:
             # We use the Trade query method provided by Freqtrade persistence
-            trades = Trade.get_trades(query=[Trade.is_open.is_(False), Trade.close_date >= today])
+            # Trade.get_trades expects trade_filter arg
+            trades = Trade.get_trades(
+                trade_filter=[Trade.is_open.is_(False), Trade.close_date >= today]
+            )
 
             # Summing the profit ratios of all trades closed
-            daily_profit = sum(t.close_profit for t in trades)
+            daily_profit = sum((t.close_profit or 0.0) for t in trades)
 
             if daily_profit < limit_pct:
                 logger.warning(
@@ -66,7 +70,7 @@ class AuditedStrategyMixin(IStrategy):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -115,8 +119,9 @@ class AuditedStrategyMixin(IStrategy):
         current_rate: float,
         proposed_leverage: float,
         max_leverage: float,
+        entry_tag: str | None,
         side: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> float:
         """
         Enforce leverage cap.

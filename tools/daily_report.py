@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 
 
-def generate_daily_report(db_path, date_str, output_file):
-    if not os.path.exists(db_path):
+def generate_daily_report(db_path, date_str, output_file):  # noqa: C901
+    if not Path(db_path).exists():
         print(f"No database found at {db_path}")
         # Write empty report to avoid workflow errors
-        with open(output_file, "w") as f:
+        with Path(output_file).open("w") as f:
             f.write(f"# Daily Report for {date_str}\n\nNo database found.")
         return
 
@@ -28,7 +28,7 @@ def generate_daily_report(db_path, date_str, output_file):
 
     if df.empty:
         print("No trades found in DB.")
-        with open(output_file, "w") as f:
+        with Path(output_file).open("w") as f:
             f.write(f"# Daily Report for {date_str}\n\nNo trades found in DB.")
         return
 
@@ -89,7 +89,9 @@ def generate_daily_report(db_path, date_str, output_file):
     # Report Content
     lines = []
     lines.append(f"# Daily Report for {date_str} (UTC)")
-    lines.append(f"Generated at: {datetime.now(timezone.utc).isoformat()}")
+    lines.append(
+        f"Generated at: {datetime.now(timezone.utc).isoformat()}"  # noqa: UP017
+    )
     lines.append("")
     lines.append("## Summary")
     lines.append(f"- **Trades Closed**: {total_trades}")
@@ -112,7 +114,7 @@ def generate_daily_report(db_path, date_str, output_file):
         for _, row in daily_opened.iterrows():
             lines.append(f"- {row['pair']} @ {row['open_rate']}")
 
-    with open(output_file, "w") as f:
+    with Path(output_file).open("w") as f:
         f.write("\n".join(lines))
 
     print(f"Report generated at {output_file}")
@@ -122,7 +124,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", default="user_data/tradesv3.sqlite")
     parser.add_argument(
-        "--date", help="YYYY-MM-DD", default=datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        "--date",
+        help="YYYY-MM-DD",
+        default=datetime.now(timezone.utc).strftime("%Y-%m-%d"),  # noqa: UP017
     )
     parser.add_argument("--output")
 

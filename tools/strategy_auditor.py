@@ -2,6 +2,7 @@
 import argparse
 import ast
 import sys
+from pathlib import Path
 
 
 class StrategyVisitor(ast.NodeVisitor):
@@ -23,7 +24,8 @@ class StrategyVisitor(ast.NodeVisitor):
                     # If args is empty and keywords empty, it's unsafe
                     if not node.args and not node.keywords:
                         self.errors.append(
-                            f"Line {node.lineno}: datetime.now() called without timezone. Use datetime.now(timezone.utc)"
+                            f"Line {node.lineno}: datetime.now() called without "
+                            "timezone. Use datetime.now(timezone.utc)"
                         )
 
             # Check for requests.*
@@ -39,7 +41,8 @@ class StrategyVisitor(ast.NodeVisitor):
         for alias in node.names:
             if alias.name in ["requests", "urllib", "socket", "http"]:
                 self.errors.append(
-                    f"Line {node.lineno}: Forbidden import '{alias.name}'. Strategies should not make network calls."
+                    f"Line {node.lineno}: Forbidden import '{alias.name}'. "
+                    "Strategies should not make network calls."
                 )
         self.generic_visit(node)
 
@@ -52,7 +55,7 @@ class StrategyVisitor(ast.NodeVisitor):
 def audit_strategy(filepath):
     print(f"Auditing {filepath}...")
     try:
-        with open(filepath, "r") as f:
+        with Path(filepath).open() as f:
             source = f.read()
     except Exception as e:
         print(f"Error reading file: {e}")
@@ -80,7 +83,8 @@ def audit_strategy(filepath):
     # Heuristic for "process_only_new_candles" or comment
     if "process_only_new_candles" not in source and "startup_candle_count" not in source:
         print(
-            "WARN: Could not find 'process_only_new_candles' or 'startup_candle_count'. Ensure explicit handling."
+            "WARN: Could not find 'process_only_new_candles' "
+            "or 'startup_candle_count'. Ensure explicit handling."
         )
 
     if success:

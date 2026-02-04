@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
 
 
-def validate(
+def validate(  # noqa: C901
     markets_file,
     min_markets,
     max_removal_ratio,
@@ -21,7 +20,7 @@ def validate(
 
     # Load markets
     try:
-        with open(markets_file, "r") as f:
+        with Path(markets_file).open() as f:
             markets_data = json.load(f)
             # Support both list and dict (ccxt structure)
             if isinstance(markets_data, dict):
@@ -32,7 +31,7 @@ def validate(
         msg = f"FAIL: Could not load markets file: {e}"
         print(msg)
         if out_report:
-            with open(out_report, "w") as f:
+            with Path(out_report).open("w") as f:
                 f.write(msg)
         return False
 
@@ -98,9 +97,9 @@ def validate(
                     success = False
 
     # Drift check
-    if prev_whitelist_file and os.path.exists(prev_whitelist_file):
+    if prev_whitelist_file and Path(prev_whitelist_file).exists():
         try:
-            with open(prev_whitelist_file, "r") as f:
+            with Path(prev_whitelist_file).open() as f:
                 prev_pairs = set(json.load(f))
 
             current_pairs = set(valid_pairs)
@@ -108,7 +107,10 @@ def validate(
             removal_ratio = len(removed) / len(prev_pairs) if len(prev_pairs) > 0 else 0
 
             if removal_ratio > max_removal_ratio:
-                msg = f"FAIL: Removal ratio {removal_ratio:.2f} > {max_removal_ratio}. Removed: {removed}"
+                msg = (
+                    f"FAIL: Removal ratio {removal_ratio:.2f} > {max_removal_ratio}. "
+                    f"Removed: {removed}"
+                )
                 print(msg)
                 report.append(msg)
                 success = False
@@ -119,7 +121,7 @@ def validate(
 
     # Write report
     if out_report:
-        with open(out_report, "w") as f:
+        with Path(out_report).open("w") as f:
             f.write("\n".join(report))
 
     return success

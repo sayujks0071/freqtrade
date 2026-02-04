@@ -56,7 +56,7 @@ Production-ready crypto trading stack for Delta Exchange (India + Global), built
 
 ## CI/CD
 
-- **Market Refresh**: Runs daily at 06:30 IST. Updates whitelist and checks for drift.
+- **Market Refresh**: Runs daily at 06:30 Asia/Kolkata. Updates whitelist and checks for drift.
 - **Strategy CI**: Audits PRs for unsafe code (network calls, local time).
 
 ## Risk Profile
