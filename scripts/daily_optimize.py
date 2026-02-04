@@ -486,7 +486,9 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
-        git_push_workflow(strategy_json, worst_strategy, avg_profit_pct, args, backup_json, created_new)
+        git_push_workflow(
+            strategy_json, worst_strategy, avg_profit_pct, args, backup_json, created_new
+        )
 
     else:
         print("Evaluation FAILED. Reverting changes.")

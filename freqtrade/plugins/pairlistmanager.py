@@ -60,6 +60,7 @@ class PairListManager(LoggingMixin):
         self._not_expiring_cache: LRUCache = LRUCache(maxsize=1)
 
         refresh_period = config.get("pairlist_refresh_period", 3600)
+        self._pairlist_refresh_period = refresh_period
         self._whitelist_cache = FtTTLCache(maxsize=1, ttl=refresh_period)
         LoggingMixin.__init__(self, logger, refresh_period)
 
@@ -149,7 +150,7 @@ class PairListManager(LoggingMixin):
             Only pairs present both in the generated list and this parameter are kept.
             Used in backtesting to filter out pairs with no available data.
         """
-        if not only_first and pairs is None and self._whitelist_cache.ttl > 0:
+        if not only_first and pairs is None and self._pairlist_refresh_period > 0:
             cached_whitelist = self._whitelist_cache.get("whitelist")
             if cached_whitelist:
                 self._whitelist = cached_whitelist.copy()

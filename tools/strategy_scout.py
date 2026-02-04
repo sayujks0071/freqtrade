@@ -189,8 +189,8 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error searching path {path} in {full_name}: {e}")
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):
