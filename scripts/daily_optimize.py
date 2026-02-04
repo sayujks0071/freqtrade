@@ -124,10 +124,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -147,10 +144,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -182,6 +176,34 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def _get_fallback_strategy_from_backtest():
+    """
+    Helper to find the worst performing strategy from the latest backtest result.
+    """
+    selected_strategy = None
+    latest_file = get_latest_backtest_file()
+    if latest_file:
+        print(f"Checking latest backtest file: {latest_file}")
+        data = read_backtest_result(latest_file)
+        if data and "strategy" in data:
+            strategies = data["strategy"]
+            # Find worst by Sharpe
+            worst_sharpe = float("inf")
+            for s_name, stats in strategies.items():
+                sharpe = stats.get("sharpe", -float("inf"))
+                if sharpe is None:
+                    sharpe = -float("inf")
+                if sharpe < worst_sharpe:
+                    worst_sharpe = sharpe
+                    selected_strategy = s_name
+            if selected_strategy:
+                print(
+                    f"Selected worst strategy from backtest (Sharpe {worst_sharpe}): "
+                    f"{selected_strategy}"
+                )
+    return selected_strategy
+
+
 def establish_baseline():
     """
     Identifies the strategy to optimize and establishes its current baseline metrics.
@@ -205,22 +227,7 @@ def establish_baseline():
 
     # 2. Fallback to latest backtest results
     if not selected_strategy:
-        latest_file = get_latest_backtest_file()
-        if latest_file:
-            print(f"Checking latest backtest file: {latest_file}")
-            data = read_backtest_result(latest_file)
-            if data and "strategy" in data:
-                strategies = data["strategy"]
-                # Find worst by Sharpe
-                worst_sharpe = float("inf")
-                for s_name, stats in strategies.items():
-                    sharpe = stats.get("sharpe", -float("inf"))
-                    if sharpe is None: sharpe = -float("inf")
-                    if sharpe < worst_sharpe:
-                        worst_sharpe = sharpe
-                        selected_strategy = s_name
-                if selected_strategy:
-                    print(f"Selected worst strategy from backtest (Sharpe {worst_sharpe}): {selected_strategy}")
+        selected_strategy = _get_fallback_strategy_from_backtest()
 
     # 3. Fallback to scanning folder
     if not selected_strategy:
@@ -371,7 +378,7 @@ def git_push_workflow(strategy_name, profit_pct, dry_run=False, branch=None, yes
     if not yes:
         print(f"\nReady to push changes to {target_branch}")
         response = input(f"Proceed with push to origin {target_branch}? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
+        if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
             return
 
@@ -414,13 +421,15 @@ def main():
         if backup_file and backup_file != "CREATED_NEW" and backup_file.exists():
             backup_file.unlink()
 
-        git_push_workflow(strategy_name, profit_pct, dry_run=args.dry_run, branch=args.branch, yes=args.yes)
+        git_push_workflow(
+            strategy_name, profit_pct, dry_run=args.dry_run, branch=args.branch, yes=args.yes
+        )
     else:
         print("Evaluation FAILED. Reverting changes.")
         # Revert
         if backup_file == "CREATED_NEW":
-             if strategy_json.exists():
-                 strategy_json.unlink()
+            if strategy_json.exists():
+                strategy_json.unlink()
         elif backup_file and backup_file.exists():
             shutil.move(backup_file, strategy_json)
 
