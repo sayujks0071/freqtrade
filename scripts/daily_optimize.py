@@ -25,6 +25,57 @@ SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
+def push_log_file():
+    """Commits and pushes the optimization log file."""
+    if "--dry-run" in sys.argv:
+        print("[DRY-RUN] Would push optimization_log.txt")
+        return
+
+    repo_root = Path(__file__).resolve().parent.parent
+    log_file = repo_root / "optimization_log.txt"
+
+    if not log_file.exists():
+        return
+
+    # Check for changes
+    subprocess.run(["git", "add", str(log_file)], check=False, cwd=repo_root)
+
+    # Check if there are staged changes for this file
+    status = subprocess.run(
+        ["git", "diff", "--staged", "--name-only"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root
+    )
+    if "optimization_log.txt" not in status.stdout:
+        return
+
+    print("Pushing optimization log updates...")
+    subprocess.run(
+        ["git", "commit", "-m", "chore: update optimization log"],
+        check=False,
+        cwd=repo_root
+    )
+
+    # Pull rebase just in case
+    subprocess.run(["git", "pull", "--rebase"], check=False, cwd=repo_root)
+    subprocess.run(["git", "push"], check=False, cwd=repo_root)
+
+
+def log_optimization_event(strategy, status, details):
+    """Logs optimization attempts to optimization_log.txt in the repo root."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{timestamp} | {strategy} | {status} | {details}\n"
+    repo_root = Path(__file__).resolve().parent.parent
+    log_file = repo_root / "optimization_log.txt"
+    try:
+        with log_file.open("a") as f:
+            f.write(log_entry)
+        push_log_file()
+    except Exception as e:
+        print(f"Warning: Could not write/push to optimization log: {e}")
+
+
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
@@ -115,6 +166,8 @@ def run_backtest_job(strategy_name):
     timerange = get_timerange()
     print(f"Running backtest for {strategy_name} over {timerange}...")
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -293,6 +346,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -320,6 +375,7 @@ Examples:
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
         print(result_hyperopt.stderr)  # Print stderr on failure
+        log_optimization_event(worst_strategy, "FAILED", "Hyperopt command failed")
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -351,6 +407,7 @@ Examples:
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
+        log_optimization_event(worst_strategy, "FAILED", "Verification backtest failed")
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -377,6 +434,12 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
+        log_optimization_event(
+            worst_strategy,
+            "SUCCESS",
+            f"Sharpe: {current_sharpe:.2f}->{new_sharpe:.2f}, "
+            f"Drawdown: {current_drawdown:.2f}->{new_drawdown:.2f}"
+        )
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         if args.dry_run:
@@ -464,6 +527,11 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+        log_optimization_event(
+            worst_strategy,
+            "FAILED",
+            f"Metrics did not improve (Sharpe: {new_sharpe:.2f}, Drawdown: {new_drawdown:.2f})"
+        )
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
