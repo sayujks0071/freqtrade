@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -18,7 +17,7 @@ def filter_markets(markets):
             data = markets.values()
 
     if isinstance(data, dict):
-         data = data.values()
+        data = data.values()
 
     for m in data:
         # Depending on dump format, m could be string or dict
@@ -52,8 +51,8 @@ def main():
 
     input_file = Path(sys.argv[1])
     if not input_file.exists():
-         print(f"Error: {input_file} not found.", file=sys.stderr)
-         sys.exit(1)
+        print(f"Error: {input_file} not found.", file=sys.stderr)
+        sys.exit(1)
 
     with input_file.open("r") as f:
         try:
@@ -65,11 +64,7 @@ def main():
     whitelist = filter_markets(data)
 
     # Output format for Freqtrade
-    output_obj = {
-        "exchange": {
-            "pair_whitelist": whitelist
-        }
-    }
+    output_obj = {"exchange": {"pair_whitelist": whitelist}}
 
     print(json.dumps(output_obj, indent=4))
 
