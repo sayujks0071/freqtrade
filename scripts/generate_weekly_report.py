@@ -7,7 +7,6 @@ Aggregates optimization logs and git commit history to generate a weekly report.
 import argparse
 import re
 import subprocess
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -148,7 +147,7 @@ def generate_report(updates, stuck_strategies):
     end_date = datetime.now().strftime("%Y-%m-%d")
 
     lines = [
-        f"# Weekly Strategy Optimization Report",
+        "# Weekly Strategy Optimization Report",
         f"**Period:** {start_date} to {end_date}",
         "",
         "## 1. Updated Strategies",
@@ -170,7 +169,10 @@ def generate_report(updates, stuck_strategies):
     lines.append("")
 
     lines.append("## 3. Stuck Strategies")
-    lines.append("Strategies that failed optimization attempts multiple times without success (candidates for deletion or review):")
+    lines.append(
+        "Strategies that failed optimization attempts multiple times without success "
+        "(candidates for deletion or review):"
+    )
     lines.append("")
 
     if stuck_strategies:
@@ -187,7 +189,11 @@ def generate_report(updates, stuck_strategies):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Optimization Report")
-    parser.add_argument("--dry-run", action="store_true", help="Generate report but do not commit/push")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Generate report but do not commit/push"
+    )
     parser.add_argument("--days", type=int, default=7, help="Number of days to look back")
     args = parser.parse_args()
 
