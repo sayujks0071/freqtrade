@@ -407,14 +407,10 @@ Examples:
                 if check_result.returncode == 0:
                     # Branch exists, just switch to it
                     print(f"Branch '{target_branch}' already exists, switching to it...")
-                    result = run_command(
-                        ["git", "checkout", target_branch], capture=True
-                    )
+                    result = run_command(["git", "checkout", target_branch], capture=True)
                 else:
                     # Branch doesn't exist, create it
-                    result = run_command(
-                        ["git", "checkout", "-b", target_branch], capture=True
-                    )
+                    result = run_command(["git", "checkout", "-b", target_branch], capture=True)
 
                 if result.returncode != 0:
                     print("Failed to create or switch to feature branch.")
@@ -438,32 +434,22 @@ Examples:
                 print("This will:")
                 print(f"  - Push optimized strategy parameters for {worst_strategy}")
                 print(f"  - Create/update remote branch: {target_branch}")
-                print(
-                    "\nYou can then create a pull request to review and merge these changes."
-                )
+                print("\nYou can then create a pull request to review and merge these changes.")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
                 if response not in ["y", "yes"]:
                     print("Push cancelled. Changes are committed locally.")
-                    print(
-                        f"You can manually push later with: git push origin {target_branch}"
-                    )
+                    print(f"You can manually push later with: git push origin {target_branch}")
                     if backup_json.exists():
                         backup_json.unlink()
                     return
 
             print(f"\nPushing to {target_branch}...")
-            result = run_command(
-                ["git", "push", "origin", target_branch], capture=True
-            )
+            result = run_command(["git", "push", "origin", target_branch], capture=True)
 
             if result.returncode == 0:
-                print(
-                    f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
-                )
+                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
                 print("\nNext steps:")
-                print(
-                    f"  1. Create a pull request from '{target_branch}' to your main branch"
-                )
+                print(f"  1. Create a pull request from '{target_branch}' to your main branch")
                 print("  2. Review the changes and test the optimized strategy")
                 print("  3. Merge the pull request after verification")
             else:

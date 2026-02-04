@@ -222,9 +222,7 @@ def audit_file(filepath, fix=False):
 def main():
     parser = argparse.ArgumentParser(description="Strategy Auditor")
     parser.add_argument("path", help="Path to strategy file or directory")
-    parser.add_argument(
-        "--fix", action="store_true", help="Auto-fix issues (e.g. insert header)"
-    )
+    parser.add_argument("--fix", action="store_true", help="Auto-fix issues (e.g. insert header)")
     args = parser.parse_args()
 
     target = Path(args.path)
