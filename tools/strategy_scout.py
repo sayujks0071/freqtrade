@@ -181,9 +181,9 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
-                # Silently ignore errors during directory traversal
-                pass
+            except Exception as e:
+                # Ignore errors during directory traversal but log for debug
+                print(f"DEBUG: Error traversing {path}: {e}")
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):
@@ -365,9 +365,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
