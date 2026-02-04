@@ -9,11 +9,10 @@ import datetime
 import json
 import os
 import ssl
-import sys
-import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -50,7 +49,9 @@ class StrategyScout:
             req.add_header("Authorization", f"token {self.token}")
 
         try:
-            with urllib.request.urlopen(req, context=self.context, timeout=TIMEOUT) as response:
+            with urllib.request.urlopen(  # noqa: S310
+                req, context=self.context, timeout=TIMEOUT
+            ) as response:
                 if response.status == 200:
                     return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
@@ -59,7 +60,9 @@ class StrategyScout:
                 # Check headers for rate limit reset
                 reset = e.headers.get("X-RateLimit-Reset")
                 if reset:
-                    reset_time = datetime.datetime.fromtimestamp(int(reset), datetime.timezone.utc)
+                    reset_time = datetime.datetime.fromtimestamp(
+                        int(reset), datetime.timezone.utc  # noqa: UP017
+                    )
                     print(f"Rate limit resets at {reset_time}")
             else:
                 print(f"HTTP Error {e.code} for {url}: {e}")
@@ -142,10 +145,14 @@ class StrategyScout:
             age_days = 9999
             if pushed_at:
                 try:
-                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ").replace(
-                        tzinfo=datetime.timezone.utc
+                    pushed_dt = datetime.datetime.strptime(
+                        pushed_at, "%Y-%m-%dT%H:%M:%SZ"
+                    ).replace(
+                        tzinfo=datetime.timezone.utc  # noqa: UP017
                     )
-                    age_days = (datetime.datetime.now(datetime.timezone.utc) - pushed_dt).days
+                    age_days = (
+                        datetime.datetime.now(datetime.timezone.utc) - pushed_dt  # noqa: UP017
+                    ).days
                 except ValueError:
                     pass
 
@@ -228,7 +235,7 @@ class StrategyScout:
                     try:
                         req = urllib.request.Request(download_url)  # noqa: S310
                         req.add_header("User-Agent", USER_AGENT)
-                        with urllib.request.urlopen(
+                        with urllib.request.urlopen(  # noqa: S310
                             req, context=self.context, timeout=TIMEOUT
                         ) as response:
                             if response.status == 200:
@@ -358,7 +365,7 @@ class StrategyScout:
                             if raw_url:
                                 req = urllib.request.Request(raw_url)  # noqa: S310
                                 req.add_header("User-Agent", USER_AGENT)
-                                with urllib.request.urlopen(
+                                with urllib.request.urlopen(  # noqa: S310
                                     req, context=self.context, timeout=TIMEOUT
                                 ) as r:
                                     if r.status == 200:
