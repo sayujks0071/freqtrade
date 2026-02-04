@@ -15,7 +15,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
+from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
 class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
@@ -50,7 +50,9 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
 
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_indicators(
+        self, dataframe: DataFrame, metadata: dict
+    ) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
 
@@ -64,17 +66,21 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
 
         return dataframe
 
-    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_entry_trend(
+        self, dataframe: DataFrame, metadata: dict
+    ) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe["whale_sentiment"] == 1) &
-                (dataframe["rsi"] < 70)  # Filter out extreme overbought
+                (dataframe["whale_sentiment"] == 1)
+                & (dataframe["rsi"] < 70)  # Filter out extreme overbought
             ),
             "enter_long",
         ] = 1
         return dataframe
 
-    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_exit_trend(
+        self, dataframe: DataFrame, metadata: dict
+    ) -> DataFrame:
         dataframe.loc[
             (dataframe["rsi"] > 70),
             "exit_long",
@@ -93,5 +99,7 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         side: str,
         **kwargs,
     ) -> bool:
-        self.log_signal(pair, self.timeframe, side, "Whale Signal Confirmed", current_time)
+        self.log_signal(
+            pair, self.timeframe, side, "Whale Signal Confirmed", current_time
+        )
         return True
