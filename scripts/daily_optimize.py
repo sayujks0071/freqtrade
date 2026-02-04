@@ -331,9 +331,7 @@ def evaluate_and_push(
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
-        handle_git_operations(
-            args, msg, worst_strategy, strategy_json, backup_json, created_new
-        )
+        handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json, created_new)
         if backup_json.exists():
             backup_json.unlink()
     else:
@@ -345,9 +343,7 @@ def evaluate_and_push(
                 strategy_json.unlink()
 
 
-def handle_git_operations(
-    args, msg, worst_strategy, strategy_json, backup_json, created_new
-):
+def handle_git_operations(args, msg, worst_strategy, strategy_json, backup_json, created_new):
     """Handles git add, commit, and push operations."""
     if args.dry_run:
         print("\n[DRY-RUN MODE] Would have committed and pushed:")
@@ -373,9 +369,7 @@ def handle_git_operations(
             print(f"Branch '{target_branch}' already exists, switching to it...")
             result = run_command(["git", "checkout", target_branch], capture=True)
         else:
-            result = run_command(
-                ["git", "checkout", "-b", target_branch], capture=True
-            )
+            result = run_command(["git", "checkout", "-b", target_branch], capture=True)
 
         if result.returncode != 0:
             print("Failed to create or switch to feature branch.")
@@ -397,15 +391,11 @@ def handle_git_operations(
         print("This will:")
         print(f"  - Push optimized strategy parameters for {worst_strategy}")
         print(f"  - Create/update remote branch: {target_branch}")
-        print(
-            "\nYou can then create a pull request to review and merge these changes."
-        )
+        print("\nYou can then create a pull request to review and merge these changes.")
         response = input("\nProceed with push? [y/N]: ").strip().lower()
         if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
-            print(
-                f"You can manually push later with: git push origin {target_branch}"
-            )
+            print(f"You can manually push later with: git push origin {target_branch}")
             if backup_json.exists():
                 backup_json.unlink()
             return
@@ -415,9 +405,7 @@ def handle_git_operations(
     if result.returncode == 0:
         print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
         print("\nNext steps:")
-        print(
-            f"  1. Create a pull request from '{target_branch}' to your main branch"
-        )
+        print(f"  1. Create a pull request from '{target_branch}' to your main branch")
         print("  2. Review the changes and test the optimized strategy")
         print("  3. Merge the pull request after verification")
     else:
