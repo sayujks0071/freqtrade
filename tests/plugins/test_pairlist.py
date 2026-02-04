@@ -71,6 +71,7 @@ def whitelist_conf(default_conf):
 def whitelist_conf_2(default_conf):
     default_conf["runmode"] = "dry_run"
     default_conf["stake_currency"] = "BTC"
+    default_conf["pairlist_refresh_period"] = -1
     default_conf["exchange"]["pair_whitelist"] = [
         "ETH/BTC",
         "TKN/BTC",
@@ -98,6 +99,7 @@ def whitelist_conf_2(default_conf):
 def whitelist_conf_agefilter(default_conf):
     default_conf["runmode"] = "dry_run"
     default_conf["stake_currency"] = "BTC"
+    default_conf["pairlist_refresh_period"] = -1
     default_conf["exchange"]["pair_whitelist"] = [
         "ETH/BTC",
         "TKN/BTC",
@@ -1275,6 +1277,7 @@ def test_ShuffleFilter_init(mocker, whitelist_conf, caplog) -> None:
         {"method": "ShuffleFilter", "seed": 43},
     ]
     whitelist_conf["runmode"] = RunMode.BACKTEST
+    whitelist_conf["pairlist_refresh_period"] = -1
 
     exchange = get_patched_exchange(mocker, whitelist_conf)
     plm = PairListManager(exchange, whitelist_conf)
@@ -1314,6 +1317,7 @@ def test_PerformanceFilter_lookback(mocker, default_conf_usdt, fee, caplog) -> N
         {"method": "StaticPairList"},
         {"method": "PerformanceFilter", "minutes": 60, "min_profit": 0.01},
     ]
+    default_conf_usdt["pairlist_refresh_period"] = -1
     mocker.patch(f"{EXMS}.exchange_has", MagicMock(return_value=True))
     exchange = get_patched_exchange(mocker, default_conf_usdt)
     pm = PairListManager(exchange, default_conf_usdt)
@@ -1343,6 +1347,7 @@ def test_PerformanceFilter_keep_mid_order(mocker, default_conf_usdt, fee, caplog
             "minutes": 60,
         },
     ]
+    default_conf_usdt["pairlist_refresh_period"] = -1
     mocker.patch(f"{EXMS}.exchange_has", return_value=True)
     exchange = get_patched_exchange(mocker, default_conf_usdt)
     pm = PairListManager(exchange, default_conf_usdt)
@@ -1750,6 +1755,7 @@ def test_spreadfilter_invalid_data(mocker, default_conf, markets, tickers, caplo
         {"method": "VolumePairList", "number_assets": 10},
         {"method": "SpreadFilter", "max_spread_ratio": 0.1},
     ]
+    default_conf["pairlist_refresh_period"] = -1
 
     mocker.patch.multiple(
         EXMS,
@@ -2193,6 +2199,7 @@ def test_FullTradesFilter(mocker, default_conf_usdt, fee, caplog) -> None:
     default_conf_usdt["exchange"]["pair_whitelist"].extend(["ADA/USDT", "XRP/USDT", "ETC/USDT"])
     default_conf_usdt["pairlists"] = [{"method": "StaticPairList"}, {"method": "FullTradesFilter"}]
     default_conf_usdt["max_open_trades"] = -1
+    default_conf_usdt["pairlist_refresh_period"] = -1
     mocker.patch(f"{EXMS}.exchange_has", MagicMock(return_value=True))
     exchange = get_patched_exchange(mocker, default_conf_usdt)
     pm = PairListManager(exchange, default_conf_usdt)

@@ -149,7 +149,7 @@ class PairListManager(LoggingMixin):
             Only pairs present both in the generated list and this parameter are kept.
             Used in backtesting to filter out pairs with no available data.
         """
-        if not only_first and pairs is None:
+        if not only_first and pairs is None and self._whitelist_cache.ttl > 0:
             cached_whitelist = self._whitelist_cache.get("whitelist")
             if cached_whitelist:
                 self._whitelist = cached_whitelist.copy()
