@@ -4,7 +4,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -20,7 +20,6 @@ class AuditedStrategyMixin:
     config: dict[str, Any]
 
     def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
         self,
         pair: str,
         timeframe: str,
@@ -34,8 +33,9 @@ class AuditedStrategyMixin:
         # This logs to standard freqtrade log, but could be directed to a separate file or DB.
         # Freqtrade logs are captured.
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
+        now_iso = datetime.now(timezone.utc).isoformat()  # noqa: UP017
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
+            f"AUDIT_SIGNAL | {now_iso} | {pair} | "
             f"{direction} | {reason} | {candle_date}"
         )
         logger.info(msg)
@@ -46,9 +46,7 @@ class AuditedStrategyMixin:
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
             if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
+                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
                 return False
         return True
 

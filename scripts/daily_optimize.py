@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -204,7 +198,7 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
-def main():
+def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -218,26 +212,23 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
+        ),
     )
     parser.add_argument(
-        "--yes", "-y",
-        action="store_true",
-        help="Skip confirmation prompts before pushing"
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
@@ -405,7 +396,7 @@ Examples:
                     ["git", "rev-parse", "--verify", target_branch],
                     capture_output=True,
                     text=True,
-                    check=False
+                    check=False,
                 )
                 if check_result.returncode == 0:
                     # Branch exists, just switch to it
@@ -439,9 +430,11 @@ Examples:
                 print(f"  - Create/update remote branch: {target_branch}")
                 print("\nYou can then create a pull request to review and merge these changes.")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ['y', 'yes']:
+                if response not in ["y", "yes"]:
                     print("Push cancelled. Changes are committed locally.")
-                    print(f"You can manually push later with: git push origin {target_branch}")
+                    print(
+                        f"You can manually push later with: git push origin {target_branch}"
+                    )
                     if backup_json.exists():
                         backup_json.unlink()
                     return
@@ -450,9 +443,13 @@ Examples:
             result = run_command(["git", "push", "origin", target_branch], capture=True)
 
             if result.returncode == 0:
-                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
+                print(
+                    f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
+                )
                 print("\nNext steps:")
-                print(f"  1. Create a pull request from '{target_branch}' to your main branch")
+                print(
+                    f"  1. Create a pull request from '{target_branch}' to your main branch"
+                )
                 print("  2. Review the changes and test the optimized strategy")
                 print("  3. Merge the pull request after verification")
             else:
