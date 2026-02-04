@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-import sqlite3
-import pandas as pd
 import argparse
 import os
-from datetime import datetime, timezone, timedelta
+import sqlite3
+from datetime import datetime, timedelta, timezone
+
+import pandas as pd
+
 
 def generate_daily_report(db_path, date_str, output_file):
     if not os.path.exists(db_path):
         print(f"No database found at {db_path}")
         # Write empty report to avoid workflow errors
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             f.write(f"# Daily Report for {date_str}\n\nNo database found.")
         return
 
@@ -26,17 +28,17 @@ def generate_daily_report(db_path, date_str, output_file):
 
     if df.empty:
         print("No trades found in DB.")
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             f.write(f"# Daily Report for {date_str}\n\nNo trades found in DB.")
         return
 
     # Ensure date columns are datetime
     # Freqtrade stores dates as strings usually? Or timestamps?
     # If read_sql_query doesn't parse, we force it.
-    if 'open_date' in df.columns:
-        df['open_date'] = pd.to_datetime(df['open_date'])
-    if 'close_date' in df.columns:
-        df['close_date'] = pd.to_datetime(df['close_date'])
+    if "open_date" in df.columns:
+        df["open_date"] = pd.to_datetime(df["open_date"])
+    if "close_date" in df.columns:
+        df["close_date"] = pd.to_datetime(df["close_date"])
 
     # Filter by date
     try:
@@ -46,26 +48,41 @@ def generate_daily_report(db_path, date_str, output_file):
         return
 
     # Trades CLOSED on this date
-    daily_closed = df[df['close_date'].dt.date == target_date] if 'close_date' in df.columns else pd.DataFrame()
+    daily_closed = (
+        df[df["close_date"].dt.date == target_date]
+        if "close_date" in df.columns
+        else pd.DataFrame()
+    )
 
     # Trades OPENED on this date
-    daily_opened = df[df['open_date'].dt.date == target_date] if 'open_date' in df.columns else pd.DataFrame()
+    daily_opened = (
+        df[df["open_date"].dt.date == target_date] if "open_date" in df.columns else pd.DataFrame()
+    )
 
     # Metrics
     total_trades = len(daily_closed)
-    wins = len(daily_closed[daily_closed['close_profit'] > 0]) if not daily_closed.empty else 0
-    losses = len(daily_closed[daily_closed['close_profit'] <= 0]) if not daily_closed.empty else 0
+    wins = len(daily_closed[daily_closed["close_profit"] > 0]) if not daily_closed.empty else 0
+    losses = len(daily_closed[daily_closed["close_profit"] <= 0]) if not daily_closed.empty else 0
     winrate = (wins / total_trades * 100) if total_trades > 0 else 0
 
-    total_profit_abs = daily_closed['close_profit_abs'].sum() if not daily_closed.empty and 'close_profit_abs' in daily_closed else 0
-    avg_return = daily_closed['close_profit'].mean() * 100 if total_trades > 0 else 0
+    total_profit_abs = (
+        daily_closed["close_profit_abs"].sum()
+        if not daily_closed.empty and "close_profit_abs" in daily_closed
+        else 0
+    )
+    avg_return = daily_closed["close_profit"].mean() * 100 if total_trades > 0 else 0
 
     # Max Loss Trade
-    max_loss_trade = daily_closed['close_profit'].min() * 100 if not daily_closed.empty else 0
+    max_loss_trade = daily_closed["close_profit"].min() * 100 if not daily_closed.empty else 0
 
     # Top Pairs
-    if not daily_closed.empty and 'close_profit_abs' in daily_closed:
-        top_pairs = daily_closed.groupby('pair')['close_profit_abs'].sum().sort_values(ascending=False).head(5)
+    if not daily_closed.empty and "close_profit_abs" in daily_closed:
+        top_pairs = (
+            daily_closed.groupby("pair")["close_profit_abs"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(5)
+        )
     else:
         top_pairs = pd.Series()
 
@@ -95,15 +112,18 @@ def generate_daily_report(db_path, date_str, output_file):
         for _, row in daily_opened.iterrows():
             lines.append(f"- {row['pair']} @ {row['open_rate']}")
 
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write("\n".join(lines))
 
     print(f"Report generated at {output_file}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", default="user_data/tradesv3.sqlite")
-    parser.add_argument("--date", help="YYYY-MM-DD", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    parser.add_argument(
+        "--date", help="YYYY-MM-DD", default=datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    )
     parser.add_argument("--output")
 
     args = parser.parse_args()

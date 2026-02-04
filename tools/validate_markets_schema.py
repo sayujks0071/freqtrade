@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
-import json
 import argparse
-import sys
+import json
 import os
 import re
+import sys
 from pathlib import Path
 
-def validate(markets_file, min_markets, max_removal_ratio, strict_volume, prev_whitelist_file, out_report, env):
+
+def validate(
+    markets_file,
+    min_markets,
+    max_removal_ratio,
+    strict_volume,
+    prev_whitelist_file,
+    out_report,
+    env,
+):
     report = []
     success = True
 
     # Load markets
     try:
-        with open(markets_file, 'r') as f:
+        with open(markets_file, "r") as f:
             markets_data = json.load(f)
             # Support both list and dict (ccxt structure)
             if isinstance(markets_data, dict):
@@ -23,7 +32,7 @@ def validate(markets_file, min_markets, max_removal_ratio, strict_volume, prev_w
         msg = f"FAIL: Could not load markets file: {e}"
         print(msg)
         if out_report:
-            with open(out_report, 'w') as f:
+            with open(out_report, "w") as f:
                 f.write(msg)
         return False
 
@@ -45,7 +54,7 @@ def validate(markets_file, min_markets, max_removal_ratio, strict_volume, prev_w
     seen_symbols = set()
 
     for m in markets:
-        symbol = m.get('symbol')
+        symbol = m.get("symbol")
         if not symbol:
             continue
 
@@ -58,21 +67,21 @@ def validate(markets_file, min_markets, max_removal_ratio, strict_volume, prev_w
 
         # Check format BASE/QUOTE:SETTLE
         # Delta futures usually have this format in CCXT.
-        if not re.match(r'^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$', symbol):
-             msg = f"FAIL: Invalid symbol format {symbol}. Expected BASE/QUOTE:SETTLE"
-             print(msg)
-             report.append(msg)
-             success = False
+        if not re.match(r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$", symbol):
+            msg = f"FAIL: Invalid symbol format {symbol}. Expected BASE/QUOTE:SETTLE"
+            print(msg)
+            report.append(msg)
+            success = False
 
         # Check keys
-        required = ['symbol', 'base', 'quote', 'active']
+        required = ["symbol", "base", "quote", "active"]
         if not all(k in m for k in required):
             msg = f"FAIL: Missing required fields in {symbol}"
             print(msg)
             report.append(msg)
             success = False
 
-        if m.get('active') is True:
+        if m.get("active") is True:
             valid_pairs.append(symbol)
 
             # Volume check (if strict)
@@ -81,17 +90,17 @@ def validate(markets_file, min_markets, max_removal_ratio, strict_volume, prev_w
             # If strict volume is on, we fail if any active pair has 0 volume?
             # Or just warn? "fail if STRICT_VOLUME=true and too illiquid"
             if strict_volume:
-                vol = m.get('quoteVolume')
-                if vol is not None and vol < 1000: # Arbitrary threshold 1000 USD
-                     msg = f"FAIL: Low volume for {symbol}: {vol}"
-                     print(msg)
-                     report.append(msg)
-                     success = False
+                vol = m.get("quoteVolume")
+                if vol is not None and vol < 1000:  # Arbitrary threshold 1000 USD
+                    msg = f"FAIL: Low volume for {symbol}: {vol}"
+                    print(msg)
+                    report.append(msg)
+                    success = False
 
     # Drift check
     if prev_whitelist_file and os.path.exists(prev_whitelist_file):
         try:
-            with open(prev_whitelist_file, 'r') as f:
+            with open(prev_whitelist_file, "r") as f:
                 prev_pairs = set(json.load(f))
 
             current_pairs = set(valid_pairs)
@@ -110,10 +119,11 @@ def validate(markets_file, min_markets, max_removal_ratio, strict_volume, prev_w
 
     # Write report
     if out_report:
-        with open(out_report, 'w') as f:
+        with open(out_report, "w") as f:
             f.write("\n".join(report))
 
     return success
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -127,6 +137,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    success = validate(args.markets, args.min_markets, args.max_removal_ratio, args.strict_volume, args.prev_whitelist, args.out_report, args.env)
+    success = validate(
+        args.markets,
+        args.min_markets,
+        args.max_removal_ratio,
+        args.strict_volume,
+        args.prev_whitelist,
+        args.out_report,
+        args.env,
+    )
 
     sys.exit(0 if success else 2)

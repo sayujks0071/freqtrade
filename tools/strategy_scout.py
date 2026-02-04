@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
-import requests
 import argparse
-import sys
 import json
+import sys
 from datetime import datetime
+
+import requests
+
 
 def scout_strategies(keywords, min_stars, limit, output_file):
     base_url = "https://api.github.com/search/repositories"
     query = f"{keywords} language:python"
-    params = {
-        "q": query,
-        "sort": "updated",
-        "order": "desc",
-        "per_page": limit
-    }
+    params = {"q": query, "sort": "updated", "order": "desc", "per_page": limit}
 
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Freqtrade-Scout"
-    }
+    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Freqtrade-Scout"}
 
     try:
         response = requests.get(base_url, params=params, headers=headers)
@@ -56,15 +50,17 @@ def scout_strategies(keywords, min_stars, limit, output_file):
         except:
             updated_at = item["updated_at"]
 
-        results.append({
-            "name": item["full_name"],
-            "url": item["html_url"],
-            "description": item["description"],
-            "stars": item["stargazers_count"],
-            "updated_at": item["updated_at"],
-            "license": item["license"]["name"],
-            "score": score
-        })
+        results.append(
+            {
+                "name": item["full_name"],
+                "url": item["html_url"],
+                "description": item["description"],
+                "stars": item["stargazers_count"],
+                "updated_at": item["updated_at"],
+                "license": item["license"]["name"],
+                "score": score,
+            }
+        )
 
     # Sort by score
     results.sort(key=lambda x: x["score"], reverse=True)
@@ -84,10 +80,11 @@ def scout_strategies(keywords, min_stars, limit, output_file):
         lines.append(f"- Description: {r['description']}")
         lines.append("")
 
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write("\n".join(lines))
 
     print(f"Report saved to {output_file}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

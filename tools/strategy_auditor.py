@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import ast
 import argparse
+import ast
 import sys
+
 
 class StrategyVisitor(ast.NodeVisitor):
     def __init__(self):
@@ -16,37 +17,42 @@ class StrategyVisitor(ast.NodeVisitor):
     def visit_Call(self, node):
         # Check for datetime.now() without tz
         if isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == 'datetime':
-                if node.func.attr == 'now':
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "datetime":
+                if node.func.attr == "now":
                     # Check arguments for timezone
                     # If args is empty and keywords empty, it's unsafe
                     if not node.args and not node.keywords:
-                        self.errors.append(f"Line {node.lineno}: datetime.now() called without timezone. Use datetime.now(timezone.utc)")
+                        self.errors.append(
+                            f"Line {node.lineno}: datetime.now() called without timezone. Use datetime.now(timezone.utc)"
+                        )
 
             # Check for requests.*
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == 'requests':
-                 self.errors.append(f"Line {node.lineno}: Network call detected (requests).")
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "requests":
+                self.errors.append(f"Line {node.lineno}: Network call detected (requests).")
             # Check for urllib.*
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == 'urllib':
-                 self.errors.append(f"Line {node.lineno}: Network call detected (urllib).")
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "urllib":
+                self.errors.append(f"Line {node.lineno}: Network call detected (urllib).")
 
         self.generic_visit(node)
 
     def visit_Import(self, node):
         for alias in node.names:
-            if alias.name in ['requests', 'urllib', 'socket', 'http']:
-                self.errors.append(f"Line {node.lineno}: Forbidden import '{alias.name}'. Strategies should not make network calls.")
+            if alias.name in ["requests", "urllib", "socket", "http"]:
+                self.errors.append(
+                    f"Line {node.lineno}: Forbidden import '{alias.name}'. Strategies should not make network calls."
+                )
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
-        if node.module in ['requests', 'urllib', 'socket', 'http']:
+        if node.module in ["requests", "urllib", "socket", "http"]:
             self.errors.append(f"Line {node.lineno}: Forbidden import from '{node.module}'.")
         self.generic_visit(node)
+
 
 def audit_strategy(filepath):
     print(f"Auditing {filepath}...")
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             source = f.read()
     except Exception as e:
         print(f"Error reading file: {e}")
@@ -73,7 +79,9 @@ def audit_strategy(filepath):
 
     # Heuristic for "process_only_new_candles" or comment
     if "process_only_new_candles" not in source and "startup_candle_count" not in source:
-         print("WARN: Could not find 'process_only_new_candles' or 'startup_candle_count'. Ensure explicit handling.")
+        print(
+            "WARN: Could not find 'process_only_new_candles' or 'startup_candle_count'. Ensure explicit handling."
+        )
 
     if success:
         print("PASS: Strategy passed audit.")
@@ -81,6 +89,7 @@ def audit_strategy(filepath):
         print("FAIL: Strategy failed audit.")
 
     return success
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
