@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 # Add tools directory to sys.path to allow importing generate_whitelist
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir))
@@ -94,9 +95,7 @@ def validate_market_structure(i, m, errors):
 
     has_type = any(f in m for f in type_fields)
     if not has_type:
-        errors.append(
-            f"Item {i} ({m.get('symbol', 'unknown')}) missing type/contract indicator"
-        )
+        errors.append(f"Item {i} ({m.get('symbol', 'unknown')}) missing type/contract indicator")
 
     symbol = m.get("symbol", "")
     if not symbol:
@@ -130,9 +129,21 @@ def validate_volume(m, symbol, strict_volume, errors):
 
     # Optional strict volume check (e.g. check 24h volume if available)
     # Since 'list-markets' might not provide volume, we skip unless we find it.
-    if strict_volume and "info" in m and isinstance(m["info"], dict):
-        # Example check if raw info has volume
-        pass
+    if "info" in m and isinstance(m["info"], dict):
+        # Check for common volume keys in info (Delta usually returns 24h volume in info)
+        vol = m["info"].get("volume_24h") or m["info"].get("quote_volume_24h")
+
+        if vol is not None:
+            try:
+                vol_float = float(vol)
+                if vol_float < 1000:
+                    msg = f"Symbol '{symbol}' volume {vol_float} < 1000"
+                    if strict_volume:
+                        errors.append(msg)
+                    else:
+                        print(f"WARN: {msg}")
+            except (ValueError, TypeError):
+                pass
 
 
 def validate_schema(data, min_markets, strict_volume):  # noqa: C901
@@ -252,9 +263,7 @@ def write_report(path, status, stats, errors, drift_info, args, message=None):
     drift_section += f"- Previous Whitelist Size: {prev_count}\n"
     drift_section += f"- Added Pairs: {added_count}\n"
     drift_section += f"- Removed Pairs: {len(removed_list)}\n"
-    drift_section += (
-        f"- Removal Ratio: {removal_ratio:.2f} (Max: {args.max_removal_ratio})\n"
-    )
+    drift_section += f"- Removal Ratio: {removal_ratio:.2f} (Max: {args.max_removal_ratio})\n"
 
     if removed_list:
         drift_section += "\n### Removed Pairs (Sample)\n"
@@ -263,9 +272,12 @@ def write_report(path, status, stats, errors, drift_info, args, message=None):
         if len(removed_list) > 10:
             drift_section += f"... and {len(removed_list) - 10} more\n"
 
+    # Fix UP017 by using variable outside f-string
+    now_iso = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+
     report = f"""# Markets Schema Validation Report
 
-**Date:** {datetime.now(timezone.utc).isoformat()}  # noqa: UP017
+**Date:** {now_iso}
 **Status:** {status}
 **File:** {args.markets}
 **Environment:** {args.env}
@@ -304,9 +316,7 @@ def main():
     parser.add_argument(
         "--max-removal-ratio",
         type=float,
-        default=float(
-            os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)
-        ),
+        default=float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)),
     )
     parser.add_argument(
         "--strict-volume",
@@ -345,9 +355,7 @@ def main():
         # Use stats from exception if available, otherwise what we have
         final_stats = e.stats if e.stats != (0, 0, 0) else stats
         # If drift caused failure, we might have drift info
-        final_drift = (
-            e.drift_info if e.drift_info != ([], 0.0, 0, 0) else drift_info
-        )
+        final_drift = e.drift_info if e.drift_info != ([], 0.0, 0, 0) else drift_info
         final_errors = e.errors if e.errors else []
 
         write_report(
