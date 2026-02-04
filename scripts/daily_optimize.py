@@ -11,7 +11,6 @@ import sys
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple
 
 
 # Configuration
@@ -37,10 +36,7 @@ def run_command(cmd, capture=True):
 def get_timerange():
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
-    return (
-        f"{start_date.strftime('%Y%m%d')}-"
-        f"{end_date.strftime('%Y%m%d')}"
-    )
+    return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
 
 def get_latest_backtest_file():
@@ -150,7 +146,7 @@ def check_git_status():
         ["git", "status", "--porcelain"],
         capture_output=True,
         text=True,
-        check=False
+        check=False,
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -314,7 +310,7 @@ def execute_git_push(args, target_branch, strategy_json, msg, backup_json):
 
 def verify_performance(
     worst_strategy: str, current_sharpe: float, current_drawdown: float
-) -> Tuple[bool, bool, float]:
+) -> tuple[bool, bool, float]:
     """Runs backtest and compares performance metrics."""
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy)
@@ -394,7 +390,7 @@ def evaluate_and_push(
                 strategy_json.unlink()
 
 
-def establish_baseline() -> Tuple[Optional[dict], Optional[str], float, float]:
+def establish_baseline() -> tuple[dict | None, str | None, float, float]:
     """Establish baseline metrics from latest backtest."""
     latest_file = get_latest_backtest_file()
 
@@ -426,7 +422,7 @@ def establish_baseline() -> Tuple[Optional[dict], Optional[str], float, float]:
     return backtest_data, worst_strategy, current_sharpe, current_drawdown
 
 
-def run_hyperopt(worst_strategy: str) -> Optional[subprocess.CompletedProcess]:
+def run_hyperopt(worst_strategy: str) -> subprocess.CompletedProcess | None:
     """Run hyperopt for the selected strategy."""
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
@@ -489,7 +485,7 @@ def main():
             print("Or use --dry-run.")
             sys.exit(1)
 
-    backtest_data, worst_strategy, current_sharpe, current_drawdown = (
+    _backtest_data, worst_strategy, current_sharpe, current_drawdown = (
         establish_baseline()
     )
     if not worst_strategy:

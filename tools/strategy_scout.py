@@ -67,7 +67,12 @@ class StrategyScout:
 
         print(f"Querying: {query}")
         # Sort by stars to get best quality first
-        params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+        params: dict[str, str | int] = {
+            "q": query,
+            "sort": "stars",
+            "order": "desc",
+            "per_page": 20,
+        }
         try:
             resp = self.session.get(
                 f"{GITHUB_API_URL}/search/repositories",
@@ -114,7 +119,7 @@ class StrategyScout:
         self, repo: dict[str, Any]
     ) -> tuple[int, list[str], str, int]:
         score = 0
-        notes = []
+        notes: list[str] = []
         full_name = repo["full_name"]
         pushed_at = repo.get("pushed_at")
         license_data = repo.get("license")
@@ -208,7 +213,7 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
+            except Exception:  # noqa: S110
                 # S110: Intentionally suppressing exception during search
                 # to continue with other paths
                 pass
@@ -298,7 +303,7 @@ class StrategyScout:
                 f.write(
                     f"- **License:** {repo.get('license_name', 'Unknown')}\n"
                 )
-                strategy_count = repo.get('strategy_count', 'N/A')
+                strategy_count = repo.get("strategy_count", "N/A")
                 f.write(f"- **Strategies Found:** {strategy_count}\n")
                 if repo.get("pushed_at"):
                     last_update = repo.get("pushed_at", "").split("T")[0]
@@ -309,7 +314,7 @@ class StrategyScout:
                     f.write(f"- **Description:** {desc}\n")
 
                 if repo.get("scout_notes"):
-                    notes = ", ".join(repo['scout_notes'])
+                    notes = ", ".join(repo["scout_notes"])
                     f.write(f"- **Notes:** {notes}\n")
 
                 f.write("- **Adoption Notes:** ")
