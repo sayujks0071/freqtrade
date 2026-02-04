@@ -443,8 +443,7 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(

@@ -14,7 +14,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -85,7 +85,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         **kwargs,
     ) -> bool:
         """
-        Called right before placing a trade.
+        Called right before trade entry.
         """
         self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
         return True
