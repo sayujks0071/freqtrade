@@ -1,6 +1,7 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+Experimental_Sentiment
+Experimental Strategy exploring 'Whale Sentiment' via Volume Anomalies.
+Hypothesis: Unusual volume spikes precede price movements.
 """
 
 import sys
@@ -17,7 +18,12 @@ sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
-class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
+    """
+    Experimental Strategy exploring 'Whale Sentiment' via Volume Anomalies.
+    Hypothesis: Unusual volume spikes precede price movements.
+    """
+
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -29,19 +35,12 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Timeframe
     timeframe = "1h"
 
-    # Run "populate_indicators" only for new candle
-    # Logic runs on closed candle only
     process_only_new_candles = True
-
-    # These values can be overridden in the "ask_strategy" section
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
-
-    # Number of candles the strategy requires before producing valid signals
     startup_candle_count: int = 30
 
-    # Optional order type mapping.
     order_types = {
         "entry": "limit",
         "exit": "limit",
@@ -49,32 +48,36 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         "stoploss_on_exchange": False,
     }
 
-    # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
-    def populate_indicators(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+
+        # Volume MA using pandas
+        dataframe["volume_ma"] = dataframe["volume"].rolling(window=24).mean()
+
+        # Whale Sentiment: Volume > 2.0 * Volume MA
+        dataframe["whale_sentiment"] = (
+            dataframe["volume"] > (dataframe["volume_ma"] * 2.0)
+        ).astype(int)
+
         return dataframe
 
-    def populate_entry_trend(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
-
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
+            (
+                (dataframe["whale_sentiment"] == 1)
+                & (dataframe["rsi"] < 70)  # Filter out extreme overbought
+            ),
+            "enter_long",
         ] = 1
         return dataframe
 
-    def populate_exit_trend(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
+            (dataframe["rsi"] > 70),
+            "exit_long",
         ] = 1
         return dataframe
 
@@ -90,10 +93,5 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         side: str,
         **kwargs,
     ) -> bool:
-        """
-        Called right before placing a trade.
-        """
-        self.log_signal(
-            pair, self.timeframe, side, "Signal Confirmed", current_time
-        )
+        self.log_signal(pair, self.timeframe, side, "Whale Signal Confirmed", current_time)
         return True
