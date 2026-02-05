@@ -6,10 +6,10 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 import sys
 from pathlib import Path
 
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
+import talib.abstract as ta
+from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy  # noqa: E402
+from freqtrade.strategy import IStrategy
 
 
 # Add _base to path to allow import

@@ -12,6 +12,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -31,7 +32,7 @@ TIMEOUT = 10
 
 
 class StrategyScout:
-    def __init__(self, token: str | None = None):
+    def __init__(self, token: str | None = None) -> None:
         self.token = token
         self.headers = {
             "User-Agent": "Freqtrade-Scout",
@@ -69,7 +70,7 @@ class StrategyScout:
             print(f"Error fetching {url}: {e}")
         return None
 
-    def search_github(self):
+    def search_github(self) -> None:
         print("Searching GitHub...")
         found_repos: dict[str, dict[str, Any]] = {}  # Dedup by full_name
 
@@ -100,7 +101,7 @@ class StrategyScout:
         self.candidates = list(found_repos.values())
         print(f"Total unique candidates found: {len(self.candidates)}")
 
-    def filter_and_score(self):
+    def filter_and_score(self) -> None:
         print("Filtering and Scoring...")
         scored_candidates = []
 
@@ -173,7 +174,7 @@ class StrategyScout:
 
     def _find_strategy_files(self, full_name: str) -> tuple[list[dict[str, Any]], str | None]:
         """Helper to find strategy files in a repo."""
-        strategies = []
+        strategies: list[dict[str, Any]] = []
         found_path = None
         paths_to_check = ["user_data/strategies", "strategies", "."]
 
@@ -192,7 +193,7 @@ class StrategyScout:
                     break
         return strategies, found_path
 
-    def deep_inspect(self, limit: int = 15):
+    def deep_inspect(self, limit: int = 15) -> None:
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -313,7 +314,7 @@ class StrategyScout:
         print(f"Report written to {filename}")
         return top_10
 
-    def vendor_strategies(self, candidates: list[dict[str, Any]], top_n: int = 5):
+    def vendor_strategies(self, candidates: list[dict[str, Any]], top_n: int = 5) -> None:
         print(f"Vendoring top {top_n} strategies...")
         vendor_base_dir = Path("user_data/strategies_vendor")
         vendor_base_dir.mkdir(parents=True, exist_ok=True)
@@ -367,7 +368,8 @@ class StrategyScout:
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
                         f.write(
-                            "Please check the original repository for full license details.\n"
+                            "Please check the original repository for full "
+                            "license details.\n"
                         )
 
                     count += 1
@@ -375,7 +377,7 @@ class StrategyScout:
                 print(f"Error vendoring {full_name}: {e}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
     parser.add_argument(
         "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
