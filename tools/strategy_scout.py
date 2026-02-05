@@ -185,7 +185,7 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
         return strategies, found_path
 
@@ -217,7 +217,7 @@ class StrategyScout:
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
-    def deep_inspect(self, limit=15):  # noqa: C901
+    def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
