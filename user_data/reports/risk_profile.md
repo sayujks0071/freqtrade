@@ -1,36 +1,45 @@
 # Risk Profile & Guardrails
 
-## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+This document outlines the risk management controls configured for this trading stack.
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+## Hard Limits (Config)
 
-## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
+These are enforced by Freqtrade core and the configuration file (`user_data/configs/config.delta.live.json`).
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+| Parameter | Value | Description |
+|---|---|---|
+| `max_open_trades` | **5** | Maximum concurrent open trades. |
+| `stake_amount` | **20 USDT** | Fixed stake per trade. |
+| `tradable_balance_ratio` | **0.99** | Use 99% of wallet balance max (safety buffer). |
+| `stoploss` | **Strategy Defined** | Usually -10% or dynamic. |
+| `leverage` | **2x (Implied)** | Strategies should set leverage roughly 2x-3x max. |
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+## Protections (Circuit Breakers)
 
-## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+These stop trading temporarily when triggered.
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+### 1. Daily Loss Limit
+- **Trigger:** Realized daily profit < **-5%**
+- **Action:** Stops all NEW entries for the rest of the UTC day.
+- **Reset:** Automatically resets at 00:00 UTC.
+
+### 2. Max Drawdown
+- **Trigger:** Drawdown > **20%** over **48 candles**.
+- **Action:** Stops trading for **12 candles**.
+
+### 3. Cooldown Period
+- **Trigger:** Any trade exit.
+- **Action:** Waits **5 candles** before re-entering the SAME pair.
+
+## Whitelist Safety
+
+- **Market Drift:** Whitelist updates fail if >25% of pairs are removed (likely bad data).
+- **Volume Filter:** Low volume pairs are warned/excluded.
+- **Schema Validation:** Bad API dumps are rejected.
+
+## How to Change
+
+1. **Edit Config:** Modify `user_data/configs/config.delta.live.json`.
+2. **Restart:** `docker compose restart freqtrade`.
+
+**⚠️ WARNING:** Increasing limits increases risk of ruin. Test changes in Dry-Run first.

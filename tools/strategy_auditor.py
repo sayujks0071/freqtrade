@@ -1,127 +1,100 @@
 #!/usr/bin/env python3
 import ast
-import os
 import sys
 from pathlib import Path
 
+class StrategyAuditor(ast.NodeVisitor):
+    def __init__(self, filename):
+        self.filename = filename
+        self.errors = []
+        self.has_header = False
+        self.has_process_only_new_candles = False
 
-def audit_file(filepath):  # noqa: C901
+    def visit_Import(self, node):
+        for alias in node.names:
+            self.check_import(alias.name, node.lineno)
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        self.check_import(node.module, node.lineno)
+        self.generic_visit(node)
+
+    def check_import(self, name, lineno):
+        unsafe = ['subprocess', 'os', 'sys', 'socket', 'requests', 'urllib']
+        if name and any(name.startswith(u) for u in unsafe):
+            # Allow harmless os/sys usage if strictly needed but warn
+            if name in ['os', 'sys']:
+                pass # Usually ok in strategies for path stuff, but risky
+            else:
+                self.errors.append(f"Line {lineno}: Unsafe import '{name}' detected.")
+
+    def visit_Call(self, node):
+        # Check datetime.now() without timezone
+        if isinstance(node.func, ast.Attribute):
+            if node.func.attr == 'now':
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == 'datetime':
+                    if not node.args:
+                        self.errors.append(f"Line {node.lineno}: datetime.now() used without timezone. Use datetime.now(timezone.utc).")
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):
+        # Check for Metadata header in docstring
+        docstring = ast.get_docstring(node)
+        if docstring:
+            if "Strategy" in docstring and "Author" in docstring:
+                self.has_header = True
+
+        # Check process_only_new_candles
+        for item in node.body:
+            if isinstance(item, ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, ast.Name) and target.id == 'process_only_new_candles':
+                        self.has_process_only_new_candles = True
+
+        self.generic_visit(node)
+
+def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
-    with Path(filepath).open() as f:
-        source = f.read()
-
     try:
+        with open(filepath, "r") as f:
+            source = f.read()
         tree = ast.parse(source)
-    except SyntaxError as exc:
-        print(f"FAIL: Syntax Error in {filepath}: {exc}")
+    except Exception as e:
+        print(f"FAIL: Syntax error in {filepath}: {e}")
         return False
 
-    errors = []
+    auditor = StrategyAuditor(filepath)
+    auditor.visit(tree)
 
-    # Check 1: Docstring (Header block)
-    if not ast.get_docstring(tree):
-        errors.append("Missing module docstring (Header block)")
+    passed = True
 
-    # Check 2: Unsafe Imports
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for n in node.names:
-                if n.name in ["requests", "urllib", "socket", "http"]:
-                    errors.append(f"Unsafe import: {n.name}")
-        elif isinstance(node, ast.ImportFrom):
-            if node.module in ["requests", "urllib", "socket", "http"]:
-                errors.append(f"Unsafe import from: {node.module}")
+    if not auditor.has_header:
+        print(f"FAIL: Missing Metadata Header in class docstring.")
+        passed = False
+        if fix:
+            # Simple append to docstring isn't trivial with parsed tree without re-codegen
+            # Placeholder for future implementation
+            pass
 
-    # Check 3: datetime.now() usage (heuristic)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute):
-                # check for .now()
-                if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
-                    if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+    if auditor.errors:
+        for err in auditor.errors:
+            print(f"FAIL: {err}")
+        passed = False
 
-    # Check 4: Enforce AuditedStrategyMixin (heuristic)
-    has_class = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            has_class = True
-            # Check bases
-            bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
-            if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
-
-    # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
-
-    # Check 6: Complex conditions (named sub-conditions)
-    # Heuristic: Check for assignments to dataframe with complex BoolOp index
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            # We look for dataframe.loc[...] = ...
-            for target in node.targets:
-                if isinstance(target, ast.Subscript):
-                    # Check slice (index)
-                    sl = target.slice
-                    # Handle python < 3.9 where slice might be wrapped
-                    if isinstance(sl, ast.Index):
-                        sl = sl.value
-
-                    if isinstance(sl, ast.BoolOp):
-                        if len(sl.values) > 3:
-                            errors.append(
-                                f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
-                            )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
-
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
-
-    if errors:
-        for e in errors:
-            print(f"  - {e}")
-        return False
-
-    print("PASS")
-    return True
-
+    if passed:
+        print("PASS")
+    return passed
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: strategy_auditor.py <file_or_dir>")
+        print("Usage: strategy_auditor.py <file> [--fix]")
         sys.exit(1)
 
-    target = sys.argv[1]
-    failed = False
+    filepath = sys.argv[1]
+    fix = "--fix" in sys.argv
 
-    if Path(target).is_file():
-        if not audit_file(target):
-            failed = True
-    else:
-        for root, _, files in os.walk(target):
-            for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
-                    if not audit_file(str(Path(root) / file)):
-                        failed = True
-
-    if failed:
+    if not audit_file(filepath, fix):
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

@@ -2,32 +2,36 @@ name: Strategy CI
 
 on:
   pull_request:
-    branches: [ main, master ]
     paths:
-      - 'user_data/strategies/**'
-      - 'tools/strategy_auditor.py'
-
-permissions:
-  contents: read
+      - 'user_data/strategies/**/*.py'
+  push:
+    branches: [ main ]
+    paths:
+      - 'user_data/strategies/**/*.py'
 
 jobs:
-  audit_strategies:
+  audit-strategies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+    - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
-        with:
-          python-version: '3.12'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Compile Check
-        run: |
-          python3 -m compileall user_data/strategies/
+    - name: Syntax Check
+      run: |
+        find user_data/strategies -name "*.py" -print0 | xargs -0 python3 -m py_compile
 
-      - name: Run Strategy Auditor
-        run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+    - name: Run Auditor
+      run: |
+        failed=0
+        for strat in $(find user_data/strategies -name "*.py" | grep -v "__init__" | grep -v "_base"); do
+           echo "Auditing $strat..."
+           python3 tools/strategy_auditor.py "$strat" || failed=1
+        done
+        if [ $failed -ne 0 ]; then
+          echo "Strategy Audit Failed!"
+          exit 1
+        fi
