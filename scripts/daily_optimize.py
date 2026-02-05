@@ -72,11 +72,11 @@ def read_backtest_result(filepath: Path) -> dict | None:
     data = None
     if filepath.suffix == ".zip":
         with zipfile.ZipFile(filepath, "r") as z:
-            json_files = [f for f in z.namelist() if f.endswith(".json")]
+            json_files = [fname for fname in z.namelist() if fname.endswith(".json")]
             target_file = None
-            for f in json_files:
-                if "backtest-result" in f:
-                    target_file = f
+            for fname in json_files:
+                if "backtest-result" in fname:
+                    target_file = fname
                     break
             if not target_file and json_files:
                 target_file = json_files[0]
