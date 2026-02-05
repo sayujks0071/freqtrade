@@ -10,7 +10,6 @@ import argparse
 import datetime
 import json
 import os
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -46,12 +45,14 @@ class StrategyScout:
         """Helper for urllib requests with error handling."""
         req = urllib.request.Request(url, headers=self.headers)  # noqa: S310
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:  # noqa: S310
                 # Check rate limits
                 remaining = response.getheader("X-RateLimit-Remaining")
                 if remaining and int(remaining) < RATE_LIMIT_BUFFER:
                     reset = response.getheader("X-RateLimit-Reset")
-                    reset_time = datetime.datetime.fromtimestamp(int(reset), datetime.timezone.utc)
+                    reset_time = datetime.datetime.fromtimestamp(
+                        int(reset), datetime.timezone.utc
+                    )  # noqa: UP017
                     print(f"WARNING: Rate limit low ({remaining}). Resets at {reset_time}.")
                     # Simple backoff - just sleep if it's critical, but here just warn
                     # Ideally we would wait, but for now we proceed with caution
@@ -77,7 +78,10 @@ class StrategyScout:
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
             safe_query = urllib.parse.quote(query)
-            url = f"{GITHUB_API_URL}/search/repositories?q={safe_query}&sort=stars&order=desc&per_page=20"
+            url = (
+                f"{GITHUB_API_URL}/search/repositories"
+                f"?q={safe_query}&sort=stars&order=desc&per_page=20"
+            )
             data = self._request(url)
             if data and "items" in data:
                 for item in data["items"]:
@@ -137,7 +141,8 @@ class StrategyScout:
                     pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                     # Make it UTC aware to match datetime.now(timezone.utc)
                     pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)
-                    age_days = (datetime.datetime.now(datetime.timezone.utc) - pushed_dt).days
+                    now_utc = datetime.datetime.now(datetime.timezone.utc)  # noqa: UP017
+                    age_days = (now_utc - pushed_dt).days
 
                     if age_days < 30:
                         score += 5
@@ -187,7 +192,7 @@ class StrategyScout:
                     break
         return strategies, found_path
 
-    def deep_inspect(self, limit: int = 15):  # noqa: C901
+    def deep_inspect(self, limit: int = 15):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -214,7 +219,7 @@ class StrategyScout:
                         # Use generic urllib request for raw content
                         # Since it's raw content, we don't parse JSON
                         req = urllib.request.Request(download_url)  # noqa: S310
-                        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310
                             content = r.read().decode("utf-8")
 
                             # Check heuristics
@@ -250,7 +255,8 @@ class StrategyScout:
         report_dir.mkdir(parents=True, exist_ok=True)
 
         # Use timezone-aware datetime for the filename to be safe, but local/utc date is fine
-        date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+        now_utc = datetime.datetime.now(datetime.timezone.utc)  # noqa: UP017
+        date_str = now_utc.strftime("%Y-%m-%d")
         filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
         top_10 = self.candidates[:10]
@@ -347,7 +353,7 @@ class StrategyScout:
                             raw_url = file_info.get("download_url")
                             if raw_url:
                                 req = urllib.request.Request(raw_url)  # noqa: S310
-                                with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                                with urllib.request.urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310
                                     content = r.read().decode("utf-8")
                                     with (vendor_dir / file_info["name"]).open("w") as f:
                                         f.write(content)
