@@ -151,12 +151,20 @@ def main():
         has_type = any(k in m for k in type_indicators)
         # Also 'info' might contain raw data, but we check top level
         if not has_type and "type" not in m:
-             # Some dumps might not have explicit type if inferred?
-             # But 'type' is standard in ccxt.
-             # Let's be lenient if we can infer it, but the spec says "type / contract / future/perp indicator (at least one)"
-             # We'll check if 'type' key exists or 'contract' key exists.
-             if not (m.get("type") or m.get("contract") or m.get("future") or m.get("spot") or m.get("swap") or m.get("linear")):
-                 errors.append(f"Market {symbol} missing type indicator")
+            # Some dumps might not have explicit type if inferred?
+            # But 'type' is standard in ccxt.
+            # Let's be lenient if we can infer it, but the spec says
+            # "type / contract / future/perp indicator (at least one)"
+            # We'll check if 'type' key exists or 'contract' key exists.
+            if not (
+                m.get("type")
+                or m.get("contract")
+                or m.get("future")
+                or m.get("spot")
+                or m.get("swap")
+                or m.get("linear")
+            ):
+                errors.append(f"Market {symbol} missing type indicator")
 
         # D) Numeric checks (if present)
         if "limits" in m and isinstance(m["limits"], dict):
@@ -169,16 +177,16 @@ def main():
                                 errors.append(f"{symbol}: {err}")
 
         # Volume check (if strict)
-        # Assuming volume is available? Usually list-markets doesn't have 24h volume unless explicitly fetched with ticker.
-        # But if it is there:
+        # Assuming volume is available? Usually list-markets doesn't have 24h volume
+        # unless explicitly fetched with ticker. But if it is there:
         if "volume" in m:
             vol = m["volume"]
             if vol is not None:
                 err = check_numeric(vol, "volume")
                 if err:
                     errors.append(f"{symbol}: {err}")
-                elif ENV_STRICT_VOLUME and vol < 1000: # Example threshold
-                     errors.append(f"{symbol}: Low volume {vol}")
+                elif ENV_STRICT_VOLUME and vol < 1000:  # Example threshold
+                    errors.append(f"{symbol}: Low volume {vol}")
 
     if errors:
         # Abort if schema is bad
@@ -209,9 +217,10 @@ def main():
 
     if format_errors:
         fail(
-             f"Eligible markets have invalid symbol format ({len(format_errors)}):\n" + "\n".join(format_errors[:20]),
-             "\n".join(report_lines),
-             args.out_report
+            f"Eligible markets have invalid symbol format ({len(format_errors)}):\n"
+            + "\n".join(format_errors[:20]),
+            "\n".join(report_lines),
+            args.out_report,
         )
 
     # E) Environment Sanity
@@ -223,15 +232,21 @@ def main():
         # Use str(info) to search
         info_str = str(info)
         if args.env == "india_prod" or "india" in args.env:
-             # Expect something related to delta.exchange/india or similar?
-             # Or maybe just NOT testnet.
-             pass
+            # Expect something related to delta.exchange/india or similar?
+            # Or maybe just NOT testnet.
+            pass
         # This is hard to validate without knowing exact dump structure.
         # We will log a warning if we see something contradictory.
-        if "testnet" in args.env and "testnet" not in info_str.lower() and "sandbox" not in info_str.lower():
-             report_lines.append("WARN: Env is testnet but 'testnet'/'sandbox' not found in market info.")
+        if (
+            "testnet" in args.env
+            and "testnet" not in info_str.lower()
+            and "sandbox" not in info_str.lower()
+        ):
+            report_lines.append(
+                "WARN: Env is testnet but 'testnet'/'sandbox' not found in market info."
+            )
         if "prod" in args.env and ("testnet" in info_str.lower() or "sandbox" in info_str.lower()):
-             report_lines.append("WARN: Env is prod but 'testnet'/'sandbox' found in market info.")
+            report_lines.append("WARN: Env is prod but 'testnet'/'sandbox' found in market info.")
 
     # F) Drift Safety Gate
     if args.prev_whitelist and Path(args.prev_whitelist).exists():
@@ -245,21 +260,21 @@ def main():
             elif isinstance(prev_data, list):
                 prev_pairs = set(prev_data)
             else:
-                 # Try finding list in top level
-                 prev_pairs = set()
-                 report_lines.append("WARN: Could not parse previous whitelist structure.")
+                # Try finding list in top level
+                prev_pairs = set()
+                report_lines.append("WARN: Could not parse previous whitelist structure.")
 
             current_pairs = set(candidate_whitelist)
 
             removed = prev_pairs - current_pairs
             added = current_pairs - prev_pairs
-            kept = prev_pairs & current_pairs
+            # kept = prev_pairs & current_pairs
 
             removal_count = len(removed)
             prev_count = len(prev_pairs)
             removal_ratio = removal_count / prev_count if prev_count > 0 else 0.0
 
-            report_lines.append(f"- Drift Check:")
+            report_lines.append("- Drift Check:")
             report_lines.append(f"  - Previous Whitelist Count: {prev_count}")
             report_lines.append(f"  - Added: {len(added)}")
             report_lines.append(f"  - Removed: {removal_count}")
@@ -267,29 +282,34 @@ def main():
 
             if removal_ratio > ENV_MAX_REMOVAL_RATIO:
                 fail(
-                    f"Large delist drift — manual review required. Removal ratio {removal_ratio:.2f} > {ENV_MAX_REMOVAL_RATIO}",
+                    f"Large delist drift — manual review required. "
+                    f"Removal ratio {removal_ratio:.2f} > {ENV_MAX_REMOVAL_RATIO}",
                     "\n".join(report_lines),
-                    args.out_report
+                    args.out_report,
                 )
 
             # Check for format change in existing pairs
-            # If a pair was in prev and is in current, we assumed format is same because symbol string is same.
+            # If a pair was in prev and is in current, we assumed format is same
+            # because symbol string is same.
             # But "If pair-format changed for any existing pair".
             # If the string is the same, the format is the same.
             # Maybe it means "If a pair exists but with different format"?
             # e.g. BTC/USDT:USDT vs BTC/USDT
             # If the underlying instrument is the same but symbol changed.
             # This is hard to detect without ID mapping.
-            # But the requirement says "Reject symbols with ... OR a consistent CCXT format discovered from dump."
+            # But the requirement says "Reject symbols with ... OR a consistent
+            # CCXT format discovered from dump."
             # If we enforce BASE/QUOTE:SETTLE, we are safe.
             # We already validated symbol format for all eligible markets.
 
-            # If "pair-format changed for any existing pair" implies we shouldn't have widespread renames.
-            # If we had BTC/USDT:USDT and now we have BTC-USDT-SWAP, and we lose the old one, it counts as removal.
+            # If "pair-format changed for any existing pair" implies we shouldn't
+            # have widespread renames.
+            # If we had BTC/USDT:USDT and now we have BTC-USDT-SWAP, and we lose the old one,
+            # it counts as removal.
             # If removal ratio is high, we catch it.
 
         except Exception as e:
-             fail(f"Drift check failed with error: {e}", "\n".join(report_lines), args.out_report)
+            fail(f"Drift check failed with error: {e}", "\n".join(report_lines), args.out_report)
     else:
         report_lines.append("WARN: No previous whitelist found. Skipping drift check.")
 
@@ -297,6 +317,7 @@ def main():
     report_lines.append("\n**STATUS: PASS**")
     write_report(args.out_report, "\n".join(report_lines))
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
