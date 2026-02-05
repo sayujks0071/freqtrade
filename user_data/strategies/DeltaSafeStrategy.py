@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 # Add _base to path to allow importing mixin
 sys.path.append(str(Path(__file__).parent / "_base"))
 
@@ -7,8 +8,10 @@ from freqtrade.strategy import IStrategy
 from pandas import DataFrame
 import talib.abstract as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
+
 # noqa: E402
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     """
@@ -24,15 +27,12 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     Entry/Exit: RSI + Macd
     Repainting: No
     """
+
     INTERFACE_VERSION = 3
-    timeframe = '5m'
+    timeframe = "5m"
 
     # ROI table:
-    minimal_roi = {
-        "60": 0.01,
-        "30": 0.02,
-        "0": 0.04
-    }
+    minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
 
     stoploss = -0.10
 
@@ -47,42 +47,30 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     startup_candle_count = 30
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
 
         macd = ta.MACD(dataframe)
-        dataframe['macd'] = macd['macd']
-        dataframe['macdsignal'] = macd['macdsignal']
+        dataframe["macd"] = macd["macd"]
+        dataframe["macdsignal"] = macd["macdsignal"]
 
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            (
-                (dataframe['rsi'] < 30) &
-                (dataframe['macd'] > dataframe['macdsignal'])
-            ),
-            'enter_long'] = 1
+            ((dataframe["rsi"] < 30) & (dataframe["macd"] > dataframe["macdsignal"])),
+            "enter_long",
+        ] = 1
 
         dataframe.loc[
-            (
-                (dataframe['rsi'] > 70) &
-                (dataframe['macd'] < dataframe['macdsignal'])
-            ),
-            'enter_short'] = 1
+            ((dataframe["rsi"] > 70) & (dataframe["macd"] < dataframe["macdsignal"])),
+            "enter_short",
+        ] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[
-            (
-                (dataframe['rsi'] > 70)
-            ),
-            'exit_long'] = 1
+        dataframe.loc[(dataframe["rsi"] > 70), "exit_long"] = 1
 
-        dataframe.loc[
-            (
-                (dataframe['rsi'] < 30)
-            ),
-            'exit_short'] = 1
+        dataframe.loc[(dataframe["rsi"] < 30), "exit_short"] = 1
 
         return dataframe

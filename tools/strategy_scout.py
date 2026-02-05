@@ -6,12 +6,13 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 
 import argparse
 import datetime
+import json
 import os
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any
-import urllib.request
-import urllib.parse
-import json
+
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -29,7 +30,10 @@ TIMEOUT = 10
 class StrategyScout:
     def __init__(self, token: str | None = None):
         self.token = token
-        self.headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "Freqtrade-Scout"}
+        self.headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "Freqtrade-Scout",
+        }
         if self.token:
             self.headers["Authorization"] = f"token {self.token}"
         self.candidates: list[dict[str, Any]] = []
@@ -39,7 +43,7 @@ class StrategyScout:
         if params:
             url += "?" + urllib.parse.urlencode(params)
 
-        req = urllib.request.Request(url, headers=self.headers) # noqa: S310
+        req = urllib.request.Request(url, headers=self.headers)  # noqa: S310
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
                 self.rate_limit_remaining = int(response.getheader("X-RateLimit-Remaining", 9999))
@@ -60,7 +64,7 @@ class StrategyScout:
             print(f"Querying: {query}")
             data = self._request(
                 f"{GITHUB_API_URL}/search/repositories",
-                {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+                {"q": query, "sort": "stars", "order": "desc", "per_page": 20},
             )
 
             if data and "items" in data:
@@ -107,10 +111,14 @@ class StrategyScout:
             if pushed_at:
                 dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                 age = (datetime.datetime.now() - dt).days
-                if age < 30: score += 5
-                elif age < 90: score += 3
-                elif age < 365: score += 1
-                else: score -= 2
+                if age < 30:
+                    score += 5
+                elif age < 90:
+                    score += 3
+                elif age < 365:
+                    score += 1
+                else:
+                    score -= 2
 
             # Description
             desc = repo.get("description") or ""
@@ -133,7 +141,9 @@ class StrategyScout:
             f.write("|---|---|---|---|---|---|\n")
 
             for i, repo in enumerate(self.candidates[:20], 1):
-                f.write(f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo['scout_score']} | {repo.get('stargazers_count')} | {repo['license_name']} | {repo.get('pushed_at', '')[:10]} |\n")
+                f.write(
+                    f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo['scout_score']} | {repo.get('stargazers_count')} | {repo['license_name']} | {repo.get('pushed_at', '')[:10]} |\n"
+                )
 
         print(f"Report saved to {filename}")
         return self.candidates[:5]
@@ -145,13 +155,14 @@ class StrategyScout:
 
         for repo in top_candidates:
             print(f"Vendoring {repo['full_name']}...")
-            safe_name = repo['full_name'].replace("/", "_")
+            safe_name = repo["full_name"].replace("/", "_")
             vendor_dir = base_dir / safe_name
             vendor_dir.mkdir(exist_ok=True)
 
             # Write LICENSE note
             with open(vendor_dir / "LICENSE_NOTE.md", "w") as f:
                 f.write(f"Source: {repo['html_url']}\nLicense: {repo['license_name']}\n")
+
 
 def main():  # noqa: C901
     parser = argparse.ArgumentParser()
@@ -165,6 +176,7 @@ def main():  # noqa: C901
 
     if args.vendor:
         scout.vendor_strategies(top)
+
 
 if __name__ == "__main__":
     main()

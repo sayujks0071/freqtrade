@@ -5,9 +5,11 @@ import re
 import sys
 from pathlib import Path
 
+
 # Env
 FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
 ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
+
 
 def filter_markets(markets):
     whitelist = []
@@ -23,7 +25,7 @@ def filter_markets(markets):
             if "/USDT:USDT" in symbol:
                 whitelist.append(symbol)
         elif FILTER_MODE == "all_futures":
-            if ":" in symbol: # Rough check for futures
+            if ":" in symbol:  # Rough check for futures
                 whitelist.append(symbol)
         elif FILTER_MODE == "allowlist_regex":
             if regex.match(symbol):
@@ -33,6 +35,7 @@ def filter_markets(markets):
                 whitelist.append(symbol)
 
     return sorted(list(set(whitelist)))
+
 
 def main():
     if len(sys.argv) < 2:
@@ -48,6 +51,7 @@ def main():
     whitelist = filter_markets(data)
     output_obj = {"exchange": {"pair_whitelist": whitelist}}
     print(json.dumps(output_obj, indent=4))
+
 
 if __name__ == "__main__":
     main()

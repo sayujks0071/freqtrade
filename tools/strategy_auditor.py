@@ -3,6 +3,7 @@ import ast
 import sys
 from pathlib import Path
 
+
 class StrategyAuditor(ast.NodeVisitor):
     def __init__(self, filename):
         self.filename = filename
@@ -20,21 +21,23 @@ class StrategyAuditor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def check_import(self, name, lineno):
-        unsafe = ['subprocess', 'os', 'sys', 'socket', 'requests', 'urllib']
+        unsafe = ["subprocess", "os", "sys", "socket", "requests", "urllib"]
         if name and any(name.startswith(u) for u in unsafe):
             # Allow harmless os/sys usage if strictly needed but warn
-            if name in ['os', 'sys']:
-                pass # Usually ok in strategies for path stuff, but risky
+            if name in ["os", "sys"]:
+                pass  # Usually ok in strategies for path stuff, but risky
             else:
                 self.errors.append(f"Line {lineno}: Unsafe import '{name}' detected.")
 
     def visit_Call(self, node):
         # Check datetime.now() without timezone
         if isinstance(node.func, ast.Attribute):
-            if node.func.attr == 'now':
-                if isinstance(node.func.value, ast.Name) and node.func.value.id == 'datetime':
+            if node.func.attr == "now":
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == "datetime":
                     if not node.args:
-                        self.errors.append(f"Line {node.lineno}: datetime.now() used without timezone. Use datetime.now(timezone.utc).")
+                        self.errors.append(
+                            f"Line {node.lineno}: datetime.now() used without timezone. Use datetime.now(timezone.utc)."
+                        )
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):
@@ -48,10 +51,11 @@ class StrategyAuditor(ast.NodeVisitor):
         for item in node.body:
             if isinstance(item, ast.Assign):
                 for target in item.targets:
-                    if isinstance(target, ast.Name) and target.id == 'process_only_new_candles':
+                    if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
                         self.has_process_only_new_candles = True
 
         self.generic_visit(node)
+
 
 def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
@@ -85,6 +89,7 @@ def audit_file(filepath, fix=False):
         print("PASS")
     return passed
 
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: strategy_auditor.py <file> [--fix]")
@@ -95,6 +100,7 @@ def main():
 
     if not audit_file(filepath, fix):
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

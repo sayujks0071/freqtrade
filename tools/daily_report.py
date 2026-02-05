@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 import sqlite3
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
 
 # noqa: C901
 
 DB_PATH = "user_data/tradesv3.sqlite"
 REPORT_DIR = "user_data/reports"
 
+
 def get_db_connection():
     if not Path(DB_PATH).exists():
         print(f"Database not found at {DB_PATH}")
         sys.exit(0)
     return sqlite3.connect(DB_PATH)
+
 
 def generate_daily_report():  # noqa: C901
     conn = get_db_connection()
@@ -47,7 +50,7 @@ def generate_daily_report():  # noqa: C901
     trades = []
     for t in trades_raw:
         # Parse close_date
-        cd_str = t['close_date']
+        cd_str = t["close_date"]
         if not cd_str:
             continue
 
@@ -57,11 +60,11 @@ def generate_daily_report():  # noqa: C901
             if isinstance(cd_str, str):
                 cd = datetime.fromisoformat(cd_str)
             else:
-                cd = cd_str # Already datetime?
+                cd = cd_str  # Already datetime?
 
             # If naive, assume UTC
             if cd.tzinfo is None:
-                cd = cd.replace(tzinfo=timezone.utc) # noqa: UP017
+                cd = cd.replace(tzinfo=timezone.utc)  # noqa: UP017
 
             if start_ts.replace(tzinfo=timezone.utc) <= cd < end_ts.replace(tzinfo=timezone.utc):
                 trades.append(t)
@@ -80,12 +83,12 @@ def generate_daily_report():  # noqa: C901
     for t in trades:
         # PnL
         # close_profit_abs might be in DB, or calculate
-        profit_ratio = t['close_profit'] if 'close_profit' in t.keys() else 0.0
-        stake = t['stake_amount'] if 'stake_amount' in t.keys() else 0.0
+        profit_ratio = t["close_profit"] if "close_profit" in t.keys() else 0.0
+        stake = t["stake_amount"] if "stake_amount" in t.keys() else 0.0
 
         # Try to find abs profit
-        if 'close_profit_abs' in t.keys() and t['close_profit_abs'] is not None:
-            profit_abs = t['close_profit_abs']
+        if "close_profit_abs" in t.keys() and t["close_profit_abs"] is not None:
+            profit_abs = t["close_profit_abs"]
         else:
             profit_abs = profit_ratio * stake
 
@@ -97,13 +100,13 @@ def generate_daily_report():  # noqa: C901
         else:
             losses += 1
 
-        pair = t['pair']
+        pair = t["pair"]
         if pair not in pairs_stats:
-            pairs_stats[pair] = {'count': 0, 'profit': 0.0}
-        pairs_stats[pair]['count'] += 1
-        pairs_stats[pair]['profit'] += profit_abs
+            pairs_stats[pair] = {"count": 0, "profit": 0.0}
+        pairs_stats[pair]["count"] += 1
+        pairs_stats[pair]["profit"] += profit_abs
 
-        reason = t['exit_reason'] if 'exit_reason' in t.keys() else 'unknown'
+        reason = t["exit_reason"] if "exit_reason" in t.keys() else "unknown"
         exit_reasons[reason] = exit_reasons.get(reason, 0) + 1
 
     winrate = (wins / total_trades * 100) if total_trades > 0 else 0
@@ -123,7 +126,7 @@ def generate_daily_report():  # noqa: C901
 """
 
     # Sort pairs by profit
-    sorted_pairs = sorted(pairs_stats.items(), key=lambda x: x[1]['profit'], reverse=True)
+    sorted_pairs = sorted(pairs_stats.items(), key=lambda x: x[1]["profit"], reverse=True)
     for p, stats in sorted_pairs[:5]:
         report += f"| {p} | {stats['count']} | {stats['profit']:.4f} |\n"
 
@@ -134,10 +137,11 @@ def generate_daily_report():  # noqa: C901
     # Save
     Path(REPORT_DIR).mkdir(parents=True, exist_ok=True)
     filename = f"{REPORT_DIR}/daily_summary_{target_date}.md"
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         f.write(report)
 
     print(f"Report saved to {filename}")
+
 
 if __name__ == "__main__":
     generate_daily_report()

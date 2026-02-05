@@ -6,6 +6,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 # Configuration
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
@@ -13,12 +14,15 @@ STRICT_VOLUME = os.environ.get("STRICT_VOLUME", "false").lower() == "true"
 
 REQUIRED_FIELDS = ["symbol", "base", "quote", "active"]
 
+
 def fail(message):
     print(f"FAIL: {message}")
     sys.exit(2)
 
+
 def warn(message):
     print(f"WARN: {message}")
+
 
 def validate_market_structure(i, m, errors):
     # Required fields
@@ -32,6 +36,7 @@ def validate_market_structure(i, m, errors):
         return None
     return symbol
 
+
 def validate_symbol_format(symbol, errors):
     # Symbol format: BASE/QUOTE:SETTLE for futures usually
     # Reject whitespace/lowercase
@@ -43,11 +48,13 @@ def validate_symbol_format(symbol, errors):
     if ":" not in symbol:
         errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
 
+
 def validate_volume(m, symbol, errors):
     if "volume" in m:
         vol = m.get("volume")
         if vol is not None and vol < 1000 and STRICT_VOLUME:
             errors.append(f"Low volume for {symbol}: {vol}")
+
 
 def validate_schema(data):
     if not isinstance(data, list):
@@ -81,6 +88,7 @@ def validate_schema(data):
 
     return symbols
 
+
 def validate_drift(current_symbols, previous_path):
     prev_path_obj = Path(previous_path)
     if not previous_path or not prev_path_obj.exists():
@@ -91,7 +99,11 @@ def validate_drift(current_symbols, previous_path):
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
             # Handle if previous dump is also list of dicts
-            prev_raw = prev_data.get("markets", prev_data) if isinstance(prev_data, dict) else prev_data
+            prev_raw = (
+                prev_data.get("markets", prev_data)
+                if isinstance(prev_data, dict)
+                else prev_data
+            )
             prev_symbols = {m["symbol"] for m in prev_raw if "symbol" in m}
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
@@ -110,9 +122,11 @@ def validate_drift(current_symbols, previous_path):
             f"({MAX_REMOVAL_RATIO}). Unsafe drift!"
         )
 
+
 def write_report(path, message):
     with Path(path).open("w") as f:
         f.write(message)
+
 
 def main():
     if len(sys.argv) < 2:
@@ -155,6 +169,7 @@ File: {current_path}
         warn(f"Could not write report: {e}")
 
     print("VALIDATION PASS")
+
 
 if __name__ == "__main__":
     main()
