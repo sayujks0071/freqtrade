@@ -230,8 +230,7 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(
@@ -376,9 +375,7 @@ def ensure_feature_branch(args, target_branch):
             print(f"Branch '{target_branch}' already exists, switching to it...")
             result = run_command(["git", "checkout", target_branch], capture=True)
         else:
-            result = run_command(
-                ["git", "checkout", "-b", target_branch], capture=True
-            )
+            result = run_command(["git", "checkout", "-b", target_branch], capture=True)
         return result.returncode == 0
     return True
 
@@ -388,9 +385,7 @@ def confirm_push(target_branch, worst_strategy):
     print("This will:")
     print(f"  - Push optimized strategy parameters for {worst_strategy}")
     print(f"  - Create/update remote branch: {target_branch}")
-    print(
-        "\nYou can then create a pull request to review and merge these changes."
-    )
+    print("\nYou can then create a pull request to review and merge these changes.")
     response = input("\nProceed with push? [y/N]: ").strip().lower()
     return response in ["y", "yes"]
 
@@ -400,13 +395,9 @@ def perform_git_push(target_branch):
     result = run_command(["git", "push", "origin", target_branch], capture=True)
 
     if result.returncode == 0:
-        print(
-            f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
-        )
+        print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
         print("\nNext steps:")
-        print(
-            f"  1. Create a pull request from '{target_branch}' to your main branch"
-        )
+        print(f"  1. Create a pull request from '{target_branch}' to your main branch")
         print("  2. Review the changes and test the optimized strategy")
         print("  3. Merge the pull request after verification")
         return True
@@ -416,9 +407,7 @@ def perform_git_push(target_branch):
         return False
 
 
-def commit_and_push(
-    args, worst_strategy, avg_profit_pct, strategy_json, backup_json, created_new
-):
+def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_json, created_new):
     """Commit changes and push to git."""
     msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
@@ -459,9 +448,7 @@ def commit_and_push(
     if not args.yes:
         if not confirm_push(target_branch, worst_strategy):
             print("Push cancelled. Changes are committed locally.")
-            print(
-                f"You can manually push later with: git push origin {target_branch}"
-            )
+            print(f"You can manually push later with: git push origin {target_branch}")
             if backup_json.exists():
                 backup_json.unlink()
             return
@@ -477,9 +464,7 @@ def main():
 
     if not args.dry_run:
         if not check_git_status():
-            print(
-                "\nPlease commit or stash your changes before running this script."
-            )
+            print("\nPlease commit or stash your changes before running this script.")
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
