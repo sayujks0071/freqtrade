@@ -3,7 +3,7 @@ import json
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -50,16 +50,10 @@ def validate_symbol_format(symbol, errors):
 
 
 def validate_volume(m, symbol, errors):
-    # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
     if "volume" in m:
         vol = m.get("volume")
         if vol is not None and vol < 1000 and STRICT_VOLUME:
             errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
-        pass
 
 
 def validate_schema(data):
@@ -79,7 +73,6 @@ def validate_schema(data):
 
         validate_symbol_format(symbol, errors)
 
-        # Uniqueness
         if symbol in symbols:
             errors.append(f"Duplicate symbol '{symbol}'")
         symbols.add(symbol)
@@ -106,7 +99,12 @@ def validate_drift(current_symbols, previous_path):
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
             # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+            prev_raw = (
+                prev_data.get("markets", prev_data)
+                if isinstance(prev_data, dict)
+                else prev_data
+            )
+            prev_symbols = {m["symbol"] for m in prev_raw if "symbol" in m}
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
         return
@@ -147,7 +145,6 @@ def main():
         fail(f"Invalid JSON: {e}")
 
     # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
 
@@ -156,14 +153,15 @@ def main():
     if prev_path:
         validate_drift(symbols, prev_path)
 
+    now_ts = datetime.now(timezone.utc).isoformat()
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(UTC).isoformat()}
+Date: {now_ts}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    # Write report
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
         write_report(report_file, report)

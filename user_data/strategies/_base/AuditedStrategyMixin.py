@@ -1,59 +1,94 @@
-"""
-AuditedStrategyMixin
-Mixin class for strategies to enforce audit logging and safety checks.
-"""
+from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
-from typing import Any
+import os
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from freqtrade.persistence import Trade
 
 logger = logging.getLogger(__name__)
 
 
 class AuditedStrategyMixin:
     """
-    Mixin for strategies to enforce audit logging and safety checks.
+    Mixin to add audit logging and safety checks to strategies.
+    Usage: class MyStrategy(IStrategy, AuditedStrategyMixin): ...
     """
 
-    # Type hint for the config attribute expected from IStrategy
-    config: dict[str, Any]
-
     def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
         self,
         pair: str,
         timeframe: str,
-        direction: str,
+        signal_type: str,
         reason: str,
-        candle_date: datetime,
+        snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
-        Log entry/exit signals to audit log.
+        Log a structured audit message for every signal.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
+        ts = datetime.now(timezone.utc).isoformat()
+        snap_str = str(snapshot) if snapshot else "N/A"
+        msg = f"AUDIT_SIGNAL | {ts} | {pair} | {timeframe} | {signal_type} | {reason} | {snap_str}"
         logger.info(msg)
 
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
+    def assert_pair_in_whitelist(self, pair: str) -> bool:
+        if hasattr(self, "dp") and self.dp:
+            if pair not in self.dp.current_whitelist():
+                logger.warning(f"Strategy processing pair {pair} not in whitelist!")
                 return False
         return True
 
-    def normalize_pair(self, pair: str) -> str:
+    def leverage(
+        self,
+        pair: str,
+        current_time: datetime,
+        current_rate: float,
+        proposed_leverage: float,
+        max_leverage: float,
+        entry_tag: str | None,
+        side: str,
+        **kwargs: Any,
+    ) -> float:
         """
-        Normalize pair to uppercase.
+        Enforce max leverage from env or default to 1.0 (safe).
         """
-        return pair.upper()
+        env_max = float(os.environ.get("MAX_LEVERAGE", 2.0))
+        return min(proposed_leverage, env_max)
+
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time: datetime,
+        entry_tag: str | None,
+        side: str,
+        **kwargs: Any,
+    ) -> bool:
+        # self.timeframe is expected to be present in the main strategy class
+        timeframe = getattr(self, "timeframe", "unknown")
+        self.log_signal(
+            pair, timeframe, f"ENTRY_{side.upper()}", entry_tag or "unknown"
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade: Trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs: Any,
+    ) -> bool:
+        # self.timeframe is expected to be present in the main strategy class
+        timeframe = getattr(self, "timeframe", "unknown")
+        self.log_signal(pair, timeframe, "EXIT", exit_reason)
+        return True
