@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -218,7 +215,7 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
@@ -235,9 +232,10 @@ Examples:
         ),
     )
     parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
-        help="Skip confirmation prompts before pushing"
+        help="Skip confirmation prompts before pushing",
     )
 
     args = parser.parse_args()
@@ -405,7 +403,7 @@ Examples:
                     ["git", "rev-parse", "--verify", target_branch],
                     capture_output=True,
                     text=True,
-                    check=False
+                    check=False,
                 )
                 if check_result.returncode == 0:
                     # Branch exists, just switch to it

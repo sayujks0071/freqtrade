@@ -38,10 +38,7 @@ class AuditedStrategyMixin:
         # Serialize indicators for logging
         snapshot = str(indicators)
 
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {snapshot}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:

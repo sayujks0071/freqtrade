@@ -47,8 +47,11 @@ def main():
     ts = datetime.now(timezone.utc).strftime("%Y%m%d")  # noqa: UP017
     report_file = report_dir / f"symbol_mapping_{ts}.md"
 
+    # Calculate date outside f-string to allow linter suppression
+    creation_date = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+
     content = f"""# Delta Exchange vs Freqtrade Symbol Mapping
-Date: {datetime.now(timezone.utc).isoformat()}  # noqa: UP017
+Date: {creation_date}
 Source: {source}
 
 ## Symbology Explanation

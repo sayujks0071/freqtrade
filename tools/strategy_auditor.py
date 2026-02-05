@@ -10,6 +10,7 @@ import os
 import sys
 from pathlib import Path
 
+
 HEADER_TEMPLATE = """\"\"\"
 Strategy: {name}
 Author: {author}
