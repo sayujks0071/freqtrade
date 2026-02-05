@@ -30,7 +30,7 @@ class Sentinel:
         self.interval = interval
         self.rpc_url = ""
         self.rpc_token = ""
-        self.balance_history = []  # List of (timestamp, balance)
+        self.balance_history: list[tuple[datetime, float]] = []  # List of (timestamp, balance)
         self.btc_exchange = ccxt.gateio()  # Public access is enough for OHLCV
 
         self.config = self.load_config()

@@ -1,10 +1,12 @@
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 import json
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 import requests_mock
-from datetime import datetime, timedelta
+
 
 # Add scripts directory to path
 # __file__ is tests/scripts/test_sentinel.py
@@ -26,7 +28,7 @@ def mock_config(tmp_path):
             "listen_ip_address": "127.0.0.1",
             "listen_port": 8080,
             "username": "user",
-            "password": "password"
+            "password": "password",
         }
     }
     with config_file.open("w") as f:
@@ -42,9 +44,9 @@ def sentinel(mock_config):
 
         # We need to mock ccxt.gateio too
         with patch("ccxt.gateio") as mock_ccxt:
-             s = Sentinel(mock_config)
-             s.btc_exchange = mock_ccxt.return_value
-             return s
+            s = Sentinel(mock_config)
+            s.btc_exchange = mock_ccxt.return_value
+            return s
 
 
 def test_init_and_auth(mock_config):
@@ -66,9 +68,7 @@ def test_check_drawdown_no_history(sentinel):
 def test_check_drawdown_trigger(sentinel):
     # Pre-fill history with a high balance
     now = datetime.now()
-    sentinel.balance_history = [
-        (now - timedelta(minutes=30), 1000.0)
-    ]
+    sentinel.balance_history = [(now - timedelta(minutes=30), 1000.0)]
 
     # Mock current balance significantly lower (e.g. 900, which is >5% drop from 1000)
     with requests_mock.Mocker() as m:
@@ -80,9 +80,7 @@ def test_check_drawdown_trigger(sentinel):
 
 def test_check_drawdown_no_trigger_small_drop(sentinel):
     now = datetime.now()
-    sentinel.balance_history = [
-        (now - timedelta(minutes=30), 1000.0)
-    ]
+    sentinel.balance_history = [(now - timedelta(minutes=30), 1000.0)]
 
     # Drop only 1%
     with requests_mock.Mocker() as m:
@@ -98,7 +96,7 @@ def test_check_btc_drop_trigger(sentinel):
     sentinel.btc_exchange.fetch_ohlcv.return_value = [
         [1000, 50000, 50000, 49000, 49500, 100],
         [2000, 49500, 49600, 48000, 48500, 100],
-        [3000, 48500, 48500, 40000, 40000, 100]
+        [3000, 48500, 48500, 40000, 40000, 100],
     ]
 
     assert sentinel.check_btc_drop() is True
@@ -109,7 +107,7 @@ def test_check_btc_drop_no_trigger(sentinel):
     sentinel.btc_exchange.fetch_ohlcv.return_value = [
         [1000, 50000, 50000, 49000, 49500, 100],
         [2000, 49500, 49600, 48000, 48500, 100],
-        [3000, 48500, 48500, 47000, 48000, 100]
+        [3000, 48500, 48500, 47000, 48000, 100],
     ]
 
     assert sentinel.check_btc_drop() is False
