@@ -11,11 +11,12 @@ import datetime
 import json
 import os
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -44,27 +45,27 @@ class StrategyScout:
 
     def _request(self, url: str) -> dict[str, Any] | None:
         """Helper for urllib requests with error handling."""
-        req = urllib.request.Request(url, headers=self.headers)  # noqa: S310
+        req = Request(url, headers=self.headers)  # noqa: S310
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:  # noqa: S310
+            with urlopen(req, timeout=TIMEOUT) as response:  # noqa: S310
                 # Check rate limits
                 remaining = response.getheader("X-RateLimit-Remaining")
                 if remaining and int(remaining) < RATE_LIMIT_BUFFER:
                     reset = response.getheader("X-RateLimit-Reset")
-                    reset_time = datetime.datetime.fromtimestamp(
-                        int(reset), datetime.timezone.utc
-                    )  # noqa: UP017
+                    # Use intermediate variable to keep line length down and satisfy ruff/flake8
+                    utc = datetime.timezone.utc
+                    reset_time = datetime.datetime.fromtimestamp(int(reset), utc)  # noqa: UP017
                     print(f"WARNING: Rate limit low ({remaining}). Resets at {reset_time}.")
                     # Simple backoff - just sleep if it's critical, but here just warn
                     # Ideally we would wait, but for now we proceed with caution
 
                 data = response.read()
                 return json.loads(data)
-        except urllib.error.HTTPError as e:
+        except HTTPError as e:
             print(f"HTTP Error {e.code} for {url}: {e.reason}")
             if e.code == 403:
                 print("Rate limit likely exceeded.")
-        except urllib.error.URLError as e:
+        except URLError as e:
             print(f"URL Error for {url}: {e.reason}")
         except Exception as e:
             print(f"Error fetching {url}: {e}")
@@ -78,7 +79,7 @@ class StrategyScout:
         for query in SEARCH_QUERIES:
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            safe_query = urllib.parse.quote(query)
+            safe_query = quote(query)
             url = (
                 f"{GITHUB_API_URL}/search/repositories"
                 f"?q={safe_query}&sort=stars&order=desc&per_page=20"
@@ -107,7 +108,7 @@ class StrategyScout:
 
         for repo in self.candidates:
             score = 0
-            notes = []
+            notes: list[str] = []
 
             # Metadata filtering
             full_name = repo["full_name"]
@@ -219,8 +220,8 @@ class StrategyScout:
                     try:
                         # Use generic urllib request for raw content
                         # Since it's raw content, we don't parse JSON
-                        req = urllib.request.Request(download_url)  # noqa: S310
-                        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310
+                        req = Request(download_url)  # noqa: S310
+                        with urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310
                             content = r.read().decode("utf-8")
 
                             # Check heuristics
@@ -353,8 +354,8 @@ class StrategyScout:
 
                             raw_url = file_info.get("download_url")
                             if raw_url:
-                                req = urllib.request.Request(raw_url)  # noqa: S310
-                                with urllib.request.urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310
+                                req = Request(raw_url)  # noqa: S310
+                                with urlopen(req, timeout=TIMEOUT) as r:  # noqa: S310
                                     content = r.read().decode("utf-8")
                                     with (vendor_dir / file_info["name"]).open("w") as f:
                                         f.write(content)
