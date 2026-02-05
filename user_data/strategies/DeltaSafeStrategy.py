@@ -6,20 +6,15 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 import sys
 from pathlib import Path
 
-import talib.abstract as ta
-from pandas import DataFrame
-
-from freqtrade.strategy import IStrategy
-
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
 
-from freqtrade.strategy import IStrategy  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+import talib.abstract as ta
+from AuditedStrategyMixin import AuditedStrategyMixin
+from pandas import DataFrame
+
+from freqtrade.strategy import IStrategy
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -35,7 +30,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     timeframe = "1h"
 
     # Run "populate_indicators" only for new candle
-    # Logic runs on closed candle only
     process_only_new_candles = True
 
     # These values can be overridden in the "ask_strategy" section in the config.
@@ -59,17 +53,27 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        dataframe['rsi'] = ta.RSI(dataframe, timeperiod=14)
+
+        # Bollinger Bands
+        bollinger = ta.BBANDS(dataframe, timeperiod=20, nbdevup=2.0, nbdevdn=2.0)
+        dataframe['bb_lowerband'] = bollinger['lowerband']
+        dataframe['bb_upperband'] = bollinger['upperband']
+        dataframe['bb_middleband'] = bollinger['middleband']
+
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
         dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
-        ] = 1
+            (
+                (dataframe['rsi'] < 30) &
+                (dataframe['close'] < dataframe['bb_lowerband']) &
+                (dataframe['volume'] > 0)
+            ),
+            'enter_long'] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.
@@ -78,9 +82,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
-        ] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -93,7 +94,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_time,
         entry_tag,
         side: str,
-        **kwargs,
+        **kwargs
     ) -> bool:
         """
         Called right before placing a trade.
