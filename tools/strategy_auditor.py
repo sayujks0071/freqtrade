@@ -9,7 +9,6 @@ import ast
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 HEADER_TEMPLATE = """\"\"\"
 Strategy: {name}
@@ -50,7 +49,7 @@ REQUIRED_HEADER_FIELDS = [
 ]
 
 
-def check_header(tree: ast.Module, source: str) -> List[str]:
+def check_header(tree: ast.Module, source: str) -> list[str]:
     errors = []
     docstring = ast.get_docstring(tree)
     if not docstring:
@@ -69,7 +68,7 @@ def check_header(tree: ast.Module, source: str) -> List[str]:
     return errors
 
 
-def get_strategy_class_node(tree: ast.Module) -> Optional[ast.ClassDef]:
+def get_strategy_class_node(tree: ast.Module) -> ast.ClassDef | None:
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
             # Assumes the strategy is the first/main class in the file
@@ -138,13 +137,14 @@ def fix_header(filepath: str, tree: ast.Module):
         # We'll just read the file, skipping the lines of the old docstring?
         # Or simpler: Just prepend if missing, let user fix if incomplete?
         # The prompt says "auto-insert if missing".
-        # If it exists but is invalid (missing fields), we should probably append the missing fields or suggest manual fix.
+        # If it exists but is invalid (missing fields), we should probably append
+        # the missing fields or suggest manual fix.
         # BUT the requirement says "Enforces a required header block (auto-insert if missing)".
         # It doesn't explicitly say "overwrite if invalid".
         # I'll implement: If missing, insert. If present but invalid, warn (auditor will fail).
         # Wait, I am implementing --fix.
-        # If I want to be helpful, I should maybe rename the old docstring or comment it out and add the new one?
-        # Or just tell the user to fix it.
+        # If I want to be helpful, I should maybe rename the old docstring or comment it out
+        # and add the new one? Or just tell the user to fix it.
         # Let's stick to: If NO docstring, insert.
         print(f"Docstring exists in {filepath}. Please update it manually to match requirements.")
         return
@@ -156,7 +156,7 @@ def fix_header(filepath: str, tree: ast.Module):
     print(f"Inserted header into {filepath}")
 
 
-def check_boolean_conditions(tree: ast.Module) -> List[str]:
+def check_boolean_conditions(tree: ast.Module) -> list[str]:  # noqa: C901
     errors = []
 
     for node in ast.walk(tree):
@@ -184,15 +184,18 @@ def check_boolean_conditions(tree: ast.Module) -> List[str]:
                                 if isinstance(sl, ast.Tuple):
                                     if len(sl.elts) > 0:
                                         index_node = sl.elts[0]
-                                elif isinstance(sl, ast.Index):  # Python < 3.9
-                                    index_node = sl.value
                                 else:
-                                    index_node = sl  # Could be just the index if 1D access (unlikely for loc assignment)
+                                    # Fallback for Python < 3.9 ast.Index or normal expr in 3.9+
+                                    # ast.Index doesn't exist in 3.10+ types but still valid check
+                                    # for old trees or just use getattr
+                                    index_node = getattr(sl, "value", sl)
 
                                 if index_node:
-                                    # Logic: The condition inside loc[...] should be composed of named variables.
+                                    # Logic: The condition inside loc[...] should be
+                                    # composed of named variables.
                                     # We allow BinOp/BoolOp/UnaryOp ONLY if their leaves are Names.
-                                    # We reject Compare (e.g. df['x'] > 1) because that should be a named variable.
+                                    # We reject Compare (e.g. df['x'] > 1) because that should be
+                                    # a named variable.
 
                                     def is_clean_condition(n):
                                         if isinstance(n, ast.Name):
@@ -217,13 +220,14 @@ def check_boolean_conditions(tree: ast.Module) -> List[str]:
                                         # Identify what failed it
                                         # If it's complex, we flag it.
                                         errors.append(
-                                            f"Inline boolean condition in {node.name} at line {child.lineno}. "
-                                            "Use named boolean variables (no inline comparisons)."
+                                            f"Inline boolean condition in {node.name} at line "
+                                            f"{child.lineno}. Use named boolean variables "
+                                            "(no inline comparisons)."
                                         )
     return errors
 
 
-def check_inheritance(tree: ast.Module, filepath: str) -> List[str]:
+def check_inheritance(tree: ast.Module, filepath: str) -> list[str]:
     errors = []
     strategy_node = get_strategy_class_node(tree)
     if strategy_node:
@@ -246,8 +250,8 @@ def audit_file(filepath: str, fix: bool = False) -> bool:
     try:
         source = path.read_text()
         tree = ast.parse(source)
-    except SyntaxError as e:
-        print(f"FAIL: Syntax Error in {filepath}: {e}")
+    except SyntaxError as err:
+        print(f"FAIL: Syntax Error in {filepath}: {err}")
         return False
 
     errors = []
@@ -307,7 +311,8 @@ def main():
                     and not f.startswith("__")
                     and not f.startswith("AuditedStrategyMixin")
                 ):
-                    # Skip base dir if it's treated as strategy? No, _base is usually excluded by logic or explicitly.
+                    # Skip base dir if it's treated as strategy?
+                    # No, _base is usually excluded by logic or explicitly.
                     # But `walk` goes into _base.
                     if "_base" in root:
                         continue

@@ -204,7 +204,7 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
-def main():
+def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -223,7 +223,7 @@ Examples:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
@@ -232,7 +232,7 @@ Examples:
         help=(
             "Target branch for pushing changes "
             "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+        ),
     )
     parser.add_argument(
         "--yes", "-y",
@@ -439,7 +439,7 @@ Examples:
                 print(f"  - Create/update remote branch: {target_branch}")
                 print("\nYou can then create a pull request to review and merge these changes.")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ['y', 'yes']:
+                if response not in ["y", "yes"]:
                     print("Push cancelled. Changes are committed locally.")
                     print(f"You can manually push later with: git push origin {target_branch}")
                     if backup_json.exists():

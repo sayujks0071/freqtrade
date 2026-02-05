@@ -193,7 +193,7 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
         return strategies, found_path
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import json
-import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,11 +44,11 @@ def main():
         ]
 
     # Generate Report
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d")  # noqa: UP017
     report_file = report_dir / f"symbol_mapping_{ts}.md"
 
     content = f"""# Delta Exchange vs Freqtrade Symbol Mapping
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {datetime.now(timezone.utc).isoformat()}  # noqa: UP017
 Source: {source}
 
 ## Symbology Explanation
@@ -72,7 +70,8 @@ For Inverse Futures (Coin settled):
 
 ## Available Pairs (Examples)
 
-The following are examples of valid Freqtrade pair formats for Delta Exchange, based on available market data:
+The following are examples of valid Freqtrade pair formats for Delta Exchange,
+based on available market data:
 
 """
 
