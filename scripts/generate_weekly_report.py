@@ -55,12 +55,14 @@ def parse_optimization_log(days=7):
                 continue
 
             if status != "Success":
-                stuck_strategies.append({
-                    "timestamp": timestamp_str,
-                    "strategy": strategy,
-                    "status": status,
-                    "details": details,
-                })
+                stuck_strategies.append(
+                    {
+                        "timestamp": timestamp_str,
+                        "strategy": strategy,
+                        "status": status,
+                        "details": details,
+                    }
+                )
 
     return stuck_strategies
 
@@ -89,9 +91,7 @@ def generate_report():
 
     # 3. Generate Markdown
     lines = []
-    lines.append(
-        f"# Weekly Optimization Report ({datetime.now().strftime('%Y-%m-%d')})"
-    )
+    lines.append(f"# Weekly Optimization Report ({datetime.now().strftime('%Y-%m-%d')})")
     lines.append("")
 
     lines.append("## 1. Updated Strategies")
@@ -103,9 +103,7 @@ def generate_report():
     lines.append("")
 
     lines.append("## 2. Total Estimated Improvement")
-    lines.append(
-        f"**Total Portfolio ROI Improvement:** +{total_roi_improvement:.2f}%"
-    )
+    lines.append(f"**Total Portfolio ROI Improvement:** +{total_roi_improvement:.2f}%")
     lines.append("")
 
     lines.append("## 3. Stuck Strategies (Candidates for Deletion)")
@@ -113,9 +111,7 @@ def generate_report():
         lines.append("| Timestamp | Strategy | Status | Reason |")
         lines.append("|---|---|---|---|")
         for s in stuck_strategies:
-            lines.append(
-                f"| {s['timestamp']} | {s['strategy']} | {s['status']} | {s['details']} |"
-            )
+            lines.append(f"| {s['timestamp']} | {s['strategy']} | {s['status']} | {s['details']} |")
     else:
         lines.append("No stuck strategies detected this week.")
     lines.append("")

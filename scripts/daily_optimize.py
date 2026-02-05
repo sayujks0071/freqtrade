@@ -412,9 +412,7 @@ def handle_optimization_result(
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
-        log_optimization_attempt(
-            worst_strategy, "Failed", "Verification backtest failed"
-        )
+        log_optimization_attempt(worst_strategy, "Failed", "Verification backtest failed")
         commit_and_push_stuck(worst_strategy, "Verification backtest failed", args)
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
@@ -441,14 +439,10 @@ def handle_optimization_result(
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         log_optimization_attempt(worst_strategy, "Success", details)
-        commit_and_push(
-            worst_strategy, strategy_json, backup_json, avg_profit_pct, args
-        )
+        commit_and_push(worst_strategy, strategy_json, backup_json, avg_profit_pct, args)
     else:
         print("Evaluation FAILED. Reverting changes.")
-        log_optimization_attempt(
-            worst_strategy, "Stuck", f"No improvement ({details})"
-        )
+        log_optimization_attempt(worst_strategy, "Stuck", f"No improvement ({details})")
         commit_and_push_stuck(worst_strategy, f"No improvement ({details})", args)
 
         if not created_new:
@@ -476,9 +470,7 @@ def main():
     print(f"Current Drawdown: {current_drawdown}")
 
     # 2. Hyperopt Execution
-    res_hyperopt, strategy_json, backup_json, created_new = run_hyperopt(
-        worst_strategy
-    )
+    res_hyperopt, strategy_json, backup_json, created_new = run_hyperopt(worst_strategy)
 
     if res_hyperopt.returncode != 0:
         print("Hyperopt failed.")
