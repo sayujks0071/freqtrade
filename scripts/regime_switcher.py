@@ -30,15 +30,17 @@ CONFIG_PATH = (
 LOG_PATH = Path(__file__).resolve().parent.parent / "regime_log.md"
 PAIR = "BTC/USDT"
 TIMEFRAME = "1d"
-LIMIT = 300  # Need enough data for EMA200 + warmup
+LIMIT = 1000  # Need enough data for EMA200 + warmup
 
 
 def fetch_data():
     """Fetch daily OHLCV data for BTC/USDT."""
-    exchange = ccxt.gateio({
-        "timeout": 30000,
-        "enableRateLimit": True,
-    })
+    exchange = ccxt.kraken(
+        {
+            "timeout": 30000,
+            "enableRateLimit": True,
+        }
+    )
     try:
         # fetch_ohlcv returns list of [timestamp, open, high, low, close, volume]
         ohlcv = exchange.fetch_ohlcv(PAIR, timeframe=TIMEFRAME, limit=LIMIT)

@@ -143,10 +143,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +163,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -291,8 +285,6 @@ def run_hyperopt_session(strategy):
         print(f"Applying new parameters to {strategy_json}")
         with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
-        if backup_json.exists():
-            backup_json.unlink()
         return True
     else:
         print("Could not extract new parameters from hyperopt output.")
@@ -370,7 +362,7 @@ def commit_and_push(strategy, avg_profit_pct, args):
             ["git", "rev-parse", "--verify", target_branch],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if check_result.returncode == 0:
             # Branch exists, just switch to it
@@ -401,7 +393,7 @@ def commit_and_push(strategy, avg_profit_pct, args):
         print(f"  - Create/update remote branch: {target_branch}")
         print("\nYou can then create a pull request to review and merge these changes.")
         response = input("\nProceed with push? [y/N]: ").strip().lower()
-        if response not in ['y', 'yes']:
+        if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
             print(f"You can manually push later with: git push origin {target_branch}")
             return
@@ -434,26 +426,26 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
+        ),
     )
     parser.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
-        help="Skip confirmation prompts before pushing"
+        help="Skip confirmation prompts before pushing",
     )
 
     args = parser.parse_args()
@@ -493,7 +485,7 @@ Examples:
             # If no backup, it might have been a new file or we logic failed
             # If we created a new file and now failed, we should probably delete it?
             # But earlier logic says "created_new".
-            # To properly handle "created_new" state here, we'd need to pass it out of run_hyperopt_session.
+            # To handle "created_new" state, we'd need to pass it out of run_hyperopt_session.
             # For simplicity in this refactor, if we fail, we just leave the "bad" new params
             # OR we revert if backup exists.
             # If it was a new file, we don't have a backup.
