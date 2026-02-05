@@ -6,11 +6,12 @@ Reads a freqtrade list-markets JSON dump and outputs a whitelist config file.
 
 import json
 import sys
+from pathlib import Path
 
 
 def generate_whitelist(market_file):
     try:
-        with open(market_file, "r") as f:
+        with Path(market_file).open() as f:
             markets = json.load(f)
 
         whitelist = []

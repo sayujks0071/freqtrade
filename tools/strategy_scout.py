@@ -186,8 +186,9 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception:
+            except Exception as e:
                 # Can happen if path doesn't exist, ignore
+                print(f"DEBUG: Error checking path {path}: {e}")
                 continue
         return strategies, found_path
 
