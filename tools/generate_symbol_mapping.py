@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 def main():
     report_dir = Path("user_data/reports")
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -41,7 +42,7 @@ def main():
             "ETH/USDT:USDT",
             "SOL/USDT:USDT",
             "XRP/USDT:USDT",
-            "DOGE/USDT:USDT"
+            "DOGE/USDT:USDT",
         ]
 
     # Generate Report
@@ -75,7 +76,7 @@ The following are examples of valid Freqtrade pair formats for Delta Exchange, b
 
 """
 
-    for p in pairs[:50]: # Limit to 50 examples
+    for p in pairs[:50]:  # Limit to 50 examples
         content += f"- `{p}`\n"
 
     if len(pairs) > 50:
@@ -85,6 +86,7 @@ The following are examples of valid Freqtrade pair formats for Delta Exchange, b
         f.write(content)
 
     print(f"Report generated: {report_file}")
+
 
 if __name__ == "__main__":
     main()

@@ -5,7 +5,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class AuditedStrategyMixin:
         """
         # Ensure ts_utc is timezone aware and UTC
         if ts_utc.tzinfo is None:
-            ts_utc = ts_utc.replace(tzinfo=timezone.utc)
+            ts_utc = ts_utc.replace(tzinfo=timezone.utc)  # noqa: UP017
 
         # Serialize indicators for logging
         snapshot = str(indicators)
@@ -50,7 +50,7 @@ class AuditedStrategyMixin:
         """
         return pair.upper()
 
-    def assert_pair_in_whitelist(self, pair: str, whitelist: List[str]) -> None:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:
         """
         Assert pair is in the provided whitelist.
         """

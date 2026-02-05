@@ -4,12 +4,12 @@ Strategy Auditor Tool
 Enforces coding standards, header requirements, and auditability for Freqtrade strategies.
 """
 
-import ast
 import argparse
-import sys
+import ast
 import os
+import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 HEADER_TEMPLATE = """\"\"\"
 Strategy: {name}
@@ -46,8 +46,9 @@ REQUIRED_HEADER_FIELDS = [
     "Pair Format:",
     "Timezone:",
     "Entry/Exit:",
-    "Repainting:"
+    "Repainting:",
 ]
+
 
 def check_header(tree: ast.Module, source: str) -> List[str]:
     errors = []
@@ -67,6 +68,7 @@ def check_header(tree: ast.Module, source: str) -> List[str]:
 
     return errors
 
+
 def get_strategy_class_node(tree: ast.Module) -> Optional[ast.ClassDef]:
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
@@ -76,6 +78,7 @@ def get_strategy_class_node(tree: ast.Module) -> Optional[ast.ClassDef]:
                 if isinstance(base, ast.Name) and base.id == "IStrategy":
                     return node
     return None
+
 
 def fix_header(filepath: str, tree: ast.Module):
     """
@@ -91,16 +94,16 @@ def fix_header(filepath: str, tree: ast.Module):
 
     # Try to find existing docstring range
     docstring = ast.get_docstring(tree)
-    start_line = 0
-    end_line = 0
 
     if docstring:
         # Finding the docstring in source is tricky without tokenizing,
         # but since we are replacing/prepending, let's try to be smart.
         # If the first statement is a string expression, it's the docstring.
-        if isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, (ast.Str, ast.Constant)):
+        if isinstance(tree.body[0], ast.Expr) and isinstance(
+            tree.body[0].value, (ast.Str, ast.Constant)
+        ):
             # This is the docstring node
-            end_line = tree.body[0].end_lineno
+            pass
             # But we want to preserve imports if they are after?
             # Usually docstring is top.
 
@@ -125,7 +128,7 @@ def fix_header(filepath: str, tree: ast.Module):
         long_entry=long_entry,
         long_exit=long_exit,
         short_entry=short_entry,
-        short_exit=short_exit
+        short_exit=short_exit,
     )
 
     if docstring:
@@ -152,11 +155,15 @@ def fix_header(filepath: str, tree: ast.Module):
         f.write(new_content)
     print(f"Inserted header into {filepath}")
 
+
 def check_boolean_conditions(tree: ast.Module) -> List[str]:
     errors = []
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name in ["populate_entry_trend", "populate_exit_trend"]:
+        if isinstance(node, ast.FunctionDef) and node.name in [
+            "populate_entry_trend",
+            "populate_exit_trend",
+        ]:
             for child in ast.walk(node):
                 if isinstance(child, ast.Assign):
                     # Check for dataframe.loc assignment
@@ -166,7 +173,10 @@ def check_boolean_conditions(tree: ast.Module) -> List[str]:
                             # Check if value is dataframe.loc
                             # usually target is df.loc[index, col]
                             # verify it is 'loc'
-                            if isinstance(target.value, ast.Attribute) and target.value.attr == "loc":
+                            if (
+                                isinstance(target.value, ast.Attribute)
+                                and target.value.attr == "loc"
+                            ):
                                 # Check slice
                                 sl = target.slice
                                 # In Python 3.9+, slice is the node itself (often Tuple for loc)
@@ -174,10 +184,10 @@ def check_boolean_conditions(tree: ast.Module) -> List[str]:
                                 if isinstance(sl, ast.Tuple):
                                     if len(sl.elts) > 0:
                                         index_node = sl.elts[0]
-                                elif isinstance(sl, ast.Index): # Python < 3.9
+                                elif isinstance(sl, ast.Index):  # Python < 3.9
                                     index_node = sl.value
                                 else:
-                                    index_node = sl # Could be just the index if 1D access (unlikely for loc assignment)
+                                    index_node = sl  # Could be just the index if 1D access (unlikely for loc assignment)
 
                                 if index_node:
                                     # Logic: The condition inside loc[...] should be composed of named variables.
@@ -190,23 +200,28 @@ def check_boolean_conditions(tree: ast.Module) -> List[str]:
                                         if isinstance(n, ast.UnaryOp):
                                             return is_clean_condition(n.operand)
                                         if isinstance(n, ast.BinOp):
-                                            return is_clean_condition(n.left) and is_clean_condition(n.right)
+                                            return is_clean_condition(
+                                                n.left
+                                            ) and is_clean_condition(n.right)
                                         if isinstance(n, ast.BoolOp):
                                             return all(is_clean_condition(v) for v in n.values)
                                         # Allow Tuple/List if needed (unlikely for boolean index)?
                                         # Allow Constant? (True/False)
-                                        if isinstance(n, (ast.Constant, ast.NameConstant)): # NameConstant for py < 3.8
+                                        if isinstance(
+                                            n, (ast.Constant, ast.NameConstant)
+                                        ):  # NameConstant for py < 3.8
                                             return True
                                         return False
 
                                     if not is_clean_condition(index_node):
-                                         # Identify what failed it
-                                         # If it's complex, we flag it.
-                                         errors.append(
-                                             f"Inline boolean condition in {node.name} at line {child.lineno}. "
-                                             "Use named boolean variables (no inline comparisons)."
-                                         )
+                                        # Identify what failed it
+                                        # If it's complex, we flag it.
+                                        errors.append(
+                                            f"Inline boolean condition in {node.name} at line {child.lineno}. "
+                                            "Use named boolean variables (no inline comparisons)."
+                                        )
     return errors
+
 
 def check_inheritance(tree: ast.Module, filepath: str) -> List[str]:
     errors = []
@@ -223,6 +238,7 @@ def check_inheritance(tree: ast.Module, filepath: str) -> List[str]:
             errors.append(f"Strategy class {strategy_node.name} must inherit AuditedStrategyMixin")
 
     return errors
+
 
 def audit_file(filepath: str, fix: bool = False) -> bool:
     print(f"Auditing {filepath}...")
@@ -264,9 +280,12 @@ def audit_file(filepath: str, fix: bool = False) -> bool:
     print("PASS")
     return True
 
+
 def main():
     parser = argparse.ArgumentParser(description="Strategy Auditor")
-    parser.add_argument("path", nargs="?", default="user_data/strategies", help="File or directory to audit")
+    parser.add_argument(
+        "path", nargs="?", default="user_data/strategies", help="File or directory to audit"
+    )
     parser.add_argument("--fix", action="store_true", help="Auto-fix missing headers")
     args = parser.parse_args()
 
@@ -283,12 +302,16 @@ def main():
     else:
         for root, _, filenames in os.walk(target):
             for f in filenames:
-                if f.endswith(".py") and not f.startswith("__") and not f.startswith("AuditedStrategyMixin"):
-                     # Skip base dir if it's treated as strategy? No, _base is usually excluded by logic or explicitly.
-                     # But `walk` goes into _base.
-                     if "_base" in root:
-                         continue
-                     files.append(Path(root) / f)
+                if (
+                    f.endswith(".py")
+                    and not f.startswith("__")
+                    and not f.startswith("AuditedStrategyMixin")
+                ):
+                    # Skip base dir if it's treated as strategy? No, _base is usually excluded by logic or explicitly.
+                    # But `walk` goes into _base.
+                    if "_base" in root:
+                        continue
+                    files.append(Path(root) / f)
 
     for f in files:
         if not audit_file(str(f), args.fix):
@@ -296,6 +319,7 @@ def main():
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

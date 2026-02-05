@@ -26,18 +26,22 @@ Repainting:
 
 from __future__ import annotations
 
+import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
 
+
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
+
+logger = logging.getLogger(__name__)
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -136,9 +140,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                         "volume": last_row.get("volume"),
                         "close": last_row.get("close"),
                     }
-            except Exception:
+            except Exception as e:
                 # Fallback if DP not available or fails
-                pass
+                logger.warning(f"Failed to get indicators for audit log: {e}")
 
         self.log_signal(
             pair=pair,
