@@ -4,7 +4,6 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-
 # noqa: C901
 
 DB_PATH = "user_data/tradesv3.sqlite"
@@ -24,7 +23,7 @@ def generate_daily_report():  # noqa: C901
     cursor = conn.cursor()
 
     # UTC Date
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(timezone.utc).date()  # noqa: UP017
 
     # Optional: Arg for date
     target_date = today
@@ -66,9 +65,11 @@ def generate_daily_report():  # noqa: C901
             if cd.tzinfo is None:
                 cd = cd.replace(tzinfo=timezone.utc)  # noqa: UP017
 
-            if start_ts.replace(tzinfo=timezone.utc) <= cd < end_ts.replace(tzinfo=timezone.utc):
+            # noqa: UP017
+            if start_ts.replace(tzinfo=timezone.utc) <= cd < end_ts.replace(tzinfo=timezone.utc):  # noqa: UP017
                 trades.append(t)
-        except Exception:
+        except Exception as e:
+            print(f"Error parsing trade date: {e}")
             continue
 
     total_trades = len(trades)
@@ -137,7 +138,7 @@ def generate_daily_report():  # noqa: C901
     # Save
     Path(REPORT_DIR).mkdir(parents=True, exist_ok=True)
     filename = f"{REPORT_DIR}/daily_summary_{target_date}.md"
-    with open(filename, "w") as f:
+    with Path(filename).open("w") as f:
         f.write(report)
 
     print(f"Report saved to {filename}")

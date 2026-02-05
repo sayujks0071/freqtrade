@@ -43,10 +43,17 @@ class StrategyScout:
         if params:
             url += "?" + urllib.parse.urlencode(params)
 
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ["http", "https"]:
+            print(f"Skipping unsafe URL: {url}")
+            return None
+
         req = urllib.request.Request(url, headers=self.headers)  # noqa: S310
         try:
             with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
-                self.rate_limit_remaining = int(response.getheader("X-RateLimit-Remaining", 9999))
+                self.rate_limit_remaining = int(
+                    response.getheader("X-RateLimit-Remaining", 9999)
+                )
                 return json.loads(response.read())
         except Exception as e:
             print(f"Error fetching {url}: {e}")
@@ -135,14 +142,20 @@ class StrategyScout:
         Path("user_data/reports").mkdir(parents=True, exist_ok=True)
         filename = f"user_data/reports/strategy_shortlist_{datetime.date.today()}.md"
 
-        with open(filename, "w") as f:
+        with Path(filename).open("w") as f:
             f.write(f"# Strategy Shortlist - {datetime.date.today()}\n\n")
             f.write("| Rank | Repo | Score | Stars | License | Last Update |\n")
             f.write("|---|---|---|---|---|---|\n")
 
             for i, repo in enumerate(self.candidates[:20], 1):
+                name = repo["full_name"]
+                url = repo["html_url"]
+                score = repo["scout_score"]
+                stars = repo.get("stargazers_count")
+                license = repo["license_name"]
+                last_update = repo.get("pushed_at", "")[:10]
                 f.write(
-                    f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo['scout_score']} | {repo.get('stargazers_count')} | {repo['license_name']} | {repo.get('pushed_at', '')[:10]} |\n"
+                    f"| {i} | [{name}]({url}) | {score} | {stars} | {license} | {last_update} |\n"
                 )
 
         print(f"Report saved to {filename}")
@@ -160,11 +173,13 @@ class StrategyScout:
             vendor_dir.mkdir(exist_ok=True)
 
             # Write LICENSE note
-            with open(vendor_dir / "LICENSE_NOTE.md", "w") as f:
-                f.write(f"Source: {repo['html_url']}\nLicense: {repo['license_name']}\n")
+            with (vendor_dir / "LICENSE_NOTE.md").open("w") as f:
+                f.write(
+                    f"Source: {repo['html_url']}\nLicense: {repo['license_name']}\n"
+                )
 
 
-def main():  # noqa: C901
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--vendor", action="store_true")
     args = parser.parse_args()

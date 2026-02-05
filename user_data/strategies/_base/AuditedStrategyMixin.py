@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 import logging
 import os
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from freqtrade.persistence import Trade
 
 logger = logging.getLogger(__name__)
 
@@ -12,17 +18,22 @@ class AuditedStrategyMixin:
     """
 
     def log_signal(
-        self, pair: str, timeframe: str, signal_type: str, reason: str, snapshot: dict = None
-    ):
+        self,
+        pair: str,
+        timeframe: str,
+        signal_type: str,
+        reason: str,
+        snapshot: dict[str, Any] | None = None,
+    ) -> None:
         """
         Log a structured audit message for every signal.
         """
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
         snap_str = str(snapshot) if snapshot else "N/A"
         msg = f"AUDIT_SIGNAL | {ts} | {pair} | {timeframe} | {signal_type} | {reason} | {snap_str}"
         logger.info(msg)
 
-    def assert_pair_in_whitelist(self, pair: str):
+    def assert_pair_in_whitelist(self, pair: str) -> bool:
         if hasattr(self, "dp") and self.dp:
             if pair not in self.dp.current_whitelist():
                 logger.warning(f"Strategy processing pair {pair} not in whitelist!")
@@ -38,7 +49,7 @@ class AuditedStrategyMixin:
         max_leverage: float,
         entry_tag: str | None,
         side: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> float:
         """
         Enforce max leverage from env or default to 1.0 (safe).
@@ -56,24 +67,28 @@ class AuditedStrategyMixin:
         current_time: datetime,
         entry_tag: str | None,
         side: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
+        # self.timeframe is expected to be present in the main strategy class
+        timeframe = getattr(self, "timeframe", "unknown")
         self.log_signal(
-            pair, self.timeframe, f"ENTRY_{side.upper()}", entry_tag or "unknown"
+            pair, timeframe, f"ENTRY_{side.upper()}", entry_tag or "unknown"
         )
         return True
 
     def confirm_trade_exit(
         self,
         pair: str,
-        trade: "Trade",
+        trade: Trade,
         order_type: str,
         amount: float,
         rate: float,
         time_in_force: str,
         exit_reason: str,
         current_time: datetime,
-        **kwargs,
+        **kwargs: Any,
     ) -> bool:
-        self.log_signal(pair, self.timeframe, "EXIT", exit_reason)
+        # self.timeframe is expected to be present in the main strategy class
+        timeframe = getattr(self, "timeframe", "unknown")
+        self.log_signal(pair, timeframe, "EXIT", exit_reason)
         return True

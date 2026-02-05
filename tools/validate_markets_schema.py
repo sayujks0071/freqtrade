@@ -153,14 +153,15 @@ def main():
     if prev_path:
         validate_drift(symbols, prev_path)
 
+    now_ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {now_ts}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
     # Write report
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")  # noqa: UP017
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
         write_report(report_file, report)

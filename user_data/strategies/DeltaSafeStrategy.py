@@ -1,15 +1,13 @@
 import sys
 from pathlib import Path
 
+import talib.abstract as ta
+from freqtrade.strategy import IStrategy
+from pandas import DataFrame
+
 # Add _base to path to allow importing mixin
 sys.path.append(str(Path(__file__).parent / "_base"))
 
-from freqtrade.strategy import IStrategy
-from pandas import DataFrame
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-
-# noqa: E402
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
 
 

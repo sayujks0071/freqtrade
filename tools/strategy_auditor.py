@@ -36,7 +36,8 @@ class StrategyAuditor(ast.NodeVisitor):
                 if isinstance(node.func.value, ast.Name) and node.func.value.id == "datetime":
                     if not node.args:
                         self.errors.append(
-                            f"Line {node.lineno}: datetime.now() used without timezone. Use datetime.now(timezone.utc)."
+                            f"Line {node.lineno}: datetime.now() used without timezone. "
+                            "Use datetime.now(timezone.utc)."
                         )
         self.generic_visit(node)
 
@@ -60,7 +61,7 @@ class StrategyAuditor(ast.NodeVisitor):
 def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
     try:
-        with open(filepath, "r") as f:
+        with Path(filepath).open() as f:
             source = f.read()
         tree = ast.parse(source)
     except Exception as e:
@@ -73,7 +74,7 @@ def audit_file(filepath, fix=False):
     passed = True
 
     if not auditor.has_header:
-        print(f"FAIL: Missing Metadata Header in class docstring.")
+        print("FAIL: Missing Metadata Header in class docstring.")
         passed = False
         if fix:
             # Simple append to docstring isn't trivial with parsed tree without re-codegen
