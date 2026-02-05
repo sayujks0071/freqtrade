@@ -80,9 +80,7 @@ class Sentinel:
 
     def get_current_balance(self):
         try:
-            resp = requests.get(
-                f"{self.rpc_url}/balance", headers=self.get_headers(), timeout=10
-            )
+            resp = requests.get(f"{self.rpc_url}/balance", headers=self.get_headers(), timeout=10)
             resp.raise_for_status()
             data = resp.json()
             # Return total balance in stake currency
@@ -102,9 +100,7 @@ class Sentinel:
 
         # Prune old history (> 1 hour)
         cutoff = now - timedelta(hours=1)
-        self.balance_history = [
-            (t, b) for t, b in self.balance_history if t > cutoff
-        ]
+        self.balance_history = [(t, b) for t, b in self.balance_history if t > cutoff]
 
         if not self.balance_history:
             return False
@@ -200,9 +196,7 @@ class Sentinel:
     def kill_switch(self):
         logger.info("Engaging Kill Switch (Stopping Bot)...")
         try:
-            resp = requests.post(
-                f"{self.rpc_url}/stop", headers=self.get_headers(), timeout=10
-            )
+            resp = requests.post(f"{self.rpc_url}/stop", headers=self.get_headers(), timeout=10)
             if resp.status_code == 200:
                 logger.info("Bot stopped successfully.")
             else:
