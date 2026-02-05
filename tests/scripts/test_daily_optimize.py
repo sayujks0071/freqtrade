@@ -57,10 +57,7 @@ def test_evaluate_improvement_pass():
     new_dd = 0.15  # 0.15 < 0.2
 
     assert (
-        daily_optimize.evaluate_improvement(
-            current_sharpe, current_dd, new_sharpe, new_dd
-        )
-        is True
+        daily_optimize.evaluate_improvement(current_sharpe, current_dd, new_sharpe, new_dd) is True
     )
 
 
@@ -71,10 +68,7 @@ def test_evaluate_improvement_fail_sharpe():
     new_dd = 0.15
 
     assert (
-        daily_optimize.evaluate_improvement(
-            current_sharpe, current_dd, new_sharpe, new_dd
-        )
-        is False
+        daily_optimize.evaluate_improvement(current_sharpe, current_dd, new_sharpe, new_dd) is False
     )
 
 
@@ -85,10 +79,7 @@ def test_evaluate_improvement_fail_drawdown():
     new_dd = 0.21  # 0.21 > 0.2
 
     assert (
-        daily_optimize.evaluate_improvement(
-            current_sharpe, current_dd, new_sharpe, new_dd
-        )
-        is False
+        daily_optimize.evaluate_improvement(current_sharpe, current_dd, new_sharpe, new_dd) is False
     )
 
 
@@ -99,24 +90,17 @@ def test_evaluate_improvement_fail_both():
     new_dd = 0.25
 
     assert (
-        daily_optimize.evaluate_improvement(
-            current_sharpe, current_dd, new_sharpe, new_dd
-        )
-        is False
+        daily_optimize.evaluate_improvement(current_sharpe, current_dd, new_sharpe, new_dd) is False
     )
 
 
 @patch("daily_optimize.get_latest_backtest_file")
 @patch("daily_optimize.get_all_strategy_names")
 @patch("daily_optimize.read_backtest_result")
-def test_establish_baseline_existing_full(
-    mock_read, mock_get_strategies, mock_get_file
-):
+def test_establish_baseline_existing_full(mock_read, mock_get_strategies, mock_get_file):
     mock_get_file.return_value = Path("dummy.json")
     mock_get_strategies.return_value = ["StratA"]
-    mock_read.return_value = {
-        "strategy": {"StratA": {"sharpe": 1.5, "max_drawdown_account": 0.1}}
-    }
+    mock_read.return_value = {"strategy": {"StratA": {"sharpe": 1.5, "max_drawdown_account": 0.1}}}
 
     name, sharpe, dd = daily_optimize.establish_baseline()
 
@@ -128,9 +112,7 @@ def test_establish_baseline_existing_full(
 @patch("daily_optimize.get_latest_backtest_file")
 @patch("daily_optimize.run_backtest_job")
 @patch("daily_optimize.get_all_strategy_names")
-def test_establish_baseline_no_existing(
-    mock_get_strategies, mock_run_backtest, mock_get_file
-):
+def test_establish_baseline_no_existing(mock_get_strategies, mock_run_backtest, mock_get_file):
     mock_get_file.return_value = None
     mock_get_strategies.return_value = ["StratA", "StratB"]
     mock_run_backtest.return_value = {
@@ -159,9 +141,7 @@ def test_establish_baseline_partial_results(
     mock_get_file.return_value = Path("partial.json")
     mock_get_strategies.return_value = ["StratA", "StratB"]
     # File only has StratA
-    mock_read.return_value = {
-        "strategy": {"StratA": {"sharpe": 1.5, "max_drawdown_account": 0.1}}
-    }
+    mock_read.return_value = {"strategy": {"StratA": {"sharpe": 1.5, "max_drawdown_account": 0.1}}}
 
     # Mock return of the FULL backtest
     mock_run_backtest.return_value = {
