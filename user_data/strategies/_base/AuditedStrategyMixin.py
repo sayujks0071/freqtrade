@@ -4,7 +4,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -20,40 +20,49 @@ class AuditedStrategyMixin:
     config: dict[str, Any]
 
     def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators: dict[str, Any],
     ) -> None:
         """
         Log entry/exit signals to audit log.
+        Format: AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
+        # Ensure ts_utc is timezone aware and UTC
+        if ts_utc.tzinfo is None:
+            ts_utc = ts_utc.replace(tzinfo=timezone.utc)  # noqa: UP017
 
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
-                return False
-        return True
+        # Serialize indicators for logging
+        snapshot = str(indicators)
+
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot}"
+        logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:
         """
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:
+        """
+        Assert pair is in the provided whitelist.
+        """
+        if pair not in whitelist:
+            msg = f"AUDIT_ERROR | Pair {pair} not in provided whitelist!"
+            logger.error(msg)
+            raise ValueError(msg)
+
+    def validate_pair_format(self, pair: str) -> bool:
+        """
+        Check for symbol sanity: BASE/QUOTE:SETTLE
+        """
+        if "/" not in pair or ":" not in pair:
+            msg = f"AUDIT_ERROR | Invalid pair format {pair}. Expected BASE/QUOTE:SETTLE"
+            logger.error(msg)
+            # Fail fast
+            raise ValueError(msg)
+        return True
