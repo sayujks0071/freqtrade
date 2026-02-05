@@ -4,8 +4,6 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# noqa: C901
-
 DB_PATH = "user_data/tradesv3.sqlite"
 REPORT_DIR = "user_data/reports"
 
@@ -17,13 +15,13 @@ def get_db_connection():
     return sqlite3.connect(DB_PATH)
 
 
-def generate_daily_report():  # noqa: C901
+def generate_daily_report():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     # UTC Date
-    today = datetime.now(timezone.utc).date()  # noqa: UP017
+    today = datetime.now(timezone.utc).date()
 
     # Optional: Arg for date
     target_date = today
@@ -63,10 +61,12 @@ def generate_daily_report():  # noqa: C901
 
             # If naive, assume UTC
             if cd.tzinfo is None:
-                cd = cd.replace(tzinfo=timezone.utc)  # noqa: UP017
+                cd = cd.replace(tzinfo=timezone.utc)
 
-            # noqa: UP017
-            if start_ts.replace(tzinfo=timezone.utc) <= cd < end_ts.replace(tzinfo=timezone.utc):  # noqa: UP017
+            start_utc = start_ts.replace(tzinfo=timezone.utc)
+            end_utc = end_ts.replace(tzinfo=timezone.utc)
+
+            if start_utc <= cd < end_utc:
                 trades.append(t)
         except Exception as e:
             print(f"Error parsing trade date: {e}")

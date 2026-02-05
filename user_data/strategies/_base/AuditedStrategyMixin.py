@@ -28,7 +28,7 @@ class AuditedStrategyMixin:
         """
         Log a structured audit message for every signal.
         """
-        ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+        ts = datetime.now(timezone.utc).isoformat()
         snap_str = str(snapshot) if snapshot else "N/A"
         msg = f"AUDIT_SIGNAL | {ts} | {pair} | {timeframe} | {signal_type} | {reason} | {snap_str}"
         logger.info(msg)

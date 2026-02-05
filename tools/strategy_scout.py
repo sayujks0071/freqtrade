@@ -50,7 +50,7 @@ class StrategyScout:
 
         req = urllib.request.Request(url, headers=self.headers)  # noqa: S310
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:  # noqa: S310
                 self.rate_limit_remaining = int(
                     response.getheader("X-RateLimit-Remaining", 9999)
                 )
@@ -152,10 +152,11 @@ class StrategyScout:
                 url = repo["html_url"]
                 score = repo["scout_score"]
                 stars = repo.get("stargazers_count")
-                license = repo["license_name"]
+                license_name = repo["license_name"]
                 last_update = repo.get("pushed_at", "")[:10]
                 f.write(
-                    f"| {i} | [{name}]({url}) | {score} | {stars} | {license} | {last_update} |\n"
+                    f"| {i} | [{name}]({url}) | {score} | {stars} | "
+                    f"{license_name} | {last_update} |\n"
                 )
 
         print(f"Report saved to {filename}")
