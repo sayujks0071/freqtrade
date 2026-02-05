@@ -79,11 +79,11 @@ def check_numeric(value, field_name):
     return None
 
 
-def main():
+def main():  # noqa: C901
     args = parse_args()
     report_lines = [
         "# Markets Schema Validation Report",
-        f"Date: {datetime.now(timezone.utc).isoformat()}",
+        f"Date: {datetime.now(timezone.utc).isoformat()}",  # noqa: UP017
         f"Environment: {args.env}",
         f"Markets File: {args.markets}",
         "",
