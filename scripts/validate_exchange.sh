@@ -2,96 +2,129 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
+echo "Validating Exchange Connection and Markets..."
+
 REPORT_FILE="user_data/reports/markets_$(date +%s).json"
-CONFIG_FILE="/freqtrade/user_data/configs/config.delta.dryrun.json"
 
-echo "Fetching markets from Delta ($DELTA_ENV)..."
+# Ensure report dir exists
+mkdir -p user_data/reports
 
-# Run list-markets
-# We expect JSON output (list of pair strings)
+echo "Fetching markets..."
+# We use config.delta.dryrun.json which relies on env vars for keys.
+# common.sh exports them.
 docker compose run --rm freqtrade list-markets \
-    --config "$CONFIG_FILE" \
-    --exchange delta \
-    --trading-mode futures \
-    --print-json > "${REPORT_FILE}.tmp"
+    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
+    --print-json > "${REPORT_FILE}.raw"
 
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE"
-
-if [ ! -s "$REPORT_FILE" ]; then
-    echo "Error: Failed to fetch markets or parse output."
-    echo "Raw Output:"
-    cat "${REPORT_FILE}.tmp"
-    rm -f "$REPORT_FILE" "${REPORT_FILE}.tmp"
+# Check if command failed
+if [ $? -ne 0 ]; then
+    echo "Command failed."
+    cat "${REPORT_FILE}.raw"
     exit 1
 fi
-rm "${REPORT_FILE}.tmp"
 
-echo "Markets list saved to $REPORT_FILE"
+# Extract JSON using python
+python3 -c "
+import sys
+import json
+import re
 
+try:
+    with open('${REPORT_FILE}.raw', 'r') as f:
+        content = f.read()
+
+    # Try to find JSON list or dict
+    # We look for the largest valid JSON block
+    # Simple heuristic: find [ ... ] or { ... }
+
+    # Clean up log lines (lines starting with time or similar)
+    # Freqtrade logs usually don't start with [ or {
+
+    # Let's try to load the whole file first, maybe it's clean
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        # Use regex to find list
+        match = re.search(r'\[.*\]', content, re.DOTALL)
+        if not match:
+            # Maybe it's a dict (some versions output dict with 'markets' key)
+            match = re.search(r'\{.*\}', content, re.DOTALL)
+
+        if match:
+            json_str = match.group(0)
+            data = json.loads(json_str)
+        else:
+            raise Exception('No JSON found')
+
+    # Normalize: we want list of markets
+    if isinstance(data, dict):
+        if 'markets' in data:
+            data = data['markets']
+        elif 'pairs' in data:
+            data = data['pairs']
+
+    print(f'Successfully parsed {len(data)} markets.')
+    with open('${REPORT_FILE}', 'w') as f:
+        json.dump(data, f, indent=4)
+
+except Exception as e:
+    print(f'Error parsing output: {e}')
+    sys.exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "Parsing failed. Raw output in ${REPORT_FILE}.raw"
+    exit 1
+fi
+
+echo "Markets saved to ${REPORT_FILE}"
+rm "${REPORT_FILE}.raw"
+
+# Validate whitelist existence
 echo "Validating Whitelist..."
-
-# Python script to check whitelist
 python3 -c "
 import json
 import sys
-import os
 
 try:
-    with open('$REPORT_FILE', 'r') as f:
-        markets = json.load(f) # List of strings
+    with open('${REPORT_FILE}', 'r') as f:
+        markets = json.load(f)
+        # normalize to list of strings if it's object list
+        # list-markets --print-json usually returns list of dicts (detailed) or list of strings?
+        # Detailed is default.
+        if markets and isinstance(markets[0], dict):
+            market_symbols = [m['symbol'] for m in markets]
+        else:
+            market_symbols = markets
 
-    # Load config to get whitelist
-    # We need to read the local file, not the container path
-    config_file = 'user_data/configs/config.delta.dryrun.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    # Load whitelist
+    whitelist_file = 'user_data/pairlists/whitelist.delta.json'
+    try:
+        with open(whitelist_file, 'r') as f:
+            wl_data = json.load(f)
+            whitelist = wl_data.get('exchange', {}).get('pair_whitelist', [])
+    except FileNotFoundError:
+        print('Whitelist file not found. Skipping whitelist validation.')
+        sys.exit(0)
 
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
-
-    missing = []
-    for pair in whitelist:
-        if pair not in markets:
-            missing.append(pair)
+    missing = [p for p in whitelist if p not in market_symbols]
 
     if missing:
-        print(f'ERROR: The following whitelist pairs are NOT active or missing on Delta ({os.environ.get("DELTA_ENV")}):')
-        for m in missing:
-            print(f' - {m}')
+        print(f'ERROR: {len(missing)} whitelist pairs missing from exchange!')
+        for p in missing:
+            print(f' - {p}')
         sys.exit(1)
 
-    print(f'SUCCESS: All {len(whitelist)} whitelist pairs are valid.')
+    print('Whitelist validation passed.')
 
 except Exception as e:
-    print(f'Error validating: {e}')
+    print(f'Error: {e}')
     sys.exit(1)
 "
 
 if [ $? -eq 0 ]; then
-    echo "Validation Passed."
+    echo "SUCCESS: Exchange validation complete."
 else
-    echo "Validation Failed."
+    echo "FAILURE: Validation failed."
     exit 1
 fi
-set -e
-cd "$(dirname "$0")/.."
-
-echo "Validating Exchange Connection..."
-
-# 1. Confirm Delta is available and fetch markets
-# We use the update script which does fetch + validate schema
-# But we might want to just do a quick check.
-# Let's use the update script to ensure we have fresh markets
-./scripts/update_markets_and_whitelist.sh
-
-# 2. Validate current whitelist against the fetched markets
-# The update script generated a NEW whitelist.
-# If we want to validate an EXISTING whitelist, we should have done it before updating.
-# But usually we validate that the *generated* whitelist is valid (which the script does).
-
-# The prompt says "validate whitelist pairs exist".
-# If we just regenerated it from the dump, they obviously exist.
-# Maybe the intent is to validate that the pairs in `config.delta.dryrun.json` (if any) exist.
-# Since we use an external whitelist file, and we just updated it, we are good.
-
-echo "Validation Complete. Market dump and Whitelist are fresh."

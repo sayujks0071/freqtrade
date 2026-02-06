@@ -56,3 +56,4 @@ export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
 if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
     echo "WARNING: API Key or Secret is missing!"
 fi
+# Ensure common.sh is included
