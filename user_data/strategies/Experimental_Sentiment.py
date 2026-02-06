@@ -63,9 +63,6 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
-
         # Whale Alert: Volume > 2x Average Volume
         # Sentiment Dip: RSI < 40 (Oversold condition in context of high volume)
         dataframe.loc[
