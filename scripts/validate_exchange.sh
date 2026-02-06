@@ -101,10 +101,12 @@ try:
 
     with open('/freqtrade/$WHITELIST_FILE') as f:
         wl = json.load(f)
-        pairs = wl.get('pair_whitelist', [])
-        # Handle 'exchange' key format if present
-        if not pairs and 'exchange' in wl:
-             pairs = wl['exchange'].get('pair_whitelist', [])
+        # Strict check for exchange.pair_whitelist
+        if 'exchange' not in wl or 'pair_whitelist' not in wl['exchange']:
+             print('ERROR: Whitelist file has incorrect format. Must contain {\"exchange\": {\"pair_whitelist\": [...]}}')
+             sys.exit(1)
+
+        pairs = wl['exchange']['pair_whitelist']
 
     missing = [p for p in pairs if p not in market_symbols]
     if missing:

@@ -1,91 +1,52 @@
 #!/bin/bash
 set -e
 
-# Ensure root
-cd "$(dirname "$0")/.."
+# Source common env and functions
+source "$(dirname "$0")/common.sh"
 
-DELTA_ENV=${DELTA_ENV:-india_testnet}
-TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
-REPORTS_DIR="user_data/reports"
-PAIRLISTS_DIR="user_data/pairlists"
-MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
+echo "Updating Markets and Whitelist for $DELTA_ENV..."
 
-mkdir -p $REPORTS_DIR
-mkdir -p $PAIRLISTS_DIR
+# 1. Fetch Markets
+REPORT_FILE="user_data/reports/markets_$(date +%Y%m%d_%H%M%S).json"
+LATEST_LINK="user_data/reports/markets_latest.json"
 
-# Find latest previous dump
-PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
+echo "Fetching markets to $REPORT_FILE..."
 
-echo "Fetching markets for $DELTA_ENV..."
+# We run list-markets inside the container
+docker compose run --rm \
+    -e FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public" \
+    -e FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private" \
+    freqtrade list-markets \
+    --exchange delta \
+    --trading-mode futures \
+    --print-json > "$REPORT_FILE"
 
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
-
-# We use a temporary file for the docker output because of potential log noise
-TEMP_OUTPUT=$(mktemp)
-
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
-
-docker compose run --rm freqtrade list-markets \
-    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
-    --print-json > $TEMP_OUTPUT
-
-# Check if successful
-if [ $? -ne 0 ]; then
-    echo "Failed to fetch markets"
-    rm $TEMP_OUTPUT
+# Check if file is valid
+if [ ! -s "$REPORT_FILE" ]; then
+    echo "Error: Market dump is empty."
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
+ln -sf "$(basename "$REPORT_FILE")" "$LATEST_LINK"
 
-mv $TEMP_OUTPUT $MARKETS_FILE
+# 2. Generate Whitelist
+WHITELIST_FILE="user_data/pairlists/whitelist.delta.json"
+echo "Generating whitelist from markets..."
 
-echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
+# Use the python tool to filter markets and generate whitelist
+# We map ./tools to /freqtrade/tools
+# We assume the tool prints JSON to stdout
+docker compose run --rm --entrypoint python3 \
+    freqtrade \
+    /freqtrade/tools/generate_whitelist.py "/freqtrade/$REPORT_FILE" > "$WHITELIST_FILE"
 
-echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
-WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
-
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
-
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
-
-echo "Whitelist updated at $WHITELIST_JSON"
-
-# Drift Report (Diff)
-if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+if [ -s "$WHITELIST_FILE" ]; then
+    echo "Whitelist updated at $WHITELIST_FILE"
+    echo "Top 5 pairs:"
+    grep -A 5 "pair_whitelist" "$WHITELIST_FILE"
+else
+    echo "Error: Failed to generate whitelist."
+    exit 1
 fi
 
-# Clean up old dumps (keep last 7)
-ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
-
-echo "Done."
+echo "Update Complete."

@@ -35,19 +35,29 @@ nano .env
   - `india_testnet` for Testnet (cdn-ind.testnet.deltaex.org)
 - Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
 
-### 3. Validate Exchange Connection
+### 3. Update Markets and Whitelist
 
-Before starting, verify your credentials and market data availability:
+Fetch the latest market data and generate a whitelist:
+```bash
+./scripts/update_markets_and_whitelist.sh
+```
+This script will:
+1. Fetch active futures markets from Delta Exchange.
+2. Filter for valid pairs (e.g., USDT-margined).
+3. Automatically update `user_data/pairlists/whitelist.delta.json` with available pairs.
+
+### 4. Validate Exchange Connection
+
+Verify your credentials and configuration before starting:
 ```bash
 ./scripts/validate_exchange.sh
 ```
 This script will:
 1. Check time drift between your host and Delta servers.
-2. Fetch available markets from Delta.
-3. Save the market list to `user_data/reports/`.
-4. Validate that the pair whitelist in `user_data/pairlists/whitelist.delta.json` (if exists) matches available markets.
+2. Fetch available markets from Delta (for validation context).
+3. Validate that the pair whitelist in `user_data/pairlists/whitelist.delta.json` matches available markets.
 
-### 4. Start Dry-Run
+### 5. Start Dry-Run
 
 Start the bot in Dry-Run mode (simulated trading with live data):
 ```bash
@@ -57,7 +67,7 @@ Start the bot in Dry-Run mode (simulated trading with live data):
 - Logs can be viewed with: `docker compose logs -f freqtrade`
 - Access the UI at: http://localhost:8080
 
-### 5. Go Live 🚀
+### 6. Go Live 🚀
 
 **WARNING:** This will trade with REAL funds.
 
@@ -75,7 +85,7 @@ Start the bot in Dry-Run mode (simulated trading with live data):
 ## Troubleshooting
 
 - **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
-- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
+- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Run `./scripts/update_markets_and_whitelist.sh` to refresh your whitelist.
 - **Rate Limits:** If you see 429 errors, CCXT rate limiting is enabled by default in the config.
 - **Time Drift:** If validation fails with time drift, ensure your server time is synced (`sudo ntpdate pool.ntp.org` or similar).
 
