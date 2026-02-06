@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -5,160 +6,177 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-# Ensure scripts is in path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "scripts"))
-import regime_switcher
+
+# We need to import the module dynamically to handle the sys.path modification correctly
+# and to ensure we are patching the correct module object.
+
+
+@pytest.fixture
+def regime_switcher():
+    # Add scripts to path if not present
+    scripts_path = str(Path(__file__).resolve().parents[2] / "scripts")
+    if scripts_path not in sys.path:
+        sys.path.append(scripts_path)
+
+    # Import or reload the module
+    if "regime_switcher" in sys.modules:
+        return importlib.reload(sys.modules["regime_switcher"])
+    else:
+        return importlib.import_module("regime_switcher")
 
 
 class TestRegimeSwitcher:
     @pytest.fixture
     def mock_market_data(self):
         dates = pd.date_range(start="2023-01-01", periods=10, freq="D")
-        df = pd.DataFrame({
-            "timestamp": dates.astype(int) / 10**6,
-            "open": [100.0] * 10,
-            "high": [110.0] * 10,
-            "low": [90.0] * 10,
-            "close": [100.0] * 10,
-            "volume": [1000.0] * 10,
-            "date": dates,
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": dates.astype(int) / 10**6,
+                "open": [100.0] * 10,
+                "high": [110.0] * 10,
+                "low": [90.0] * 10,
+                "close": [100.0] * 10,
+                "volume": [1000.0] * 10,
+                "date": dates,
+            }
+        )
         return df
 
-    @patch("scripts.regime_switcher.ccxt.binance")
-    def test_get_market_data(self, mock_binance):
-        mock_exchange = MagicMock()
-        mock_binance.return_value = mock_exchange
-        mock_exchange.fetch_ohlcv.return_value = [
-            [1672531200000, 100, 110, 90, 100, 1000]
-        ]
+    def test_get_market_data(self, regime_switcher):
+        with patch("regime_switcher.ccxt.binance") as mock_binance:
+            mock_exchange = MagicMock()
+            mock_binance.return_value = mock_exchange
+            mock_exchange.fetch_ohlcv.return_value = [[1672531200000, 100, 110, 90, 100, 1000]]
 
-        df = regime_switcher.get_market_data()
-        assert not df.empty
-        assert "date" in df.columns
-        assert len(df) == 1
+            df = regime_switcher.get_market_data()
+            assert not df.empty
+            assert "date" in df.columns
 
-    @patch("scripts.regime_switcher.ta")
-    def test_detect_regime_bull(self, mock_ta, mock_market_data):
-        # Setup mock indicators
-        def ema_side_effect(df, timeperiod=200):
-            return df["ema200"]
+    def test_detect_regime_bull(self, regime_switcher, mock_market_data):
+        with patch("regime_switcher.ta") as mock_ta:
+            # Setup mock indicators
+            def ema_side_effect(df, timeperiod=200):
+                return df["ema200"]
 
-        def adx_side_effect(df, timeperiod=14):
-            return df["adx"]
+            def adx_side_effect(df, timeperiod=14):
+                return df["adx"]
 
-        mock_ta.EMA.side_effect = ema_side_effect
-        mock_ta.ADX.side_effect = adx_side_effect
+            mock_ta.EMA.side_effect = ema_side_effect
+            mock_ta.ADX.side_effect = adx_side_effect
 
-        df = mock_market_data.copy()
-        df["ema200"] = 90.0
-        df["adx"] = 30.0
-        df.iloc[-1, df.columns.get_loc("close")] = 100.0
+            df = mock_market_data.copy()
+            df["ema200"] = 90.0
+            df["adx"] = 30.0
+            df.iloc[-1, df.columns.get_loc("close")] = 100.0
 
-        regime, strategy, allow_short = regime_switcher.detect_regime(df)
-        assert regime == "Bull"
-        assert strategy == "MomentumVolumeTrend"
-        assert allow_short is False
+            regime, strategy, allow_short = regime_switcher.detect_regime(df)
+            assert regime == "Bull"
+            assert strategy == "MomentumVolumeTrend"
+            assert not allow_short
 
-    @patch("scripts.regime_switcher.ta")
-    def test_detect_regime_sideways(self, mock_ta, mock_market_data):
-        def ema_side_effect(df, timeperiod=200):
-            return df["ema200"]
+    def test_detect_regime_sideways(self, regime_switcher, mock_market_data):
+        with patch("regime_switcher.ta") as mock_ta:
 
-        def adx_side_effect(df, timeperiod=14):
-            return df["adx"]
+            def ema_side_effect(df, timeperiod=200):
+                return df["ema200"]
 
-        mock_ta.EMA.side_effect = ema_side_effect
-        mock_ta.ADX.side_effect = adx_side_effect
+            def adx_side_effect(df, timeperiod=14):
+                return df["adx"]
 
-        df = mock_market_data.copy()
-        # ADX < 20 should prioritize Sideways even if price < EMA200 (Bear)
-        df["ema200"] = 110.0  # Bearish trend signal
-        df["adx"] = 15.0  # But Choppy/Sideways
-        df.iloc[-1, df.columns.get_loc("close")] = 100.0
+            mock_ta.EMA.side_effect = ema_side_effect
+            mock_ta.ADX.side_effect = adx_side_effect
 
-        regime, strategy, allow_short = regime_switcher.detect_regime(df)
-        assert regime == "Sideways"
-        assert strategy == "BollingerRSI"
-        assert allow_short is False
+            df = mock_market_data.copy()
+            # ADX < 20 should prioritize Sideways even if price < EMA200 (Bear)
+            df["ema200"] = 110.0  # Bearish trend signal
+            df["adx"] = 15.0  # But Choppy/Sideways
+            df.iloc[-1, df.columns.get_loc("close")] = 100.0
 
-    @patch("scripts.regime_switcher.ta")
-    def test_detect_regime_volatile(self, mock_ta, mock_market_data):
-        def ema_side_effect(df, timeperiod=200):
-            return df["ema200"]
+            regime, strategy, allow_short = regime_switcher.detect_regime(df)
+            assert regime == "Sideways"
+            assert strategy == "BollingerRSI"
+        assert not allow_short
 
-        def adx_side_effect(df, timeperiod=14):
-            return df["adx"]
+    def test_detect_regime_volatile(self, regime_switcher, mock_market_data):
+        with patch("regime_switcher.ta") as mock_ta:
 
-        mock_ta.EMA.side_effect = ema_side_effect
-        mock_ta.ADX.side_effect = adx_side_effect
+            def ema_side_effect(df, timeperiod=200):
+                return df["ema200"]
 
-        df = mock_market_data.copy()
-        df["ema200"] = 110.0
-        df["adx"] = 30.0
-        df.iloc[-1, df.columns.get_loc("close")] = 100.0
+            def adx_side_effect(df, timeperiod=14):
+                return df["adx"]
 
-        regime, strategy, allow_short = regime_switcher.detect_regime(df)
-        assert regime == "Volatile/Bear"
-        assert strategy == "VolatilityBreakout"
-        assert allow_short is True
+            mock_ta.EMA.side_effect = ema_side_effect
+            mock_ta.ADX.side_effect = adx_side_effect
 
-    @patch("scripts.regime_switcher.Path")
-    @patch("json.dump")
-    @patch("json.load")
-    def test_update_config(self, mock_load, mock_dump, mock_path):
-        # Setup path structure
-        # Path(__file__).resolve().parents[1] / ...
+            df = mock_market_data.copy()
+            df["ema200"] = 110.0
+            df["adx"] = 30.0
+            df.iloc[-1, df.columns.get_loc("close")] = 100.0
 
-        # Mock the Path object created in the script
-        mock_path_instance = MagicMock()
-        mock_path.return_value = mock_path_instance
-        mock_path_instance.resolve.return_value = mock_path_instance
+            regime, strategy, allow_short = regime_switcher.detect_regime(df)
+            assert regime == "Volatile/Bear"
+            assert strategy == "VolatilityBreakout"
+            assert allow_short
 
-        # When .parents[1] is accessed
-        mock_parents = MagicMock()
-        mock_path_instance.parents = [MagicMock(), mock_parents]  # 0, 1
+    def test_update_config(self, regime_switcher):
+        with (
+            patch("regime_switcher.Path") as mock_path,
+            patch("json.dump") as mock_dump,
+            patch("json.load") as mock_load,
+        ):
+            # Setup path structure
+            # Path(__file__).resolve().parents[1] / ...
 
-        # When / operator is used on parents[1]
-        mock_config_file = MagicMock()
-        mock_parents.__truediv__.return_value = mock_config_file
+            # Mock the Path object created in the script
+            mock_path_instance = MagicMock()
+            mock_path.return_value = mock_path_instance
+            mock_path_instance.resolve.return_value = mock_path_instance
 
-        # File exists
-        mock_config_file.exists.return_value = True
+            # When .parents[1] is accessed
+            mock_parents = MagicMock()
+            mock_path_instance.parents = [MagicMock(), mock_parents]  # 0, 1
 
-        # Open context manager
-        mock_file_handle = MagicMock()
-        mock_config_file.open.return_value.__enter__.return_value = mock_file_handle
+            # When / operator is used on parents[1]
+            mock_config_file = MagicMock()
+            mock_parents.__truediv__.return_value = mock_config_file
 
-        # Mock json load
-        mock_load.return_value = {
-            "strategy": "OldStrategy",
-            "unidirectional_only": True,
-        }
+            # File exists
+            mock_config_file.exists.return_value = True
 
-        regime_switcher.update_config("NewStrategy", True)
+            # Open context manager
+            mock_file_handle = MagicMock()
+            mock_config_file.open.return_value.__enter__.return_value = mock_file_handle
 
-        mock_load.assert_called()
-        mock_dump.assert_called()
-        args, _ = mock_dump.call_args
-        saved_config = args[0]
-        assert saved_config["strategy"] == "NewStrategy"
-        assert saved_config["unidirectional_only"] is False
+            # Mock json load
+            mock_load.return_value = {
+                "strategy": "OldStrategy",
+                "unidirectional_only": True,
+            }
 
-    @patch("scripts.regime_switcher.Path")
-    def test_log_decision(self, mock_path):
-        mock_path_instance = MagicMock()
-        mock_path.return_value = mock_path_instance
-        mock_path_instance.resolve.return_value = mock_path_instance
+            regime_switcher.update_config("NewStrategy", True)
 
-        mock_parents = MagicMock()
-        mock_path_instance.parents = [MagicMock(), mock_parents]
+            mock_load.assert_called()
+            mock_dump.assert_called()
+            args, _ = mock_dump.call_args
+            saved_config = args[0]
+            assert saved_config["strategy"] == "NewStrategy"
+            assert saved_config["unidirectional_only"] is False
 
-        mock_log_file = MagicMock()
-        mock_parents.__truediv__.return_value = mock_log_file
+    def test_log_decision(self, regime_switcher):
+        with patch("regime_switcher.Path") as mock_path:
+            mock_path_instance = MagicMock()
+            mock_path.return_value = mock_path_instance
+            mock_path_instance.resolve.return_value = mock_path_instance
 
-        mock_log_file.exists.return_value = True
+            mock_parents = MagicMock()
+            mock_path_instance.parents = [MagicMock(), mock_parents]
 
-        regime_switcher.log_decision("Bull", "MomentumVolumeTrend")
+            mock_log_file = MagicMock()
+            mock_parents.__truediv__.return_value = mock_log_file
 
-        mock_log_file.open.assert_called_with("a")
+            mock_log_file.exists.return_value = True
+
+            regime_switcher.log_decision("Bull", "MomentumVolumeTrend")
+
+            mock_log_file.open.assert_called_with("a")

@@ -18,6 +18,7 @@ import ccxt
 import pandas as pd
 import talib.abstract as ta
 
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -32,9 +33,7 @@ def get_market_data(pair="BTC/USDT", timeframe="1d", limit=300):
     exchange = ccxt.binance()
     try:
         ohlcv = exchange.fetch_ohlcv(pair, timeframe=timeframe, limit=limit)
-        df = pd.DataFrame(
-            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         # Convert timestamp
         df["date"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         return df
@@ -78,9 +77,7 @@ def detect_regime(df):
 def update_config(strategy_name, allow_short):
     """Update config_production.json."""
     # Use parents[1] to avoid potential issues with .parent.parent in tests or odd environments
-    config_path = (
-        Path(__file__).resolve().parents[1] / "user_data/configs/config_production.json"
-    )
+    config_path = Path(__file__).resolve().parents[1] / "user_data/configs/config_production.json"
     if not config_path.exists():
         logger.error(f"Config not found at {config_path}")
         sys.exit(1)
@@ -110,9 +107,9 @@ def log_decision(regime, strategy):
     """Log decision to regime_log.md."""
     log_path = Path(__file__).resolve().parents[1] / "regime_log.md"
 
-    timestamp = datetime.now(timezone.utc).strftime(
+    timestamp = datetime.now(timezone.utc).strftime(  # noqa: UP017
         "%Y-%m-%d %H:%M:%S UTC"
-    )  # noqa: UP017
+    )
     message = f"| {timestamp} | {regime} | Switched to {strategy} |"
 
     # Create header if missing
