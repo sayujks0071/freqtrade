@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
+import argparse
 import ast
 import os
 import sys
-import argparse
 from pathlib import Path
 
+
 REQUIRED_HEADER_FIELDS = [
-    "Strategy", "Author", "Version", "Timeframe",
-    "Pair Format", "Timezone", "Entry/Exit", "Repainting"
+    "Strategy",
+    "Author",
+    "Version",
+    "Timeframe",
+    "Pair Format",
+    "Timezone",
+    "Entry/Exit",
+    "Repainting",
 ]
 
 HEADER_TEMPLATE = """
@@ -20,6 +27,7 @@ HEADER_TEMPLATE = """
     # Entry/Exit: Limit/Limit
     # Repainting: No
 """
+
 
 def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
@@ -69,7 +77,9 @@ def audit_file(filepath, fix=False):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
                 if not node.args and not node.keywords:
-                     errors.append(f"Potential naive datetime.now() at line {node.lineno}. Use datetime.now(timezone.utc).")
+                    errors.append(
+                        f"Potential naive datetime.now() at line {node.lineno}. Use datetime.now(timezone.utc)."
+                    )
 
     # 4. Mixin Inheritance
     for node in ast.walk(tree):
@@ -77,7 +87,9 @@ def audit_file(filepath, fix=False):
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases:
                 if "AuditedStrategyMixin" not in bases:
-                     errors.append(f"Strategy class '{node.name}' should inherit AuditedStrategyMixin")
+                    errors.append(
+                        f"Strategy class '{node.name}' should inherit AuditedStrategyMixin"
+                    )
 
     if errors:
         for e in errors:
@@ -86,6 +98,7 @@ def audit_file(filepath, fix=False):
 
     print("PASS")
     return True
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -102,7 +115,7 @@ def main():
     else:
         for root, _, files in os.walk(target):
             # Skip _base directory or any directory starting with _
-            if "_base" in root or any(part.startswith('_') for part in Path(root).parts):
+            if "_base" in root or any(part.startswith("_") for part in Path(root).parts):
                 continue
 
             for file in files:
@@ -112,6 +125,7 @@ def main():
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

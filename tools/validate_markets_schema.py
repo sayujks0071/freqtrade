@@ -61,12 +61,12 @@ def validate_volume(m, symbol, errors):
     # But Freqtrade 'list-markets' dump primarily contains metadata, not necessarily 24h volume.
     # If volume is present, we check it.
 
-    vol = m.get("quoteVolume") or m.get("baseVolume") # Freqtrade/CCXT standard
+    vol = m.get("quoteVolume") or m.get("baseVolume")  # Freqtrade/CCXT standard
 
     # If not at top level, check info
     if vol is None and "info" in m:
-         # Delta specific: '24h_volume' or similar in info
-         pass
+        # Delta specific: '24h_volume' or similar in info
+        pass
 
     if vol is not None and vol < 1000 and STRICT_VOLUME:
         errors.append(f"Low volume for {symbol}: {vol}")
@@ -124,7 +124,7 @@ def validate_drift(current_symbols, previous_path):
                     elif isinstance(m, str):
                         prev_symbols.add(m)
             elif isinstance(prev_data, dict) and "markets" in prev_data:
-                 for m in prev_data["markets"]:
+                for m in prev_data["markets"]:
                     if isinstance(m, dict):
                         prev_symbols.add(m.get("symbol"))
 
