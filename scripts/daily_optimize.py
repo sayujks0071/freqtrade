@@ -77,11 +77,11 @@ def read_backtest_result(filepath: Path) -> dict | None:
                 target_file = json_files[0]
 
             if target_file:
-                with z.open(target_file) as f:
-                    data = json.load(f)
+                with z.open(target_file) as f_obj:
+                    data = json.load(f_obj)
     else:
-        with filepath.open() as f:
-            data = json.load(f)
+        with filepath.open() as f_obj:
+            data = json.load(f_obj)
     return data
 
 
