@@ -106,7 +106,7 @@ def validate_schema(data):
     return symbols
 
 
-def validate_drift(current_symbols, previous_path):
+def validate_drift(current_symbols, previous_path):  # noqa: C901, RUF100
     prev_path_obj = Path(previous_path)
     if not previous_path or not prev_path_obj.exists():
         print("No previous dump found. Skipping drift check.")

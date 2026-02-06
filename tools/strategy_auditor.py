@@ -29,13 +29,13 @@ HEADER_TEMPLATE = """
 """
 
 
-def audit_file(filepath, fix=False):
+def audit_file(filepath, fix=False):  # noqa: C901
     print(f"Auditing {filepath}...")
     try:
         with Path(filepath).open() as f:
             source = f.read()
-    except Exception as e:
-        print(f"FAIL: Could not read file {filepath}: {e}")
+    except Exception as exc:
+        print(f"FAIL: Could not read file {filepath}: {exc}")
         return False
 
     try:
@@ -78,7 +78,8 @@ def audit_file(filepath, fix=False):
             if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
                 if not node.args and not node.keywords:
                     errors.append(
-                        f"Potential naive datetime.now() at line {node.lineno}. Use datetime.now(timezone.utc)."
+                        f"Potential naive datetime.now() at line {node.lineno}. "
+                        "Use datetime.now(timezone.utc)."
                     )
 
     # 4. Mixin Inheritance
@@ -92,8 +93,8 @@ def audit_file(filepath, fix=False):
                     )
 
     if errors:
-        for e in errors:
-            print(f"  - {e}")
+        for err in errors:
+            print(f"  - {err}")
         return False
 
     print("PASS")

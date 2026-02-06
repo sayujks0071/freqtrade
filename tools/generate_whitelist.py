@@ -32,11 +32,13 @@ def filter_markets(markets):
         if FILTER_MODE == "perps_usdt":
             # Check if quote is USDT and it's a perp
             # In ccxt/freqtrade, futures usually have 'linear' type or swap
-            # For Delta, we look for /USDT:USDT suffix which is standard CCXT notation for linear perp
+            # For Delta, we look for /USDT:USDT suffix which is standard CCXT notation for
+            # linear perp
             if symbol.endswith("/USDT:USDT"):
                 whitelist.append(symbol)
         elif FILTER_MODE == "all_futures":
-            # Assuming the dump only contains futures as requested via list-markets --trading-mode futures
+            # Assuming the dump only contains futures as requested via
+            # list-markets --trading-mode futures
             whitelist.append(symbol)
         elif FILTER_MODE == "allowlist_regex":
             if regex.match(symbol):

@@ -9,10 +9,13 @@
     # Repainting: No
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from typing import Any
+
 from pandas import DataFrame
-from typing import Dict, List, Any
-from freqtrade.strategy import IStrategy, IntParameter
+
+from freqtrade.strategy import IStrategy
+
 
 # Import mixin.
 # Freqtrade adds user_data/strategies to path.
@@ -21,13 +24,16 @@ try:
 except ImportError:
     # Fallback if _base is not directly importable (e.g. running outside freqtrade context)
     # We define a dummy mixin to allow import without crashing
-    class AuditedStrategyMixin:
+    class AuditedStrategyMixin:  # type: ignore
         def log_signal(self, pair, side, reason, snapshot=None):
             pass
+
         def assert_pair_in_whitelist(self, pair):
             return True
 
+
 logger = logging.getLogger(__name__)
+
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
@@ -50,22 +56,18 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Simple sample logic: Always enter long if volume > 0 (for testing)
         dataframe.loc[
-            (
-                (dataframe['volume'] > 0)
-            ),
+            dataframe['volume'] > 0,
             'enter_long'] = 1
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            (
-                (dataframe['volume'] > 0)
-            ),
+            dataframe['volume'] > 0,
             'exit_long'] = 0
         return dataframe
 
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, current_time: datetime, entry_tag: str,
+                            time_in_force: str, current_time: datetime, entry_tag: str | None,
                             side: str, **kwargs) -> bool:
 
         # 1. Audit Log

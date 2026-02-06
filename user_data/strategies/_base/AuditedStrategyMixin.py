@@ -1,10 +1,12 @@
-import logging
-from datetime import datetime, timezone
 import json
-from typing import Any, Dict
+import logging
+from datetime import UTC, datetime
+from typing import Any
+
 
 # Set up a logger
 logger = logging.getLogger(__name__)
+
 
 class AuditedStrategyMixin:
     """
@@ -12,12 +14,14 @@ class AuditedStrategyMixin:
     Strategies using this must also inherit from IStrategy.
     """
 
-    def log_signal(self, pair: str, side: str, reason: str, snapshot: Dict[str, Any] = None) -> None:
+    def log_signal(
+        self, pair: str, side: str, reason: str, snapshot: dict[str, Any] | None = None
+    ) -> None:
         """
         Logs a structured audit message for a signal.
         """
         # Ensure UTC
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Structure the log
         # We use a JSON object serialized to string so it can be parsed later

@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -38,7 +38,7 @@ def generate_report():
 
     conn.close()
 
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
 
     # Ensure dir exists

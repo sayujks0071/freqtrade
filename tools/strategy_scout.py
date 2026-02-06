@@ -4,9 +4,10 @@ import datetime
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import requests
+
 
 # Constants
 GITHUB_API_URL = "https://api.github.com"
@@ -22,13 +23,13 @@ TIMEOUT = 10
 
 
 class StrategyScout:
-    def __init__(self, token: str = None):
+    def __init__(self, token: str | None = None):
         self.token = token
         self.session = requests.Session()
         if self.token:
             self.session.headers.update({"Authorization": f"token {self.token}"})
         self.session.headers.update({"Accept": "application/vnd.github.v3+json"})
-        self.candidates: List[Dict[str, Any]] = []
+        self.candidates: list[dict[str, Any]] = []
 
     def check_rate_limit(self) -> bool:
         try:
@@ -47,7 +48,7 @@ class StrategyScout:
             print(f"Error checking rate limit: {e}")
             return True  # Assume ok
 
-    def search_github(self):
+    def search_github(self):  # noqa: C901, RUF100
         print("Searching GitHub...")
         found_repos = {}  # Dedup by full_name
 
@@ -143,7 +144,7 @@ class StrategyScout:
         # Sort by preliminary score
         self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
 
-    def deep_inspect(self, limit=15):
+    def deep_inspect(self, limit=15):  # noqa: C901, RUF100
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -179,7 +180,7 @@ class StrategyScout:
                                 strategies = potential
                                 found_path = path
                                 break
-                except Exception:
+                except Exception:  # noqa: S110
                     pass
 
             repo["strategy_count"] = len(strategies)
@@ -208,7 +209,7 @@ class StrategyScout:
                             if "martingale" in content.lower():
                                 repo["scout_score"] -= 10
                                 repo["scout_notes"].append("Martingale detected (Risk!)")
-                    except Exception:
+                    except Exception:  # noqa: S110
                         pass
             else:
                 # No strategies found
@@ -251,7 +252,8 @@ class StrategyScout:
             f.write("|---|---|---|---|\n")
             for i, repo in enumerate(self.candidates[10:], 11):
                 f.write(
-                    f"| {i} | [{repo['full_name']}]({repo['html_url']}) | {repo.get('scout_score', 0)} | {repo.get('license_name', 'Unknown')} |\n"
+                    f"| {i} | [{repo['full_name']}]({repo['html_url']}) | "
+                    f"{repo.get('scout_score', 0)} | {repo.get('license_name', 'Unknown')} |\n"
                 )
 
         print(f"Report written to {filename}")
