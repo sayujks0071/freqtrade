@@ -65,11 +65,10 @@ class StrategyScout:
             print(f"Error checking rate limit: {e}")
             return True  # Assume ok if check fails, to avoid premature exit
 
-    def search_github(self):
-        print("Searching GitHub...")
-        found_repos = {}  # Dedup by full_name
-
-        # 1. Search Queries
+    def _search_queries(self, found_repos: dict[str, Any]) -> None:
+        """
+        Perform searches for defined queries and update found_repos.
+        """
         for query in SEARCH_QUERIES:
             if not self.check_rate_limit():
                 break
@@ -91,7 +90,10 @@ class StrategyScout:
             except Exception as e:
                 print(f"Exception during search: {e}")
 
-        # 2. Add Known Sources
+    def _add_known_sources(self, found_repos: dict[str, Any]) -> None:
+        """
+        Add hardcoded known sources to found_repos if not already present.
+        """
         for source in KNOWN_SOURCES:
             if source not in found_repos:
                 if not self.check_rate_limit():
@@ -102,6 +104,13 @@ class StrategyScout:
                         found_repos[source] = resp.json()
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
+
+    def search_github(self):
+        print("Searching GitHub...")
+        found_repos: dict[str, Any] = {}  # Dedup by full_name
+
+        self._search_queries(found_repos)
+        self._add_known_sources(found_repos)
 
         # Convert to list
         self.candidates = list(found_repos.values())
