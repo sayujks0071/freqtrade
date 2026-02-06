@@ -3,8 +3,8 @@ AuditedStrategyMixin
 Mixin class for strategies to enforce audit logging and safety checks.
 """
 
-import logging
 from datetime import datetime
+import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)

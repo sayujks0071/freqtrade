@@ -25,8 +25,8 @@ Strategy Name: DeltaSafeStrategy
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -35,7 +35,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -139,7 +139,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             snapshot = {
                 "rsi": closed_candle.get("rsi"),
                 "close": closed_candle.get("close"),
-                "volume": closed_candle.get("volume")
+                "volume": closed_candle.get("volume"),
             }
         else:
             snapshot = {"error": "no_data"}
@@ -168,7 +168,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             snapshot = {
                 "rsi": closed_candle.get("rsi"),
                 "close": closed_candle.get("close"),
-                "volume": closed_candle.get("volume")
+                "volume": closed_candle.get("volume"),
             }
         else:
             snapshot = {"error": "no_data"}

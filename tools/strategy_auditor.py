@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-import ast
 import argparse
-import sys
+import ast
 import re
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
+
 
 REQUIRED_HEADER_TEMPLATE = """
     Strategy Name: {name}

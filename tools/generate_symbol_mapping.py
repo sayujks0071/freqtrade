@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import json
 import glob
+import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+
 
 def generate_mapping_report():
     reports_dir = Path("user_data/reports")
