@@ -11,7 +11,6 @@ import requests
 # Add scripts directory to sys.path to import sentinel
 # Using the strategy pattern from memory: Path(__file__).resolve()....
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "scripts"))
-from sentinel import Sentinel
 
 
 @pytest.fixture
@@ -32,9 +31,13 @@ def mock_config_path(tmp_path):
 
 @pytest.fixture
 def sentinel(mock_config_path):
+    from sentinel import Sentinel
+
     # Patch ccxt.binance at import time or initialization
     with patch("ccxt.binance"):
-        s = Sentinel(mock_config_path, interval=1, openclaw_url="http://openclaw", dry_run=True)
+        s = Sentinel(
+            mock_config_path, interval=1, openclaw_url="http://openclaw", dry_run=True
+        )
         # Mock exchange instance explicitly
         s.exchange = MagicMock()
         return s
@@ -100,7 +103,7 @@ def test_btc_drop_calculation(sentinel):
 
 def test_drawdown_calculation(sentinel):
     # Add history
-    now = datetime.now(timezone.utc) # noqa: UP017
+    now = datetime.now(timezone.utc)  # noqa: UP017
     # 40 mins ago: 1000
     sentinel.balance_history.append((now - timedelta(minutes=40), 1000.0))
     # 20 mins ago: 1050 (Peak)
