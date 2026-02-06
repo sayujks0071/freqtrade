@@ -175,7 +175,7 @@ def validate_schema(  # noqa: C901
 def validate_environment(markets_data, expected_env: str) -> tuple[bool, list[str]]:
     # E) Environment sanity
     # Try to find metadata in top level dict
-    env_errors = []
+    env_errors: list[str] = []
 
     # Heuristic: Check for URL in info if available?
     # Or 'exchange' key?
@@ -217,7 +217,7 @@ def validate_drift(
     current_whitelist: list[str], prev_whitelist_path: Path
 ) -> tuple[bool, list[str], dict]:
     drift_errors = []
-    stats = {}
+    stats: dict[str, int | float] = {}
 
     if not prev_whitelist_path or not prev_whitelist_path.exists():
         return True, ["No previous whitelist found. Skipping drift check."], {}
