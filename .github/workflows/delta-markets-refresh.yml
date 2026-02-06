@@ -14,6 +14,14 @@ on:
         description: 'Filter Mode'
         required: true
         default: 'perps_usdt'
+      MIN_MARKETS:
+        description: 'Minimum Markets'
+        required: false
+        default: '20'
+      MAX_REMOVAL_RATIO:
+        description: 'Max Removal Ratio'
+        required: false
+        default: '0.25'
 
 permissions:
   contents: write
@@ -44,12 +52,15 @@ jobs:
         env:
           DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
           FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
+          MIN_MARKETS: ${{ inputs.MIN_MARKETS || '20' }}
+          MAX_REMOVAL_RATIO: ${{ inputs.MAX_REMOVAL_RATIO || '0.25' }}
         run: |
           ./scripts/bootstrap.sh
           docker compose pull freqtrade
           ./scripts/update_markets_and_whitelist.sh
 
       - name: Upload Artifacts
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
         with:
           name: markets-reports
