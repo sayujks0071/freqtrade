@@ -101,8 +101,12 @@ def main():
             failed = True
     else:
         for root, _, files in os.walk(target):
+            # Skip _base directory or any directory starting with _
+            if "_base" in root or any(part.startswith('_') for part in Path(root).parts):
+                continue
+
             for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
+                if file.endswith(".py") and not file.startswith("__") and not file.startswith("_"):
                     if not audit_file(str(Path(root) / file), args.fix):
                         failed = True
 
