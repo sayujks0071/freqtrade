@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-import glob
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -28,7 +27,7 @@ def generate_mapping_report():
     # Filter for futures usually (has :)
     futures = [m for m in markets if ":" in m]
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d")
     output_file = reports_dir / f"symbol_mapping_{timestamp}.md"
 
     content = f"""# Delta Exchange Symbol Mapping ({timestamp})

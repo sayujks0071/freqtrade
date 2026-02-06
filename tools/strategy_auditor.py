@@ -72,8 +72,8 @@ def audit_file(filepath, fix=False):  # noqa: C901
     try:
         with Path(filepath).open("r", encoding="utf-8") as f:
             source = f.read()
-    except Exception as e:
-        print(f"FAIL: Could not read {filepath}: {e}")
+    except Exception as read_err:
+        print(f"FAIL: Could not read {filepath}: {read_err}")
         return False
 
     try:
@@ -160,7 +160,7 @@ def audit_file(filepath, fix=False):  # noqa: C901
             fixed = True
 
         # Re-parse to clear this error for subsequent checks (simulated)
-        errors = [e for e in errors if "Header" not in e]
+        errors = [err for err in errors if "Header" not in err]
 
     # --- Check 2: Unsafe Imports ---
     for node in ast.walk(tree):
@@ -271,13 +271,13 @@ def audit_file(filepath, fix=False):  # noqa: C901
             # Re-run audit to verify? Or just warn about remaining issues.
             print("  - Rerunning audit on fixed file...")
             return audit_file(filepath, fix=False)
-        except Exception as e:
-            print(f"FAILED to write fix to {filepath}: {e}")
+        except Exception as write_err:
+            print(f"FAILED to write fix to {filepath}: {write_err}")
             return False
 
     if errors:
-        for e in errors:
-            print(f"  - ERROR: {e}")
+        for err in errors:
+            print(f"  - ERROR: {err}")
         return False
 
     print("PASS")
