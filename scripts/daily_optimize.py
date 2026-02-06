@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+OPTIMIZATION_LOG_FILE = Path(__file__).resolve().parent.parent / "optimization_log.txt"
 
 # Optimization Parameters
 EPOCHS = 200
@@ -143,10 +144,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +164,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -204,6 +199,21 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def log_optimization_attempt(strategy, outcome, sharpe, drawdown, message):
+    """
+    Logs the optimization attempt to a file for reporting.
+    """
+    timestamp = datetime.now().isoformat()
+    # Format: timestamp,strategy,outcome,sharpe,drawdown,message
+    log_entry = f"{timestamp},{strategy},{outcome},{sharpe},{drawdown},{message}\n"
+
+    try:
+        with OPTIMIZATION_LOG_FILE.open("a") as f:
+            f.write(log_entry)
+    except Exception as e:
+        print(f"Failed to write to optimization log: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -218,26 +228,23 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
+        ),
     )
     parser.add_argument(
-        "--yes", "-y",
-        action="store_true",
-        help="Skip confirmation prompts before pushing"
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
@@ -377,6 +384,13 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
+        log_optimization_attempt(
+            worst_strategy,
+            "success",
+            new_sharpe,
+            new_drawdown,
+            f"Improved: +{avg_profit_pct:.2f}% ROI",
+        )
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         if args.dry_run:
@@ -405,7 +419,7 @@ Examples:
                     ["git", "rev-parse", "--verify", target_branch],
                     capture_output=True,
                     text=True,
-                    check=False
+                    check=False,
                 )
                 if check_result.returncode == 0:
                     # Branch exists, just switch to it
@@ -429,6 +443,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", str(OPTIMIZATION_LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -439,7 +454,7 @@ Examples:
                 print(f"  - Create/update remote branch: {target_branch}")
                 print("\nYou can then create a pull request to review and merge these changes.")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ['y', 'yes']:
+                if response not in ["y", "yes"]:
                     print("Push cancelled. Changes are committed locally.")
                     print(f"You can manually push later with: git push origin {target_branch}")
                     if backup_json.exists():
@@ -464,6 +479,37 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+        fail_reason = []
+        if not sharpe_improved:
+            fail_reason.append("Sharpe not improved")
+        if not drawdown_improved:
+            fail_reason.append("Drawdown worsened")
+
+        log_optimization_attempt(
+            worst_strategy, "failure", new_sharpe, new_drawdown, " & ".join(fail_reason)
+        )
+
+        if not args.dry_run:
+            print("Committing failed optimization attempt to log...")
+            run_command(["git", "add", str(OPTIMIZATION_LOG_FILE)])
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if status.stdout.strip():
+                run_command(
+                    [
+                        "git",
+                        "commit",
+                        "-m",
+                        f"ci: record failed optimization for {worst_strategy}",
+                    ]
+                )
+                print("Pushing optimization log...")
+                run_command(["git", "push", "origin", "HEAD"])
+
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
