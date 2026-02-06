@@ -227,8 +227,7 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(
@@ -407,15 +406,11 @@ def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_
         print("This will:")
         print(f"  - Push optimized strategy parameters for {worst_strategy}")
         print(f"  - Create/update remote branch: {target_branch}")
-        print(
-            "\nYou can then create a pull request to review and merge these changes."
-        )
+        print("\nYou can then create a pull request to review and merge these changes.")
         response = input("\nProceed with push? [y/N]: ").strip().lower()
         if response not in ["y", "yes"]:
             print("Push cancelled. Changes are committed locally.")
-            print(
-                f"You can manually push later with: git push origin {target_branch}"
-            )
+            print(f"You can manually push later with: git push origin {target_branch}")
             if backup_json.exists():
                 backup_json.unlink()
             return
@@ -424,13 +419,9 @@ def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_
     result = run_command(["git", "push", "origin", target_branch], capture=True)
 
     if result.returncode == 0:
-        print(
-            f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
-        )
+        print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
         print("\nNext steps:")
-        print(
-            f"  1. Create a pull request from '{target_branch}' to your main branch"
-        )
+        print(f"  1. Create a pull request from '{target_branch}' to your main branch")
         print("  2. Review the changes and test the optimized strategy")
         print("  3. Merge the pull request after verification")
     else:
@@ -463,9 +454,7 @@ def main():
     print(f"Current Sharpe: {current_sharpe}")
     print(f"Current Drawdown: {current_drawdown}")
 
-    result_hyperopt, strategy_json, backup_json, created_new = run_hyperopt(
-        worst_strategy
-    )
+    result_hyperopt, strategy_json, backup_json, created_new = run_hyperopt(worst_strategy)
 
     # Apply new parameters
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
@@ -482,14 +471,10 @@ def main():
         sys.exit(1)
 
     # Verification
-    success, avg_profit_pct = verify_improvement(
-        worst_strategy, current_sharpe, current_drawdown
-    )
+    success, avg_profit_pct = verify_improvement(worst_strategy, current_sharpe, current_drawdown)
 
     if success:
-        commit_and_push(
-            args, worst_strategy, avg_profit_pct, strategy_json, backup_json
-        )
+        commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_json)
     else:
         print("Evaluation FAILED. Reverting changes.")
         if not created_new:
