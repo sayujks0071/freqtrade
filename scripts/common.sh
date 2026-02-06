@@ -1,21 +1,17 @@
 #!/bin/bash
 
-# Load .env
+# Load .env if it exists
 if [ -f .env ]; then
-    # echo "Loading .env..."
-    set -a
-    . .env
-    set +a
-else
-    echo "No .env file found. Proceeding with environment variables..."
+    set -o allexport
+    source .env
+    set +o allexport
 fi
 
-if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
-fi
+# Default to india_prod if not set
+DELTA_ENV=${DELTA_ENV:-india_prod}
 
-# Determine Base URL
+echo "Detected DELTA_ENV=${DELTA_ENV}"
+
 case "$DELTA_ENV" in
     india_prod)
         BASE_URL="https://api.india.delta.exchange"
@@ -28,31 +24,68 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
-        echo "Unknown DELTA_ENV: $DELTA_ENV"
-        echo "Supported: india_prod, global_prod, india_testnet"
+        echo "Error: Unknown DELTA_ENV '$DELTA_ENV'. Must be one of: india_prod, global_prod, india_testnet"
         exit 1
         ;;
 esac
 
-# Override if set
-if [ -n "$DELTA_BASE_URL" ]; then
-    BASE_URL="$DELTA_BASE_URL"
-fi
+# Export Freqtrade overrides for CCXT URLs
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public=$BASE_URL
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private=$BASE_URL
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www=$WWW_URL
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
+echo "Configured for ${BASE_URL}"
 
-# Export Freqtrade Variables
-export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
-export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
+check_time_drift() {
+    echo "Checking time drift..."
+    # Get server date header. curl -I fetches headers.
+    SERVER_DATE_HEADER=$(curl -sI "$BASE_URL" | grep -i "^date:" | head -n1 | cut -d' ' -f2-)
 
-# CCXT Config for URLs
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
+    if [ -z "$SERVER_DATE_HEADER" ]; then
+        echo "Error: Could not fetch date from $BASE_URL"
+        exit 1
+    fi
 
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
-fi
+    # Convert to timestamp (requires GNU date or compatible)
+    if date --version >/dev/null 2>&1; then
+        SERVER_TS=$(date -d "$SERVER_DATE_HEADER" +%s)
+        LOCAL_TS=$(date +%s)
+    else
+        # Mac/BSD fallback
+        SERVER_TS=$(date -j -f "%a, %d %b %Y %H:%M:%S %Z" "$SERVER_DATE_HEADER" +%s)
+        LOCAL_TS=$(date +%s)
+    fi
+
+    DIFF=$((SERVER_TS - LOCAL_TS))
+    # Absolute value
+    ABS_DIFF=${DIFF#-}
+
+    echo "Time drift: ${ABS_DIFF}s"
+
+    if [ "$ABS_DIFF" -gt 30 ]; then
+        echo "CRITICAL: Time drift > 30s. Please sync your clock (NTP)."
+        exit 1
+    fi
+}
+
+preflight_check() {
+    echo "Running preflight checks..."
+
+    check_time_drift
+
+    if [ ! -f "user_data/reports/markets_latest.json" ]; then
+        echo "ERROR: Markets dump missing (user_data/reports/markets_latest.json)."
+        echo "Please run ./scripts/validate_exchange.sh first."
+        exit 1
+    fi
+
+    if [ ! -f "user_data/pairlists/whitelist.delta.json" ]; then
+        echo "ERROR: Whitelist file missing (user_data/pairlists/whitelist.delta.json)."
+        echo "Please run ./scripts/update_markets_and_whitelist.sh or create it manually."
+        exit 1
+    fi
+
+    echo "Preflight checks passed."
+}

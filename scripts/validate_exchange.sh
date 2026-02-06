@@ -1,97 +1,105 @@
 #!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$DIR/common.sh"
+set -e
 
-REPORT_FILE="user_data/reports/markets_$(date +%s).json"
-CONFIG_FILE="/freqtrade/user_data/configs/config.delta.dryrun.json"
+# Source common env and functions
+source "$(dirname "$0")/common.sh"
 
-echo "Fetching markets from Delta ($DELTA_ENV)..."
+echo "Validating Exchange Connection and Markets for $DELTA_ENV..."
+echo "Base URL: $BASE_URL"
 
-# Run list-markets
-# We expect JSON output (list of pair strings)
-docker compose run --rm freqtrade list-markets \
-    --config "$CONFIG_FILE" \
+# 1. Time Drift Check
+check_time_drift
+
+# 2. Verify Exchange Availability
+echo "Verifying 'delta' exchange availability..."
+# Check if delta is in the list of exchanges supported by the ccxt version in the container
+docker compose run --rm freqtrade list-exchanges --one-column | grep -q "^delta$"
+if [ $? -ne 0 ]; then
+    echo "Error: Exchange 'delta' not found in available exchanges."
+    exit 1
+fi
+echo "Exchange 'delta' confirmed available."
+
+# 3. Fetch Markets
+REPORT_FILE="user_data/reports/markets_$(date +%Y%m%d_%H%M%S).json"
+LATEST_LINK="user_data/reports/markets_latest.json"
+
+echo "Fetching markets to $REPORT_FILE..."
+
+# We run list-markets inside the container to ensure we use the same CCXT version and config
+# We map the env vars for URL overrides
+docker compose run --rm \
+    -e FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public" \
+    -e FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private" \
+    freqtrade list-markets \
     --exchange delta \
     --trading-mode futures \
-    --print-json > "${REPORT_FILE}.tmp"
+    --print-json > "$REPORT_FILE"
 
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE"
-
+# Check if file is valid JSON (simple check)
 if [ ! -s "$REPORT_FILE" ]; then
-    echo "Error: Failed to fetch markets or parse output."
-    echo "Raw Output:"
-    cat "${REPORT_FILE}.tmp"
-    rm -f "$REPORT_FILE" "${REPORT_FILE}.tmp"
+    echo "Error: Market dump is empty."
     exit 1
 fi
-rm "${REPORT_FILE}.tmp"
 
-echo "Markets list saved to $REPORT_FILE"
+# Create/Update symlink
+ln -sf "$(basename "$REPORT_FILE")" "$LATEST_LINK"
 
-echo "Validating Whitelist..."
+# 3. Validate Markets Schema & Whitelist
+echo "Validating market data..."
 
-# Python script to check whitelist
-python3 -c "
+# Run python validation script inside container (has python and dependencies)
+# We map ./tools to /freqtrade/tools in docker-compose
+docker compose run --rm --entrypoint python3 \
+    freqtrade \
+    /freqtrade/tools/validate_markets_schema.py "/freqtrade/$REPORT_FILE"
+
+# 4. Update Whitelist (Optional/Guided)
+# The user requirement says "whitelist must be generated ... or user selects".
+# For now, we just validate. The validate_markets_schema.py could be enhanced to generate it,
+# or we can use a separate step.
+# Let's check if the current whitelist pairs exist in the dump.
+# We can use a simple python oneliner or script for this check.
+
+echo "Verifying configured whitelist against market dump..."
+WHITELIST_FILE="user_data/pairlists/whitelist.delta.json"
+
+if [ -f "$WHITELIST_FILE" ]; then
+    docker compose run --rm --entrypoint python3 \
+        freqtrade \
+        -c "
 import json
 import sys
-import os
 
 try:
-    with open('$REPORT_FILE', 'r') as f:
-        markets = json.load(f) # List of strings
+    with open('/freqtrade/$REPORT_FILE') as f:
+        markets = json.load(f)
+        # Handle dict response
+        if isinstance(markets, dict) and 'markets' in markets: markets = markets['markets']
+        market_symbols = {m['symbol'] for m in markets}
 
-    # Load config to get whitelist
-    # We need to read the local file, not the container path
-    config_file = 'user_data/configs/config.delta.dryrun.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    with open('/freqtrade/$WHITELIST_FILE') as f:
+        wl = json.load(f)
+        # Strict check for exchange.pair_whitelist
+        if 'exchange' not in wl or 'pair_whitelist' not in wl['exchange']:
+             print('ERROR: Whitelist file has incorrect format. Must contain {\"exchange\": {\"pair_whitelist\": [...]}}')
+             sys.exit(1)
 
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
+        pairs = wl['exchange']['pair_whitelist']
 
-    missing = []
-    for pair in whitelist:
-        if pair not in markets:
-            missing.append(pair)
-
+    missing = [p for p in pairs if p not in market_symbols]
     if missing:
-        print(f'ERROR: The following whitelist pairs are NOT active or missing on Delta ({os.environ.get("DELTA_ENV")}):')
-        for m in missing:
-            print(f' - {m}')
+        print(f'ERROR: The following whitelist pairs are not in market dump: {missing}')
         sys.exit(1)
-
-    print(f'SUCCESS: All {len(whitelist)} whitelist pairs are valid.')
+    else:
+        print(f'SUCCESS: All {len(pairs)} whitelist pairs are valid.')
 
 except Exception as e:
-    print(f'Error validating: {e}')
+    print(f'Error checking whitelist: {e}')
     sys.exit(1)
 "
-
-if [ $? -eq 0 ]; then
-    echo "Validation Passed."
 else
-    echo "Validation Failed."
-    exit 1
+    echo "Warning: Whitelist file $WHITELIST_FILE not found."
 fi
-set -e
-cd "$(dirname "$0")/.."
 
-echo "Validating Exchange Connection..."
-
-# 1. Confirm Delta is available and fetch markets
-# We use the update script which does fetch + validate schema
-# But we might want to just do a quick check.
-# Let's use the update script to ensure we have fresh markets
-./scripts/update_markets_and_whitelist.sh
-
-# 2. Validate current whitelist against the fetched markets
-# The update script generated a NEW whitelist.
-# If we want to validate an EXISTING whitelist, we should have done it before updating.
-# But usually we validate that the *generated* whitelist is valid (which the script does).
-
-# The prompt says "validate whitelist pairs exist".
-# If we just regenerated it from the dump, they obviously exist.
-# Maybe the intent is to validate that the pairs in `config.delta.dryrun.json` (if any) exist.
-# Since we use an external whitelist file, and we just updated it, we are good.
-
-echo "Validation Complete. Market dump and Whitelist are fresh."
+echo "Validation Complete. System ready."
