@@ -56,11 +56,20 @@ fi
 
 mv $TEMP_OUTPUT $MARKETS_FILE
 
+WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
+REPORT_FILE="$REPORTS_DIR/markets_schema_report_${TIMESTAMP}.md"
+
 echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
+python3 tools/validate_markets_schema.py \
+    --markets "$MARKETS_FILE" \
+    --env "$DELTA_ENV" \
+    --prev-whitelist "$WHITELIST_JSON" \
+    --out-report "$REPORT_FILE"
+
+# If validation failed, the script would have exited due to set -e (exit code 2)
+# If we are here, validation passed.
 
 echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
 WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
 
 python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
