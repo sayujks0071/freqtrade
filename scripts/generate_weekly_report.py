@@ -156,7 +156,8 @@ def generate_report(commits, stuck_strategies):
         for strategy, reasons in stuck_strategies.items():
             unique_reasons = set(reasons)
             lines.append(
-                f"- **{strategy}**: Failed {len(reasons)} times. Reasons: {', '.join(unique_reasons)}"
+                f"- **{strategy}**: Failed {len(reasons)} times. "
+                f"Reasons: {', '.join(unique_reasons)}"
             )
     else:
         lines.append("No stuck strategies detected this week.")
