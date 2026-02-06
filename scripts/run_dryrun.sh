@@ -2,6 +2,9 @@
 source "$(dirname "$0")/common.sh"
 
 echo "Starting Freqtrade in DRY-RUN mode on $DELTA_ENV..."
+
+preflight_check
+
 echo "Using config: config.delta.dryrun.json"
 
 export FREQTRADE_CONFIG_FILE=config.delta.dryrun.json

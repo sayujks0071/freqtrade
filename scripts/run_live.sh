@@ -5,6 +5,9 @@ echo "****************************************"
 echo "WARNING: STARTING LIVE TRADING ON $DELTA_ENV"
 echo "REAL FUNDS ARE AT RISK."
 echo "****************************************"
+
+preflight_check
+
 echo "Using config: config.delta.live.json"
 
 read -p "Are you sure you want to proceed? (y/N) " -n 1 -r

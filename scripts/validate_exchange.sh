@@ -8,40 +8,19 @@ echo "Validating Exchange Connection and Markets for $DELTA_ENV..."
 echo "Base URL: $BASE_URL"
 
 # 1. Time Drift Check
-echo "Checking time drift..."
-# Get server date header. curl -I fetches headers.
-# We handle both HTTP/1.1 and H2 response headers if curl supports it, grep finds Date.
-SERVER_DATE_HEADER=$(curl -sI "$BASE_URL" | grep -i "^date:" | head -n1 | cut -d' ' -f2-)
+check_time_drift
 
-if [ -z "$SERVER_DATE_HEADER" ]; then
-    echo "Error: Could not fetch date from $BASE_URL"
+# 2. Verify Exchange Availability
+echo "Verifying 'delta' exchange availability..."
+# Check if delta is in the list of exchanges supported by the ccxt version in the container
+docker compose run --rm freqtrade list-exchanges --one-column | grep -q "^delta$"
+if [ $? -ne 0 ]; then
+    echo "Error: Exchange 'delta' not found in available exchanges."
     exit 1
 fi
+echo "Exchange 'delta' confirmed available."
 
-echo "Server time: $SERVER_DATE_HEADER"
-
-# Convert to timestamp (requires GNU date or compatible)
-if date --version >/dev/null 2>&1; then
-    SERVER_TS=$(date -d "$SERVER_DATE_HEADER" +%s)
-    LOCAL_TS=$(date +%s)
-else
-    # Mac/BSD fallback
-    SERVER_TS=$(date -j -f "%a, %d %b %Y %H:%M:%S %Z" "$SERVER_DATE_HEADER" +%s)
-    LOCAL_TS=$(date +%s)
-fi
-
-DIFF=$((SERVER_TS - LOCAL_TS))
-# Absolute value
-ABS_DIFF=${DIFF#-}
-
-echo "Time drift: ${ABS_DIFF}s"
-
-if [ "$ABS_DIFF" -gt 30 ]; then
-    echo "CRITICAL: Time drift > 30s. Please sync your clock (NTP)."
-    exit 1
-fi
-
-# 2. Fetch Markets
+# 3. Fetch Markets
 REPORT_FILE="user_data/reports/markets_$(date +%Y%m%d_%H%M%S).json"
 LATEST_LINK="user_data/reports/markets_latest.json"
 
