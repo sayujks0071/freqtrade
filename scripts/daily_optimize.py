@@ -351,9 +351,7 @@ def ensure_branch(target_branch):
             result = run_command(["git", "checkout", target_branch], capture=True)
         else:
             # Branch doesn't exist, create it
-            result = run_command(
-                ["git", "checkout", "-b", target_branch], capture=True
-            )
+            result = run_command(["git", "checkout", "-b", target_branch], capture=True)
 
         if result.returncode != 0:
             print("Failed to create or switch to feature branch.")
@@ -397,15 +395,11 @@ def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_
             print("This will:")
             print(f"  - Push optimized strategy parameters for {worst_strategy}")
             print(f"  - Create/update remote branch: {target_branch}")
-            print(
-                "\nYou can then create a pull request to review and merge these changes."
-            )
+            print("\nYou can then create a pull request to review and merge these changes.")
             response = input("\nProceed with push? [y/N]: ").strip().lower()
             if response not in ["y", "yes"]:
                 print("Push cancelled. Changes are committed locally.")
-                print(
-                    f"You can manually push later with: git push origin {target_branch}"
-                )
+                print(f"You can manually push later with: git push origin {target_branch}")
                 if backup_json.exists():
                     backup_json.unlink()
                 return True  # Committed but not pushed is still success
@@ -414,13 +408,9 @@ def commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_
         result = run_command(["git", "push", "origin", target_branch], capture=True)
 
         if result.returncode == 0:
-            print(
-                f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
-            )
+            print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
             print("\nNext steps:")
-            print(
-                f"  1. Create a pull request from '{target_branch}' to your main branch"
-            )
+            print(f"  1. Create a pull request from '{target_branch}' to your main branch")
             print("  2. Review the changes and test the optimized strategy")
             print("  3. Merge the pull request after verification")
         else:
@@ -468,8 +458,7 @@ Examples:
         type=str,
         default=None,
         help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
+            "Target branch for pushing changes (default: create feature branch 'optimize-YYYYMMDD')"
         ),
     )
     parser.add_argument(
@@ -495,9 +484,7 @@ Examples:
     )
 
     if is_improved:
-        success = commit_and_push(
-            args, worst_strategy, avg_profit_pct, strategy_json, backup_json
-        )
+        success = commit_and_push(args, worst_strategy, avg_profit_pct, strategy_json, backup_json)
         if not success:
             revert_changes(strategy_json, backup_json, created_new)
     else:
