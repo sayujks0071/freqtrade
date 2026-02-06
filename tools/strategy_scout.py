@@ -38,9 +38,7 @@ class StrategyScout:
 
     def check_rate_limit(self):
         try:
-            resp = self.session.get(
-                f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT
-            )
+            resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
                 core = data["resources"]["core"]
@@ -49,10 +47,7 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(
-                        f"WARNING: Rate limit low. Resets at {reset_time}. "
-                        "Halting or degrading."
-                    )
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. Halting or degrading.")
                     return False
             return True
         except Exception as e:
@@ -138,9 +133,7 @@ class StrategyScout:
             age_days = 9999
             if pushed_at:
                 try:
-                    pushed_dt = datetime.datetime.strptime(
-                        pushed_at, "%Y-%m-%dT%H:%M:%SZ"
-                    )
+                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                     age_days = (datetime.datetime.now() - pushed_dt).days
                     if age_days < 30:
                         score += 5
@@ -166,9 +159,7 @@ class StrategyScout:
             scored_candidates.append(repo)
 
         # Sort by preliminary score to prioritize inspection
-        self.candidates = sorted(
-            scored_candidates, key=lambda x: x["scout_score"], reverse=True
-        )
+        self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
         print(f"Candidates after filtering: {len(self.candidates)}")
 
     def _find_strategy_files(self, full_name):
@@ -257,9 +248,7 @@ class StrategyScout:
             inspected_count += 1
 
         # Re-sort after inspection
-        self.candidates = sorted(
-            self.candidates, key=lambda x: x["scout_score"], reverse=True
-        )
+        self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
 
     def generate_report(self):
         print("Generating report...")
@@ -281,9 +270,7 @@ class StrategyScout:
                 f.write(f"- **Score:** {repo.get('scout_score', 0)}\n")
                 f.write(f"- **Stars:** {repo.get('stargazers_count', 0)}\n")
                 f.write(f"- **License:** {repo.get('license_name', 'Unknown')}\n")
-                f.write(
-                    f"- **Strategies Found:** {repo.get('strategy_count', 'N/A')}\n"
-                )
+                f.write(f"- **Strategies Found:** {repo.get('strategy_count', 'N/A')}\n")
                 if repo.get("pushed_at"):
                     last_update = repo.get("pushed_at", "").split("T")[0]
                     f.write(f"- **Last Update:** {last_update}\n")
@@ -301,9 +288,7 @@ class StrategyScout:
                     adoption.append("Seems to support futures.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append(
-                    "Verify `stoploss` and `leverage` settings for Delta futures."
-                )
+                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
@@ -376,9 +361,7 @@ class StrategyScout:
                         f.write(f"# License Note for {repo_name}\n\n")
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write(
-                            "Please check the original repository for full license details.\n"
-                        )
+                        f.write("Please check the original repository for full license details.\n")
 
                     count += 1
             except Exception as e:
@@ -387,9 +370,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 

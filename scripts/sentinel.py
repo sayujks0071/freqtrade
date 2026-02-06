@@ -96,9 +96,7 @@ class Sentinel:
 
         headers = {"Authorization": f"Bearer {self.auth_token}"}
         try:
-            response = requests.get(
-                f"{self.rpc_url}/{endpoint}", headers=headers, timeout=10
-            )
+            response = requests.get(f"{self.rpc_url}/{endpoint}", headers=headers, timeout=10)
             if response.status_code == 401:
                 # Token expired? Retry login
                 logger.info("Token expired, refreshing...")

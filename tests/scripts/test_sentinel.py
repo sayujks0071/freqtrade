@@ -35,9 +35,7 @@ def sentinel(mock_config_path):
 
     # Patch ccxt.binance at import time or initialization
     with patch("ccxt.binance"):
-        s = Sentinel(
-            mock_config_path, interval=1, openclaw_url="http://openclaw", dry_run=True
-        )
+        s = Sentinel(mock_config_path, interval=1, openclaw_url="http://openclaw", dry_run=True)
         # Mock exchange instance explicitly
         s.exchange = MagicMock()
         return s
