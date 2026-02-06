@@ -4,8 +4,9 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 
 # Try to import filter_markets from generate_whitelist
 # Assuming tools/ is in path or we are running from root
@@ -42,7 +43,9 @@ def load_json_file(filepath: Path):
             return None
 
 
-def validate_schema(markets_data) -> tuple[bool, list[str], list[dict]]:
+def validate_schema(  # noqa: C901
+    markets_data,
+) -> tuple[bool, list[str], list[dict]]:
     errors = []
     valid_markets = []
 
@@ -81,7 +84,8 @@ def validate_schema(markets_data) -> tuple[bool, list[str], list[dict]]:
 
         # Type/Contract check
         if not any(k in m for k in ["type", "contract", "future", "swap", "prediction_contract"]):
-            # Some dumps might use 'info' dict inside, but freqtrade usually flattens or we check top level
+            # Some dumps might use 'info' dict inside, but freqtrade usually flattens
+            # or we check top level
             # If we rely on standard ccxt structure or delta dump structure.
             # Let's assume one of these keys must exist.
             missing.append("type/contract_indicator")
@@ -100,17 +104,18 @@ def validate_schema(markets_data) -> tuple[bool, list[str], list[dict]]:
         if " " in symbol:
             current_errors.append(f"Symbol '{symbol}' contains whitespace")
         if symbol != symbol.upper():
-             current_errors.append(f"Symbol '{symbol}' is not uppercase")
+            current_errors.append(f"Symbol '{symbol}' is not uppercase")
 
         # Check for settle delimiter if it looks like a future
         # Heuristic: Freqtrade futures symbols usually have ':'
-        # But spot symbols don't. The requirements say "Must match futures style ... OR consistent CCXT format"
+        # But spot symbols don't. The requirements say "Must match futures style ...
+        # OR consistent CCXT format"
         # Since this is "Delta Markets", and we target perps/futures mostly.
         # "Reject ... missing settle delimiter when futures mode is expected."
         # If the market type is future/swap, we expect it.
         is_future = m.get("type") in ["future", "swap"] or m.get("future") or m.get("swap")
         if is_future and ":" not in symbol:
-             current_errors.append(f"Symbol '{symbol}' missing settle delimiter for future")
+            current_errors.append(f"Symbol '{symbol}' missing settle delimiter for future")
 
         # Uniqueness
         if symbol.upper() in seen_symbols:
@@ -126,7 +131,7 @@ def validate_schema(markets_data) -> tuple[bool, list[str], list[dict]]:
                     for bound in ["min", "max"]:
                         val = limits[cat].get(bound)
                         if val is not None and isinstance(val, (int, float)) and val < 0:
-                             current_errors.append(f"Negative limit {cat}.{bound}: {val}")
+                            current_errors.append(f"Negative limit {cat}.{bound}: {val}")
 
         # Volume Check (if available)
         # Check top level 'info' or specific keys if populated
@@ -146,17 +151,18 @@ def validate_schema(markets_data) -> tuple[bool, list[str], list[dict]]:
                         pass
 
         if vol_24h is not None:
-             if vol_24h < 0:
-                 current_errors.append(f"Negative volume: {vol_24h}")
-             elif STRICT_VOLUME and vol_24h < 1.0: # Arbitrary threshold for 'near-zero'
-                 # We can be stricter or make it configurable?
-                 # Requirement: "only warn by default; allow STRICT_VOLUME=true to fail"
-                 current_errors.append(f"Low volume: {vol_24h} (STRICT_VOLUME=True)")
-             elif not STRICT_VOLUME and vol_24h < 1.0:
-                 # Warn only (log?)
-                 # We don't have a warning channel in return signature easily,
-                 # maybe just log it or ignore as per "only warn by default" (implied log or non-failure)
-                 pass
+            if vol_24h < 0:
+                current_errors.append(f"Negative volume: {vol_24h}")
+            elif STRICT_VOLUME and vol_24h < 1.0:  # Arbitrary threshold for 'near-zero'
+                # We can be stricter or make it configurable?
+                # Requirement: "only warn by default; allow STRICT_VOLUME=true to fail"
+                current_errors.append(f"Low volume: {vol_24h} (STRICT_VOLUME=True)")
+            elif not STRICT_VOLUME and vol_24h < 1.0:
+                # Warn only (log?)
+                # We don't have a warning channel in return signature easily,
+                # maybe just log it or ignore as per "only warn by default"
+                # (implied log or non-failure)
+                pass
 
         if current_errors:
             errors.extend(current_errors)
@@ -199,13 +205,17 @@ def validate_environment(markets_data, expected_env: str) -> tuple[bool, list[st
             pass
 
     # "otherwise log a warning"
-    # We return True to indicate no hard failure, but returns empty errors list if no explicit mismatch found.
+    # We return True to indicate no hard failure, but returns empty errors list if no
+    # explicit mismatch found.
     # If we found explicit mismatch, we would return False, [error].
+    # Returning populated env_errors if issues found, else empty list.
 
-    return True, []
+    return True, env_errors
 
 
-def validate_drift(current_whitelist: list[str], prev_whitelist_path: Path) -> tuple[bool, list[str], dict]:
+def validate_drift(
+    current_whitelist: list[str], prev_whitelist_path: Path
+) -> tuple[bool, list[str], dict]:
     drift_errors = []
     stats = {}
 
@@ -222,8 +232,8 @@ def validate_drift(current_whitelist: list[str], prev_whitelist_path: Path) -> t
         prev_pairs = prev_data
     elif isinstance(prev_data, dict):
         prev_pairs = prev_data.get("exchange", {}).get("pair_whitelist", [])
-        if not prev_pairs and "pairs" in prev_data: # Handle simple dict if any
-             prev_pairs = prev_data["pairs"]
+        if not prev_pairs and "pairs" in prev_data:  # Handle simple dict if any
+            prev_pairs = prev_data["pairs"]
 
     prev_set = set(prev_pairs)
     curr_set = set(current_whitelist)
@@ -241,7 +251,10 @@ def validate_drift(current_whitelist: list[str], prev_whitelist_path: Path) -> t
         stats["removal_ratio"] = removal_ratio
 
         if removal_ratio > MAX_REMOVAL_RATIO:
-            drift_errors.append(f"Large delist drift: {removal_ratio:.2%} pairs removed (Max: {MAX_REMOVAL_RATIO:.2%}). Manual review required.")
+            drift_errors.append(
+                f"Large delist drift: {removal_ratio:.2%} pairs removed "
+                f"(Max: {MAX_REMOVAL_RATIO:.2%}). Manual review required."
+            )
     else:
         stats["removal_ratio"] = 0.0
 
@@ -256,21 +269,22 @@ def generate_report(
     outfile: Path,
     markets_count: int,
     eligible_count: int,
-    whitelist_count: int
+    whitelist_count: int,
 ):
     with outfile.open("w") as f:
         f.write(f"# Markets Validation Report - {'PASS' if success else 'FAIL'}\n\n")
-        f.write(f"Date: {datetime.now(timezone.utc).isoformat()}\n\n")
+        # Use datetime.now(timezone.utc) as requested
+        f.write(f"Date: {datetime.now(UTC).isoformat()}\n\n")
 
         f.write("## Summary\n")
         f.write(f"- Total Markets: {markets_count}\n")
         f.write(f"- Eligible Markets: {eligible_count}\n")
         f.write(f"- Whitelist Size: {whitelist_count}\n")
         if "prev_count" in stats:
-             f.write(f"- Previous Whitelist: {stats['prev_count']}\n")
-             f.write(f"- Added: {stats.get('added_count', 0)}\n")
-             f.write(f"- Removed: {stats.get('removed_count', 0)}\n")
-             f.write(f"- Removal Ratio: {stats.get('removal_ratio', 0):.2%}\n")
+            f.write(f"- Previous Whitelist: {stats['prev_count']}\n")
+            f.write(f"- Added: {stats.get('added_count', 0)}\n")
+            f.write(f"- Removed: {stats.get('removed_count', 0)}\n")
+            f.write(f"- Removal Ratio: {stats.get('removal_ratio', 0):.2%}\n")
 
         f.write("\n## Validation Status\n")
         if success:
@@ -280,7 +294,7 @@ def generate_report(
 
         if schema_errors:
             f.write("\n### Schema Errors\n")
-            for e in schema_errors[:20]: # Limit output
+            for e in schema_errors[:20]:  # Limit output
                 f.write(f"- {e}\n")
             if len(schema_errors) > 20:
                 f.write(f"- ... and {len(schema_errors) - 20} more\n")
@@ -296,7 +310,9 @@ def main():
     parser.add_argument("--markets", type=Path, required=True, help="Path to markets.json")
     parser.add_argument("--env", type=str, default=DELTA_ENV, help="Delta Environment")
     parser.add_argument("--prev-whitelist", type=Path, help="Path to previous whitelist.json")
-    parser.add_argument("--out-report", type=Path, required=True, help="Path to output markdown report")
+    parser.add_argument(
+        "--out-report", type=Path, required=True, help="Path to output markdown report"
+    )
 
     args = parser.parse_args()
 
@@ -309,7 +325,7 @@ def main():
         logging.error("Failed to load or parse markets file")
         # Write basic failure report
         with args.out_report.open("w") as f:
-             f.write("# Validation Failed\nCould not load markets file.\n")
+            f.write("# Validation Failed\nCould not load markets file.\n")
         sys.exit(2)
 
     # Validate Schema
@@ -344,9 +360,11 @@ def main():
         drift_errors,
         stats,
         args.out_report,
-        markets_count=len(valid_markets) + len(schema_errors) if schema_pass else len(valid_markets), # Approx
+        markets_count=len(valid_markets) + len(schema_errors)
+        if schema_pass
+        else len(valid_markets),  # Approx
         eligible_count=len(valid_markets),
-        whitelist_count=len(current_whitelist)
+        whitelist_count=len(current_whitelist),
     )
 
     if not success:
@@ -359,6 +377,7 @@ def main():
 
     logging.info("Validation Passed")
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
