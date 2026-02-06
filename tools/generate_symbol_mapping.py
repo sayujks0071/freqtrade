@@ -73,5 +73,6 @@ Futures/Swaps Found: {len(futures)}
 
     print(f"Generated report: {output_file}")
 
+
 if __name__ == "__main__":
     generate_mapping_report()
