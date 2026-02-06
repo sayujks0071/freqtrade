@@ -204,7 +204,7 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
-def main():
+def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,

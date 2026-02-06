@@ -7,8 +7,6 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
-import re
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -56,7 +54,7 @@ class StrategyScout:
                 reset = core["reset"]
 
                 if remaining < RATE_LIMIT_BUFFER:
-                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.timezone.utc)
+                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.UTC)
                     print(
                         f"WARNING: Rate limit low ({remaining}). "
                         f"Resets at {reset_time}. Halting requests."
@@ -67,7 +65,7 @@ class StrategyScout:
             print(f"Error checking rate limit: {e}")
             return True  # Assume ok if check fails, to avoid premature exit
 
-    def search_github(self):
+    def search_github(self):  # noqa: C901
         print("Searching GitHub...")
         found_repos = {}  # Dedup by full_name
 
@@ -109,7 +107,7 @@ class StrategyScout:
         self.candidates = list(found_repos.values())
         print(f"Total unique candidates found: {len(self.candidates)}")
 
-    def filter_and_score(self):  # noqa: C901
+    def filter_and_score(self):
         print("Filtering and Scoring...")
         scored_candidates = []
 
