@@ -2,17 +2,20 @@ name: Delta Markets Refresh
 
 on:
   schedule:
-    # 06:30 Indian Standard Time is 01:00 UTC
-    - cron: '0 1 * * *'
+    - cron: '0 1 * * *' # 01:00 UTC = 06:30 India Standard Time
   workflow_dispatch:
     inputs:
       DELTA_ENV:
-        description: 'Environment (india_prod, global_prod)'
+        description: 'Delta Environment'
         required: true
-        default: 'india_prod'
+        default: 'global_prod'
+        type: choice
+        options:
+        - global_prod
+        - india_prod
       FILTER_MODE:
-        description: 'Filter Mode'
-        required: true
+        description: 'Whitelist Filter Mode'
+        required: false
         default: 'perps_usdt'
 
 permissions:
@@ -20,52 +23,81 @@ permissions:
   pull-requests: write
 
 jobs:
-  refresh_markets:
+  refresh:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+      - name: Setup Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v4.8.0
         with:
-          python-version: '3.12'
+          python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          pip install requests pandas
-
-      - name: Create basic .env
-        run: |
-          cp .env.example .env
-
-      - name: Update Markets & Whitelist
+      - name: Create .env
         env:
-          DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
-          FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
+          INPUT_DELTA_ENV: ${{ inputs.DELTA_ENV || 'global_prod' }}
+          INPUT_FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
+          DELTA_API_KEY: ${{ secrets.DELTA_API_KEY }}
+          DELTA_API_SECRET: ${{ secrets.DELTA_API_SECRET }}
         run: |
-          ./scripts/bootstrap.sh
-          docker compose pull freqtrade
+          echo "DELTA_ENV=$INPUT_DELTA_ENV" >> .env
+          echo "FILTER_MODE=$INPUT_FILTER_MODE" >> .env
+
+          # Use secrets safely
+          if [ -n "$DELTA_API_KEY" ]; then
+            echo "DELTA_API_KEY=$DELTA_API_KEY" >> .env
+          fi
+          if [ -n "$DELTA_API_SECRET" ]; then
+            echo "DELTA_API_SECRET=$DELTA_API_SECRET" >> .env
+          fi
+
+          echo "MIN_MARKETS=20" >> .env
+          echo "MAX_REMOVAL_RATIO=0.25" >> .env
+          # Use dryrun config
+          echo "FREQTRADE_CONFIG_FILE=config.delta.dryrun.json" >> .env
+
+      - name: Pull Docker Image
+        run: docker compose pull freqtrade
+
+      - name: Update Markets and Whitelist
+        run: |
+          chmod +x scripts/update_markets_and_whitelist.sh
+          chmod +x scripts/common.sh
           ./scripts/update_markets_and_whitelist.sh
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
+      - name: Archive artifacts
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: markets-reports
+          name: market-reports
           path: user_data/reports/
 
-      - name: Check for changes and Create PR
-        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38 # v5.0.2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update delta markets"
-          branch: "chore/delta-markets-refresh"
-          title: "Daily Delta Markets Refresh"
-          body: |
-            Updates whitelist and market dump.
-            See attached reports for drift analysis.
-          add-paths: |
-            user_data/pairlists/
-            user_data/reports/markets_*.json
-            user_data/reports/whitelist_diff_*.md
+      - name: Commit changes
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # Force add in case of .gitignore issues (though reports might be ignored)
+          git add -f user_data/pairlists/
+
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to whitelist."
+          else
+            TIMESTAMP=$(date +%Y-%m-%d)
+            BRANCH_NAME="chore/delta-markets-${TIMESTAMP}"
+
+            # We check if branch exists or just commit to a new one
+            # Ideally we open a PR.
+            git checkout -b $BRANCH_NAME
+            git commit -m "chore: update markets and whitelist $TIMESTAMP"
+            git push origin $BRANCH_NAME
+
+            # Create PR using gh cli (pre-installed)
+            # We need GITHUB_TOKEN
+            gh pr create --title "chore: Delta Markets Update $TIMESTAMP" --body "Automated update of markets and whitelist." --head $BRANCH_NAME --base main || echo "PR creation failed or already exists"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

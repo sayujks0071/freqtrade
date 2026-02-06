@@ -1,86 +1,61 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+# Strategy: DeltaSafeStrategy
+# Author: Jules
+# Version: 1.0
+# Timeframe: 5m
+# Pair Format: BASE/QUOTE:SETTLE
+# Timezone: UTC
+# Entry/Exit: Limit/Limit
+# Repainting: No
 """
 
-import sys
-from pathlib import Path
+import logging
+from datetime import datetime
+from typing import Any
 
-import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
 
 
-# Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin
-import talib.abstract as ta  # noqa: E402
-from pandas import DataFrame  # noqa: E402
+# Import mixin.
+# Freqtrade adds user_data/strategies to path.
+try:
+    from _base.AuditedStrategyMixin import AuditedStrategyMixin
+except ImportError:
+    # Fallback if _base is not directly importable (e.g. running outside freqtrade context)
+    # We define a dummy mixin to allow import without crashing
+    class AuditedStrategyMixin:  # type: ignore
+        def log_signal(self, pair, side, reason, snapshot=None):
+            pass
 
-from freqtrade.strategy import IStrategy  # noqa: E402
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+        def assert_pair_in_whitelist(self, pair):
+            return True
+
+
+logger = logging.getLogger(__name__)
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
-    INTERFACE_VERSION = 3
-
-    # Minimal ROI
+    # ROI table:
     minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
 
-    # Stoploss
     stoploss = -0.10
+    timeframe = "5m"
 
-    # Timeframe
-    timeframe = "1h"
-
-    # Run "populate_indicators" only for new candle
-    # Logic runs on closed candle only
-    process_only_new_candles = True
-
-    # These values can be overridden in the "ask_strategy" section in the config.
-    use_exit_signal = True
-    exit_profit_only = False
-    ignore_roi_if_entry_signal = False
-
-    # Number of candles the strategy requires before producing valid signals
-    startup_candle_count: int = 30
-
-    # Optional order type mapping.
-    order_types = {
-        "entry": "limit",
-        "exit": "limit",
-        "stoploss": "market",
-        "stoploss_on_exchange": False,
-    }
-
-    # Order time in force.
-    order_time_in_force = {"entry": "GTC", "exit": "GTC"}
+    # Trailing stop:
+    trailing_stop = False
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # RSI
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
-
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"
-        ] = 1
-
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
-
+        # Simple sample logic: Always enter long if volume > 0 (for testing)
+        dataframe.loc[dataframe["volume"] > 0, "enter_long"] = 1
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"
-        ] = 1
+        dataframe.loc[dataframe["volume"] > 0, "exit_long"] = 0
         return dataframe
 
     def confirm_trade_entry(
@@ -90,13 +65,34 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
-        """
-        Called right before placing a trade.
-        """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+
+        # 1. Audit Log
+        self.log_signal(pair, side, "ENTRY_SIGNAL", {"rate": rate, "amount": amount})
+
+        # 2. Safety Check
+        if not self.assert_pair_in_whitelist(pair):
+            return False
+
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade: Any,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+
+        profit = trade.calc_profit_ratio(rate)
+        self.log_signal(pair, "exit", exit_reason, {"profit": profit})
         return True

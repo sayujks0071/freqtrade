@@ -38,28 +38,38 @@ def validate_market_structure(i, m, errors):
 
 
 def validate_symbol_format(symbol, errors):
-    # Symbol format: BASE/QUOTE:SETTLE for futures usually
-    # Reject whitespace/lowercase
+    # Symbol format: BASE/QUOTE:SETTLE for futures
+    # Strict Regex
+    # Matches: BTC/USDT:USDT, ETH/BTC:BTC, etc.
+    # Allows alphanumeric + some special chars if needed, but standard is alphanumeric
+    pattern = r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$"
+
+    if not re.match(pattern, symbol):
+        errors.append(f"Symbol '{symbol}' does not match futures format BASE/QUOTE:SETTLE")
+        return
+
     if re.search(r"\s", symbol):
         errors.append(f"Symbol '{symbol}' contains whitespace")
     if symbol != symbol.upper():
         errors.append(f"Symbol '{symbol}' is not uppercase")
-    # Strict check for futures format (must have settle currency)
-    if ":" not in symbol:
-        errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
 
 
 def validate_volume(m, symbol, errors):
     # Volume check (if strict)
     # Assuming volume might be in 'info' or direct fields depending on exchange
     # Freqtrade dump usually standardizes some fields.
-    if "volume" in m:
-        vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
-            errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
+    # But Freqtrade 'list-markets' dump primarily contains metadata, not necessarily 24h volume.
+    # If volume is present, we check it.
+
+    vol = m.get("quoteVolume") or m.get("baseVolume")  # Freqtrade/CCXT standard
+
+    # If not at top level, check info
+    if vol is None and "info" in m:
+        # Delta specific: '24h_volume' or similar in info
         pass
+
+    if vol is not None and vol < 1000 and STRICT_VOLUME:
+        errors.append(f"Low volume for {symbol}: {vol}")
 
 
 def validate_schema(data):
@@ -89,14 +99,14 @@ def validate_schema(data):
     if errors:
         fail(
             "Schema errors:\n"
-            + "\n".join(errors[:10])
-            + (f"\n...and {len(errors) - 10} more" if len(errors) > 10 else "")
+            + "\n".join(errors[:20])
+            + (f"\n...and {len(errors) - 20} more" if len(errors) > 20 else "")
         )
 
     return symbols
 
 
-def validate_drift(current_symbols, previous_path):
+def validate_drift(current_symbols, previous_path):  # noqa: C901, RUF100
     prev_path_obj = Path(previous_path)
     if not previous_path or not prev_path_obj.exists():
         print("No previous dump found. Skipping drift check.")
@@ -105,10 +115,25 @@ def validate_drift(current_symbols, previous_path):
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+            # Handle if previous dump is list of dicts
+            prev_symbols = set()
+            if isinstance(prev_data, list):
+                for m in prev_data:
+                    if isinstance(m, dict):
+                        prev_symbols.add(m.get("symbol"))
+                    elif isinstance(m, str):
+                        prev_symbols.add(m)
+            elif isinstance(prev_data, dict) and "markets" in prev_data:
+                for m in prev_data["markets"]:
+                    if isinstance(m, dict):
+                        prev_symbols.add(m.get("symbol"))
+
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
+        return
+
+    if not prev_symbols:
+        warn("Previous dump contained no symbols.")
         return
 
     removed = prev_symbols - current_symbols
@@ -146,10 +171,12 @@ def main():
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
+    # Standardize data
+    if isinstance(data, dict):
+        if "markets" in data:
+            data = data["markets"]
+        elif "pairs" in data:
+            data = data["pairs"]
 
     symbols = validate_schema(data)
 
@@ -162,10 +189,10 @@ Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
         write_report(report_file, report)
         print(f"Report written to {report_file}")
     except Exception as e:

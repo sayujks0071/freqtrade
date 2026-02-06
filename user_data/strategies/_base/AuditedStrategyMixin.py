@@ -1,59 +1,60 @@
-"""
-AuditedStrategyMixin
-Mixin class for strategies to enforce audit logging and safety checks.
-"""
-
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
 
+# Set up a logger
 logger = logging.getLogger(__name__)
 
 
 class AuditedStrategyMixin:
     """
-    Mixin for strategies to enforce audit logging and safety checks.
+    Mixin to provide audit logging and safety checks for strategies.
+    Strategies using this must also inherit from IStrategy.
     """
 
-    # Type hint for the config attribute expected from IStrategy
-    config: dict[str, Any]
-
     def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime,
+        self, pair: str, side: str, reason: str, snapshot: dict[str, Any] | None = None
     ) -> None:
         """
-        Log entry/exit signals to audit log.
+        Logs a structured audit message for a signal.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
+        # Ensure UTC
+        timestamp = datetime.now(UTC).isoformat()
 
-    def check_whitelist(self, pair: str) -> bool:
+        # Structure the log
+        # We use a JSON object serialized to string so it can be parsed later
+        audit_record = {
+            "type": "AUDIT_SIGNAL",
+            "timestamp": timestamp,
+            "pair": pair,
+            "side": side,
+            "reason": reason,
+            "snapshot": snapshot or {},
+        }
+
+        # Log as INFO
+        # We use a specific prefix to easily grep or parse later
+        # Freqtrade logs format is usually "timestamp - name - level - message"
+        # So "AUDIT_SIGNAL | {json}"
+        logger.info(f"AUDIT_SIGNAL | {json.dumps(audit_record)}")
+
+    def assert_pair_in_whitelist(self, pair: str) -> bool:
         """
-        Assert pair is in current whitelist.
+        Checks if pair is in the current whitelist.
+        Returns True if safe, False (or raises) if not.
         """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
+        # Access DataProvider
+        # self.dp is available in IStrategy
+        if hasattr(self, "dp") and self.dp:
+            whitelist = self.dp.current_whitelist()
+            if pair not in whitelist:
+                msg = f"Security Violation: Pair {pair} is not in whitelist!"
+                logger.error(msg)
                 return False
         return True
 
     def normalize_pair(self, pair: str) -> str:
-        """
-        Normalize pair to uppercase.
-        """
-        return pair.upper()
+        # Just ensure uppercase and no whitespace
+        return pair.upper().strip()
