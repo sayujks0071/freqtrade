@@ -57,7 +57,9 @@ def detect_regime(df):
     ema200 = last_row["ema200"]
     adx = last_row["adx"]
 
-    logger.info(f"Analysis for {last_row['date']}: Close={close:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}")
+    logger.info(
+        f"Analysis for {last_row['date']}: Close={close:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}"
+    )
 
     # Logic
     if adx < 20:
@@ -76,7 +78,9 @@ def detect_regime(df):
 def update_config(strategy_name, allow_short):
     """Update config_production.json."""
     # Use parents[1] to avoid potential issues with .parent.parent in tests or odd environments
-    config_path = Path(__file__).resolve().parents[1] / "user_data/configs/config_production.json"
+    config_path = (
+        Path(__file__).resolve().parents[1] / "user_data/configs/config_production.json"
+    )
     if not config_path.exists():
         logger.error(f"Config not found at {config_path}")
         sys.exit(1)
@@ -93,7 +97,9 @@ def update_config(strategy_name, allow_short):
         with config_path.open("w") as f:
             json.dump(config, f, indent=4)
 
-        logger.info(f"Updated config with strategy={strategy_name}, unidirectional_only={not allow_short}")
+        logger.info(
+            f"Updated config with strategy={strategy_name}, unidirectional_only={not allow_short}"
+        )
 
     except Exception as e:
         logger.error(f"Error updating config: {e}")
@@ -104,7 +110,9 @@ def log_decision(regime, strategy):
     """Log decision to regime_log.md."""
     log_path = Path(__file__).resolve().parents[1] / "regime_log.md"
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d %H:%M:%S UTC"
+    )  # noqa: UP017
     message = f"| {timestamp} | {regime} | Switched to {strategy} |"
 
     # Create header if missing
