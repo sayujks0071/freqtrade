@@ -309,9 +309,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", action="store_true", help="Vendor top strategies")
     args = parser.parse_args()
 

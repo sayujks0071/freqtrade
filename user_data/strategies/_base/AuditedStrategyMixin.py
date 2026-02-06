@@ -31,7 +31,7 @@ class AuditedStrategyMixin:
             "pair": pair,
             "side": side,
             "reason": reason,
-            "snapshot": snapshot or {}
+            "snapshot": snapshot or {},
         }
 
         # Log as INFO
@@ -47,7 +47,7 @@ class AuditedStrategyMixin:
         """
         # Access DataProvider
         # self.dp is available in IStrategy
-        if hasattr(self, 'dp') and self.dp:
+        if hasattr(self, "dp") and self.dp:
             whitelist = self.dp.current_whitelist()
             if pair not in whitelist:
                 msg = f"Security Violation: Pair {pair} is not in whitelist!"
