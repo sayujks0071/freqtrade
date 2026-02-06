@@ -1,0 +1,66 @@
+name: Regime Switcher
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"  # Every Monday at midnight
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  switch_regime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache TA-Lib
+        uses: actions/cache@v4
+        with:
+          path: /usr/local
+          key: ${{ runner.os }}-talib
+
+      - name: Install TA-Lib
+        run: |
+          if [ ! -f /usr/local/lib/libta_lib.so ]; then
+            wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+            tar -xzf ta-lib-0.4.0-src.tar.gz
+            cd ta-lib/
+            ./configure --prefix=/usr/local
+            make
+            sudo make install
+            cd ..
+          else
+            echo "TA-Lib already installed"
+          fi
+          # Ensure ldconfig knows about the new library
+          sudo ldconfig
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run Regime Switcher
+        run: python3 scripts/regime_switcher.py
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "Regime Switcher Bot"
+          git config --global user.email "regime-switcher@example.com"
+          git add user_data/configs/config_production.json regime_log.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update regime strategy"
+            git push origin HEAD:main
+          fi
