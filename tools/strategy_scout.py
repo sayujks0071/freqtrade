@@ -52,7 +52,10 @@ class StrategyScout:
                 if remaining < RATE_LIMIT_BUFFER:
                     # Use datetime.UTC if available (Python 3.11+)
                     # Since we target modern envs in CI, we use datetime.UTC
-                    reset_time = datetime.datetime.fromtimestamp(reset, tz=datetime.timezone.utc)  # noqa: UP017
+                    reset_time = datetime.datetime.fromtimestamp(
+                        reset,
+                        tz=datetime.timezone.utc,  # noqa: UP017
+                    )
                     print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
