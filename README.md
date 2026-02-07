@@ -35,7 +35,7 @@ This repository contains a production-ready Freqtrade configuration for Delta Ex
 ## Daily Workflow
 
 ### Market Refresh
-The workflow `.github/workflows/delta-markets-refresh.yml` runs daily at 06:30 IST.
+The workflow `.github/workflows/delta-markets-refresh.yml` runs daily at 06:30 Indian Standard Time.
 It:
 1. Fetches latest markets from Delta.
 2. Validates schema and drifts (prevents delisted pairs).

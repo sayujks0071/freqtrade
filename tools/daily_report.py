@@ -5,7 +5,6 @@ Connects to Freqtrade SQLite database and generates a markdown summary.
 """
 
 import argparse
-import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -58,7 +57,7 @@ def generate_report(db_path, days, out_path):
     # Analyze
     total_trades = len(trades)
     winning_trades = [t for t in trades if t["close_profit"] > 0]
-    losing_trades = [t for t in trades if t["close_profit"] <= 0]
+    # losing_trades = [t for t in trades if t["close_profit"] <= 0]
 
     win_rate = (len(winning_trades) / total_trades * 100) if total_trades > 0 else 0.0
     total_profit_abs = sum(t["close_profit_abs"] for t in trades if t["close_profit_abs"])
@@ -112,12 +111,11 @@ def generate_report(db_path, days, out_path):
     for t in trades[:10]:
         p_pct = t["close_profit"] * 100 if t["close_profit"] else 0.0
         p_abs = t["close_profit_abs"] or 0.0
-        # Determine side (approximate based on logic or strategy, usually Long for spot/futures unless shorting)
-        # Assuming Long for simplicity or generic
+        # Determine side (approximate based on logic or strategy, usually Long for spot/futures)
         side = "Long/Short"
         date_str = str(t["close_date"]).split(".")[0]
         report.append(
-            f"| {date_str} | {t['pair']} | {side} | {p_pct:.2f}% | {p_abs:.2f} | {t['exit_reason']} |"
+            f"| {date_str} | {t['pair']} | {side} | {p_pct:.2f}% | {p_abs:.2f} | {t['exit_reason']} |"  # noqa: E501
         )
 
     content = "\n".join(report)

@@ -1,19 +1,11 @@
 from datetime import datetime
-from typing import ClassVar
+from typing import Any
 
 import pandas as pd
 import pandas_ta as ta
 
 from freqtrade.strategy import IStrategy
 from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
-
-
-try:
-    # Use fallback if running outside freqtrade context (e.g. tests)
-    from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
-except ImportError:
-    # Fallback if running outside freqtrade context (e.g. tests)
-    from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -28,7 +20,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     Repainting: No (closed candle only)
     """
 
-    minimal_roi: ClassVar[dict] = {"60": 0.01, "30": 0.02, "0": 0.04}
+    minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
 
     stoploss = -0.10
     timeframe = "1h"
@@ -43,7 +35,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_rate: float,
         proposed_leverage: float,
         max_leverage: float,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> float:
@@ -100,7 +92,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -118,7 +110,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def confirm_trade_exit(
         self,
         pair: str,
-        trade: object,
+        trade: Any,
         order_type: str,
         amount: float,
         rate: float,

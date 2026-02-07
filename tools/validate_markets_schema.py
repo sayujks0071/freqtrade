@@ -124,8 +124,8 @@ def check_drift(current_symbols, prev_whitelist_path, max_ratio):
                 # (unlikely for simple JSON list)
                 # If using standard Freqtrade whitelist file, it's a list.
                 pass
-    except Exception as e:
-        return [f"Failed to load previous whitelist: {e}"], []
+    except Exception as e_load:
+        return [f"Failed to load previous whitelist: {e_load}"], []
 
     if not prev_whitelist:
         return [], ["Previous whitelist empty."]
@@ -191,8 +191,8 @@ def main():  # noqa: C901
         try:
             with args.out_report.open("w") as f:
                 f.write("\n\n".join(report))
-        except Exception as e:
-            logger.error(f"Failed to write report: {e}")
+        except Exception as e_write:
+            logger.error(f"Failed to write report: {e_write}")
 
     if all_errors:
         logger.error("Validation FAILED.")
@@ -241,8 +241,8 @@ def main():  # noqa: C901
                     json.dump(whitelist, f, indent=4)
                 logger.info(f"Whitelist written to {args.out_whitelist} ({len(whitelist)} pairs)")
 
-            except Exception as e:
-                logger.error(f"Failed to generate whitelist: {e}")
+            except Exception as e_gen:
+                logger.error(f"Failed to generate whitelist: {e_gen}")
                 # We don't necessarily fail validation if whitelist gen fails, but let's be strict
                 sys.exit(2)
 

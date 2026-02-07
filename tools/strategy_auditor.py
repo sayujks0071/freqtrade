@@ -155,7 +155,6 @@ def audit_strategy(filepath, args):
             # But ensures they are aware of lookback requirement
             pass  # Warn?
 
-
     if errors:
         logger.error(f"Audit FAILED for {filepath}:")
         for err in errors:
