@@ -1,6 +1,0 @@
-#!/bin/bash
-if [ "$1" == "list-markets" ]; then
-    cat dummy_markets.json 2>/dev/null || echo '[]'
-else
-    echo "Mock freqtrade called with $@"
-fi
