@@ -53,9 +53,7 @@ class StrategyScout:
                     # Use datetime.UTC if available (Python 3.11+)
                     # Since we target modern envs in CI, we use datetime.UTC
                     reset_time = datetime.datetime.fromtimestamp(reset, tz=datetime.timezone.utc)  # noqa: UP017
-                    print(
-                        f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
-                    )
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
         except Exception as e:
@@ -213,10 +211,55 @@ class StrategyScout:
                 print(f"Error checking path {path}: {e}")
         return strategies, found_path
 
+    def _inspect_repo(self, repo):
+        """Inspect a single repository."""
+        full_name = repo["full_name"]
+        print(f"Inspecting {full_name}...")
+
+        strategies, found_path = self._find_strategy_files(full_name)
+
+        repo["strategy_count"] = len(strategies)
+        repo["strategy_path"] = found_path
+
+        if strategies:
+            # Bonus for having strategies
+            repo["scout_score"] += min(len(strategies), 5) * 1
+
+            # Check the first strategy file for content
+            strat_file = strategies[0]
+            download_url = strat_file.get("download_url")
+
+            if download_url:
+                try:
+                    content_resp = requests.get(download_url, timeout=TIMEOUT)
+                    if content_resp.status_code == 200:
+                        content = content_resp.text
+
+                        # Content Heuristics
+                        if "stoploss" in content:
+                            repo["scout_score"] += 2
+                            repo["scout_notes"].append("Has stoploss")
+                        if "minimal_roi" in content:
+                            repo["scout_score"] += 2
+                            repo["scout_notes"].append("Has ROI")
+                        if "populate_indicators" in content:
+                            repo["scout_score"] += 2
+                        if "can_short" in content:
+                            repo["scout_notes"].append("Futures/Shorts mentioned")
+
+                        # Negative heuristics
+                        if "martingale" in content.lower():
+                            repo["scout_score"] -= 10
+                            repo["scout_notes"].append("Martingale detected (Risk!)")
+                except Exception as e:
+                    print(f"Failed to read file {strat_file['name']}: {e}")
+        else:
+            # No strategies found, penalize
+            repo["scout_score"] -= 5
+
     def deep_inspect(self, limit=15):
         """Deeply inspect top candidates to check for strategy files and content."""
         print(f"Deep inspecting top {limit} candidates...")
-        inspected_count = 0
 
         # Only inspect the top candidates to save API calls
         inspection_candidates = self.candidates[:limit]
@@ -227,51 +270,8 @@ class StrategyScout:
                 print("Rate limit exhausted, stopping inspection.")
                 break
 
-            full_name = repo["full_name"]
-            print(f"Inspecting {full_name}...")
+            self._inspect_repo(repo)
 
-            strategies, found_path = self._find_strategy_files(full_name)
-
-            repo["strategy_count"] = len(strategies)
-            repo["strategy_path"] = found_path
-
-            if strategies:
-                # Bonus for having strategies
-                repo["scout_score"] += min(len(strategies), 5) * 1
-
-                # Check the first strategy file for content
-                strat_file = strategies[0]
-                download_url = strat_file.get("download_url")
-
-                if download_url:
-                    try:
-                        content_resp = requests.get(download_url, timeout=TIMEOUT)
-                        if content_resp.status_code == 200:
-                            content = content_resp.text
-
-                            # Content Heuristics
-                            if "stoploss" in content:
-                                repo["scout_score"] += 2
-                                repo["scout_notes"].append("Has stoploss")
-                            if "minimal_roi" in content:
-                                repo["scout_score"] += 2
-                                repo["scout_notes"].append("Has ROI")
-                            if "populate_indicators" in content:
-                                repo["scout_score"] += 2
-                            if "can_short" in content:
-                                repo["scout_notes"].append("Futures/Shorts mentioned")
-
-                            # Negative heuristics
-                            if "martingale" in content.lower():
-                                repo["scout_score"] -= 10
-                                repo["scout_notes"].append("Martingale detected (Risk!)")
-                    except Exception as e:
-                        print(f"Failed to read file {strat_file['name']}: {e}")
-            else:
-                # No strategies found, penalize
-                repo["scout_score"] -= 5
-
-            inspected_count += 1
             # Be polite
             time.sleep(0.5)
 
@@ -324,9 +324,7 @@ class StrategyScout:
                     adoption.append("Seems to support futures.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append(
-                    "Verify `stoploss` and `leverage` settings for Delta futures."
-                )
+                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
@@ -398,9 +396,7 @@ class StrategyScout:
                     f.write(f"# License Note for {repo_name}\n\n")
                     f.write(f"Source: {repo['html_url']}\n")
                     f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                    f.write(
-                        "Please check the original repository for full license details.\n"
-                    )
+                    f.write("Please check the original repository for full license details.\n")
                     license_info = repo.get("license") or {}
                     if license_info.get("url"):
                         f.write(f"License URL: {license_info['url']}\n")
@@ -426,9 +422,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
