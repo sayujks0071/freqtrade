@@ -104,7 +104,7 @@ def validate_volume_limits(m: dict[str, Any], symbol: str) -> list[str]:
             if isinstance(min_amt, (int, float)) and min_amt < 0:
                  errs.append(f"{symbol}: Negative min amount {min_amt}")
 
-            # Use STRICT_VOLUME to potentially fail on tiny limits (placehoder logic)
+            # Use STRICT_VOLUME to potentially fail on tiny limits (placeholder logic)
             if STRICT_VOLUME and isinstance(min_amt, (int, float)) and min_amt == 0:
                  # Just a warning or info for now, as 0 might be valid for some
                  pass
@@ -217,6 +217,38 @@ def check_format_changes(prev_symbols: set[str], current_symbols: set[str]) -> l
     return format_changes
 
 
+def load_previous_whitelist(path: str | None) -> set[str]:
+    """Helper to load previous whitelist symbols."""
+    if not path:
+        return set()
+
+    path_obj = Path(path)
+    if not path_obj.exists():
+        print(f"Previous whitelist {path} not found. Skipping drift check.")
+        return set()
+
+    try:
+        with path_obj.open() as f:
+            prev_data = json.load(f)
+    except Exception as e:
+        print(f"Failed to read previous whitelist: {e}")
+        return set()
+
+    prev_symbols = set()
+    if isinstance(prev_data, list):
+        prev_symbols = set(prev_data)
+    elif isinstance(prev_data, dict):
+        if "pair_whitelist" in prev_data:
+            prev_symbols = set(prev_data["pair_whitelist"])
+        elif "pairs" in prev_data:
+            prev_symbols = set(prev_data["pairs"])
+        elif "markets" in prev_data:
+             for m in prev_data["markets"]:
+                 if isinstance(m, dict) and "symbol" in m:
+                     prev_symbols.add(m["symbol"])
+    return prev_symbols
+
+
 def validate_drift(
     current_symbols: set[str],
     prev_whitelist_path: str | None
@@ -225,41 +257,14 @@ def validate_drift(
     Checks for dangerous drift (large removal ratio, format changes).
     Returns (errors, drift_stats)
     """
-    if not prev_whitelist_path:
-        return [], ["No previous whitelist provided. Skipping drift check."]
-
-    prev_path_obj = Path(prev_whitelist_path)
-    if not prev_path_obj.exists():
-        return [], [f"Previous whitelist {prev_whitelist_path} not found. Skipping drift check."]
-
-    try:
-        with prev_path_obj.open() as f:
-            prev_data = json.load(f)
-    except Exception as e:
-        return [f"Failed to read previous whitelist: {e}"], []
-
-    prev_symbols = set()
-    if isinstance(prev_data, list):
-        prev_symbols = set(prev_data)
-    elif isinstance(prev_data, dict):
-        # Extract from typical freqtrade config or whitelist file
-        if "pair_whitelist" in prev_data:
-            prev_symbols = set(prev_data["pair_whitelist"])
-        elif "pairs" in prev_data:
-            prev_symbols = set(prev_data["pairs"])
-        # Some simple list-markets dump is list of dicts
-        # If we passed a previous market dump instead of whitelist:
-        elif "markets" in prev_data:
-             for m in prev_data["markets"]:
-                 if isinstance(m, dict) and "symbol" in m:
-                     prev_symbols.add(m["symbol"])
+    prev_symbols = load_previous_whitelist(prev_whitelist_path)
 
     if not prev_symbols:
-        # Maybe it was just list of strings but wrapped in unexpected way?
-        pass
-
-    if not prev_symbols:
-        return [], ["Previous whitelist empty or format not recognized. Skipping drift check."]
+         # If load returned empty, we already printed warnings inside load function or it was empty.
+         # We'll just return informational stats if we can't do drift check.
+         if prev_whitelist_path:
+             return [], ["Previous whitelist loaded but empty or invalid format. Skipping drift check."]
+         return [], ["No previous whitelist provided. Skipping drift check."]
 
     removed = prev_symbols - current_symbols
     added = current_symbols - prev_symbols
@@ -314,7 +319,7 @@ def main() -> None:
 
     report_lines = [
         "# Markets Schema Validation Report",
-        f"Date: {datetime.now(timezone.utc).isoformat()}",
+        f"Date: {datetime.now(timezone.utc).isoformat()}", # noqa: UP017
         f"File: {args.markets}"
     ]
 
