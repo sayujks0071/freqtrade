@@ -44,7 +44,7 @@ def parse_optimization_logs(days=7):
     attempts = []
 
     try:
-        with LOG_FILE.open('r') as f:
+        with LOG_FILE.open("r") as f:
             for line in f:
                 # Parse timestamp: 2026-02-07 16:39:45,513
                 # We can just take the first 19 chars
