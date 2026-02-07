@@ -164,7 +164,7 @@ def log_regime(regime, strategy):
     root = get_project_root()
     log_path = root / "regime_log.md"
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017
     log_entry = f"| {timestamp} | {regime} | {strategy} |\n"
 
     # Create header if file doesn't exist
