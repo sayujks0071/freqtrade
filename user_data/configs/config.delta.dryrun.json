@@ -100,7 +100,8 @@
         {
             "method": "DailyLossLimit",
             "max_daily_loss": 0.05,
-            "max_daily_loss_abs": 100
+            "max_daily_loss_abs": 100,
+            "stop_duration_candles": 24
         }
     ]
 }

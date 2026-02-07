@@ -13,17 +13,21 @@ on:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0b93645e9fea7318eca12b30c52014ac82a88e6d # v5.3.0
         with:
           python-version: '3.10'
 
       - name: Install dependencies
         run: |
-          pip install pandas freqtrade types-requests requests
+          pip install pandas requests
           # Install minimal dependencies for linting
 
       - name: Compile Check
