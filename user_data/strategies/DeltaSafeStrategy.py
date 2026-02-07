@@ -20,7 +20,7 @@ from freqtrade.strategy import IStrategy
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -148,7 +148,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time,
         **kwargs,
     ) -> bool:
@@ -165,7 +165,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         self.log_signal(
             pair=pair,
             side=trade.trade_direction,
-            reason=f"Exit Signal {sell_reason}",
+            reason=f"Exit Signal {exit_reason}",
             ts_utc=current_time,
             indicators_snapshot=snapshot,
         )

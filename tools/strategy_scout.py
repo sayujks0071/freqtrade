@@ -47,7 +47,7 @@ class StrategyScout:
                 reset = core["reset"]
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
-                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.timezone.utc)
+                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.UTC)
                     print(
                         f"WARNING: Rate limit low. Resets at {reset_time}. Halting or degrading."
                     )
@@ -132,8 +132,10 @@ class StrategyScout:
 
             # 2. Recency
             if pushed_at:
-                pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-                age_days = (datetime.datetime.now(datetime.timezone.utc) - pushed_dt).days
+                pushed_dt = datetime.datetime.strptime(
+                    pushed_at, "%Y-%m-%dT%H:%M:%SZ"
+                ).replace(tzinfo=datetime.UTC)
+                age_days = (datetime.datetime.now(datetime.UTC) - pushed_dt).days
                 if age_days < 30:
                     score += 5
                 elif age_days < 90:
@@ -153,8 +155,10 @@ class StrategyScout:
             repo["license_name"] = license_name
 
             if pushed_at:
-                dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-                repo["age_days"] = (datetime.datetime.now(datetime.timezone.utc) - dt).days
+                dt = datetime.datetime.strptime(
+                    pushed_at, "%Y-%m-%dT%H:%M:%SZ"
+                ).replace(tzinfo=datetime.UTC)
+                repo["age_days"] = (datetime.datetime.now(datetime.UTC) - dt).days
             else:
                 repo["age_days"] = 9999
 
@@ -218,7 +222,7 @@ class StrategyScout:
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
-    def deep_inspect(self, limit=15):  # noqa: C901
+    def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -315,7 +319,7 @@ class StrategyScout:
         print(f"Report written to {filename}")
         return top_10
 
-    def vendor_strategies(self, candidates, top_n=5):  # noqa: C901
+    def vendor_strategies(self, candidates, top_n=5):
         print(f"Vendoring top {top_n} strategies...")
         Path("user_data/strategies_vendor").mkdir(parents=True, exist_ok=True)
         vendor_base_dir = Path("user_data/strategies_vendor")

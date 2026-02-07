@@ -36,10 +36,7 @@ class AuditedStrategyMixin:
         snapshot_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
         # Format: AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {snapshot_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot_str}"
         logger.info(msg)
 
     def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:
@@ -57,10 +54,7 @@ class AuditedStrategyMixin:
         """
         pair = pair.upper()
         if "/" not in pair:
-            msg = (
-                f"AUDIT_ERROR | Pair {pair} does not contain '/', "
-                "invalid format for Freqtrade."
-            )
+            msg = f"AUDIT_ERROR | Pair {pair} does not contain '/', invalid format for Freqtrade."
             logger.error(msg)
             raise ValueError(msg)
         return pair

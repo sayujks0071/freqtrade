@@ -138,14 +138,14 @@ def audit_file(filepath, fix=False):  # noqa: C901
     path = Path(filepath)
     try:
         source = path.read_text(encoding="utf-8")
-    except Exception as e:
-        print(f"Error reading {filepath}: {e}")
+    except Exception as e_read:
+        print(f"Error reading {filepath}: {e_read}")
         return False
 
     try:
         tree = ast.parse(source)
-    except SyntaxError as e:
-        print(f"Syntax Error in {filepath}: {e}")
+    except SyntaxError as e_syntax:
+        print(f"Syntax Error in {filepath}: {e_syntax}")
         return False
 
     errors = []
