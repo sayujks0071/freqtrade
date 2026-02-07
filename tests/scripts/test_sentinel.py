@@ -56,9 +56,10 @@ class TestSentinel(unittest.TestCase):
         ]
         self.assertEqual(len(emergency_calls), 0)
 
+    @patch("sentinel.time.sleep")
     @patch("sentinel.requests.post")
     @patch("sentinel.requests.get")
-    def test_drawdown_trigger(self, mock_get, mock_post):
+    def test_drawdown_trigger(self, mock_get, mock_post, mock_sleep):
         # Setup
         self.sentinel.token = "fake_token"
 
@@ -105,10 +106,14 @@ class TestSentinel(unittest.TestCase):
             or any("OPENCLAW" in str(c) for c in mock_post.call_args_list)
         )
 
+        # Verify sleep was called (to avoid race condition before stopping)
+        mock_sleep.assert_called()
+
+    @patch("sentinel.time.sleep")
     @patch("sentinel.requests.post")
     @patch("sentinel.requests.get")
     @patch("sentinel.ccxt.kucoin")
-    def test_btc_drop_trigger(self, mock_kucoin, mock_get, mock_post):
+    def test_btc_drop_trigger(self, mock_kucoin, mock_get, mock_post, mock_sleep):
         # Setup
         self.sentinel.token = "fake_token"
 
@@ -146,6 +151,9 @@ class TestSentinel(unittest.TestCase):
         post_urls = [c[0][0] for c in mock_post.call_args_list]
         self.assertTrue(any("stopbuy" in url for url in post_urls))
         self.assertTrue(any("stop" in url for url in post_urls))
+
+        # Verify sleep was called
+        mock_sleep.assert_called()
 
 
 if __name__ == "__main__":

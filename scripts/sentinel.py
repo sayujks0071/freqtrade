@@ -124,7 +124,7 @@ def get_open_trades(token):
 class Sentinel:
     def __init__(self):
         self.balance_history = []  # List of (timestamp, balance)
-        self.btc_history = []  # List of (timestamp, price)
+        self.btc_history = []      # List of (timestamp, price)
         self.token = None
 
     def refresh_token(self):
@@ -139,7 +139,9 @@ class Sentinel:
 
         # Prune history older than 1 hour
         one_hour_ago = now - timedelta(hours=1)
-        self.balance_history = [(t, b) for t, b in self.balance_history if t >= one_hour_ago]
+        self.balance_history = [
+            (t, b) for t, b in self.balance_history if t >= one_hour_ago
+        ]
 
         if not self.balance_history:
             return False
@@ -164,7 +166,9 @@ class Sentinel:
 
         # Prune history older than 4 hours
         four_hours_ago = now - timedelta(hours=4)
-        self.btc_history = [(t, p) for t, p in self.btc_history if t >= four_hours_ago]
+        self.btc_history = [
+            (t, p) for t, p in self.btc_history if t >= four_hours_ago
+        ]
 
         if not self.btc_history:
             return False
@@ -184,7 +188,9 @@ class Sentinel:
     def _send_alert(self, reason):
         """Send alert via OpenClaw."""
         try:
-            requests.post(OPENCLAW_URL, json={"message": f"CRITICAL ALERT: {reason}"}, timeout=10)
+            requests.post(
+                OPENCLAW_URL, json={"message": f"CRITICAL ALERT: {reason}"}, timeout=10
+            )
         except Exception as e:
             logger.error(f"Failed to send alert: {e}")
 
@@ -200,7 +206,9 @@ class Sentinel:
         """Force exit all open trades."""
         open_trades = get_open_trades(self.token)
         if open_trades:
-            logger.info(f"Found {len(open_trades)} open trades. Attempting to force exit...")
+            logger.info(
+                f"Found {len(open_trades)} open trades. Attempting to force exit..."
+            )
             for trade in open_trades:
                 trade_id = trade.get("trade_id")
                 if trade_id:
@@ -213,7 +221,9 @@ class Sentinel:
                         )
                         logger.info(f"Executed /forceexit for trade {trade_id}")
                     except Exception as e:
-                        logger.error(f"Failed to execute /forceexit for trade {trade_id}: {e}")
+                        logger.error(
+                            f"Failed to execute /forceexit for trade {trade_id}: {e}"
+                        )
         else:
             logger.info("No open trades found to liquidate.")
 
