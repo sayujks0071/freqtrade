@@ -102,12 +102,12 @@ def validate_volume_limits(m: dict[str, Any], symbol: str) -> list[str]:
         if isinstance(amt, dict):
             min_amt = amt.get("min")
             if isinstance(min_amt, (int, float)) and min_amt < 0:
-                 errs.append(f"{symbol}: Negative min amount {min_amt}")
+                errs.append(f"{symbol}: Negative min amount {min_amt}")
 
             # Use STRICT_VOLUME to potentially fail on tiny limits (placeholder logic)
             if STRICT_VOLUME and isinstance(min_amt, (int, float)) and min_amt == 0:
-                 # Just a warning or info for now, as 0 might be valid for some
-                 pass
+                # Just a warning or info for now, as 0 might be valid for some
+                pass
 
     return errs
 
@@ -151,13 +151,13 @@ def validate_markets(markets: list[dict[str, Any]]) -> tuple[set[str], list[str]
             or m.get("linear")
             or m.get("inverse")
         ):
-             # Maybe it's a spot market in the dump?
-             # If filter mode is strict, we might care, but for schema validation
-             # we mostly care that fields are correct.
-             # But if we are validating "markets schema for whitelist", we want to ensure
-             # we are getting what we expect.
-             # Warnings for now.
-             warnings.append(f"Item {i} ({symbol}): Unclear type (not explicitly future/swap)")
+            # Maybe it's a spot market in the dump?
+            # If filter mode is strict, we might care, but for schema validation
+            # we mostly care that fields are correct.
+            # But if we are validating "markets schema for whitelist", we want to ensure
+            # we are getting what we expect.
+            # Warnings for now.
+            warnings.append(f"Item {i} ({symbol}): Unclear type (not explicitly future/swap)")
 
         # 4. Symbol format
         fmt_errs = validate_symbol_format(symbol)
@@ -184,7 +184,7 @@ def validate_environment_sanity(markets: list[dict[str, Any]], env: str) -> list
     """
     Checks if the data looks like it belongs to the environment.
     """
-    warnings = []
+    warnings: list[str] = []
     # If data is a dict and has 'exchange_id' or similar?
     # Freqtrade dump usually doesn't have top level metadata.
     # But we can check if markets have 'info' with recognizable URLs or IDs.
@@ -243,15 +243,14 @@ def load_previous_whitelist(path: str | None) -> set[str]:
         elif "pairs" in prev_data:
             prev_symbols = set(prev_data["pairs"])
         elif "markets" in prev_data:
-             for m in prev_data["markets"]:
-                 if isinstance(m, dict) and "symbol" in m:
-                     prev_symbols.add(m["symbol"])
+            for m in prev_data["markets"]:
+                if isinstance(m, dict) and "symbol" in m:
+                    prev_symbols.add(m["symbol"])
     return prev_symbols
 
 
 def validate_drift(
-    current_symbols: set[str],
-    prev_whitelist_path: str | None
+    current_symbols: set[str], prev_whitelist_path: str | None
 ) -> tuple[list[str], list[str]]:
     """
     Checks for dangerous drift (large removal ratio, format changes).
@@ -260,11 +259,13 @@ def validate_drift(
     prev_symbols = load_previous_whitelist(prev_whitelist_path)
 
     if not prev_symbols:
-         # If load returned empty, we already printed warnings inside load function or it was empty.
-         # We'll just return informational stats if we can't do drift check.
-         if prev_whitelist_path:
-             return [], ["Previous whitelist loaded but empty or invalid format. Skipping drift check."]
-         return [], ["No previous whitelist provided. Skipping drift check."]
+        # If load returned empty, we already printed warnings inside load function or it was empty.
+        # We'll just return informational stats if we can't do drift check.
+        if prev_whitelist_path:
+            return [], [
+                "Previous whitelist loaded but empty or invalid format. Skipping drift check."
+            ]
+        return [], ["No previous whitelist provided. Skipping drift check."]
 
     removed = prev_symbols - current_symbols
     added = current_symbols - prev_symbols
@@ -276,7 +277,7 @@ def validate_drift(
         f"Current Count: {len(current_symbols)}",
         f"Added: {len(added)}",
         f"Removed: {len(removed)}",
-        f"Removal Ratio: {removal_ratio:.2%}"
+        f"Removal Ratio: {removal_ratio:.2%}",
     ]
 
     errors = []
@@ -290,7 +291,7 @@ def validate_drift(
 
     if format_changes:
         errors.append("Format changes detected in existing pairs:")
-        errors.extend(format_changes[:10]) # limit output
+        errors.extend(format_changes[:10])  # limit output
         if len(format_changes) > 10:
             errors.append(f"...and {len(format_changes) - 10} more")
 
@@ -319,8 +320,8 @@ def main() -> None:
 
     report_lines = [
         "# Markets Schema Validation Report",
-        f"Date: {datetime.now(timezone.utc).isoformat()}", # noqa: UP017
-        f"File: {args.markets}"
+        f"Date: {datetime.now(timezone.utc).isoformat()}",  # noqa: UP017
+        f"File: {args.markets}",
     ]
 
     if schema_errors:
@@ -356,9 +357,9 @@ def main() -> None:
         sys.exit(2)
 
     if market_warnings:
-         report_lines.extend(["", "## Warnings"])
-         for w in market_warnings:
-             report_lines.append(f"- {w}")
+        report_lines.extend(["", "## Warnings"])
+        for w in market_warnings:
+            report_lines.append(f"- {w}")
 
     # Drift check
     print("Checking drift...")
