@@ -13,6 +13,15 @@
         "entry": 10,
         "exit": 30
     },
+    "order_types": {
+        "entry": "limit",
+        "exit": "limit",
+        "emergency_exit": "market",
+        "force_exit": "market",
+        "force_entry": "market",
+        "stoploss": "market",
+        "stoploss_on_exchange": false
+    },
     "entry_pricing": {
         "price_side": "same",
         "use_order_book": true,

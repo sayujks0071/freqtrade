@@ -146,6 +146,11 @@ def main():
     elif args.path.is_dir():
         failed = 0
         for p in args.path.rglob("*.py"):
+            # Skip files in directories starting with _ (e.g. _base/Mixin.py) or files starting with _
+            if any(part.startswith("_") for part in p.parts):
+                logger.info(f"Skipping {p} (internal/mixin)")
+                continue
+
             if not audit_strategy(p, args):
                 failed += 1
         sys.exit(1 if failed > 0 else 0)

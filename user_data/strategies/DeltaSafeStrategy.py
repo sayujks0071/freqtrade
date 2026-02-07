@@ -35,6 +35,14 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     process_only_new_candles = True
     startup_candle_count: int = 30
 
+    def leverage(self, pair: str, current_time: datetime, current_rate: float,
+                 proposed_leverage: float, max_leverage: float, entry_tag: str,
+                 side: str, **kwargs) -> float:
+        """
+        Custom leverage method to enforce 2x cap as per risk profile.
+        """
+        return 2.0
+
     def populate_indicators(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
         dataframe['rsi'] = ta.RSI(dataframe)
         dataframe['sma_short'] = ta.SMA(dataframe, timeperiod=10)

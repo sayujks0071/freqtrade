@@ -29,6 +29,7 @@ services:
     command: >
       trade
       --logfile /freqtrade/user_data/logs/freqtrade.log
+      --log-format json
       --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
       --config /freqtrade/user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
     healthcheck:
