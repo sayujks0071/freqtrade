@@ -6,9 +6,10 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+
 # Mock talib before importing regime_switcher if not available
 try:
-    import talib.abstract
+    import talib.abstract  # noqa: F401
 except ImportError:
     sys.modules["talib"] = MagicMock()
     sys.modules["talib.abstract"] = MagicMock()
@@ -26,7 +27,7 @@ def mock_config(tmp_path):
     config_file = config_dir / "config_production.json"
 
     initial_config = {"strategy": "OldStrategy"}
-    with open(config_file, "w") as f:
+    with config_file.open("w") as f:
         json.dump(initial_config, f)
 
     return config_file
@@ -42,15 +43,19 @@ def mock_project_root(tmp_path):
     with patch("scripts.regime_switcher.get_project_root", return_value=tmp_path):
         yield tmp_path
 
+
 def create_dummy_df(length=205, close_val=100):
-    return pd.DataFrame({
-        "timestamp": range(length),
-        "open": [100] * length,
-        "high": [105] * length,
-        "low": [95] * length,
-        "close": [close_val] * length,
-        "volume": [1000] * length
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": range(length),
+            "open": [100] * length,
+            "high": [105] * length,
+            "low": [95] * length,
+            "close": [close_val] * length,
+            "volume": [1000] * length,
+        }
+    )
+
 
 @patch("scripts.regime_switcher.ccxt.kucoin")
 @patch("scripts.regime_switcher.ta")
@@ -75,12 +80,12 @@ def test_regime_bull_market(mock_ta, mock_ccxt, mock_project_root, mock_config, 
     rs.main()
 
     # Verify Config Update
-    with open(mock_config, "r") as f:
+    with mock_config.open() as f:
         config = json.load(f)
     assert config["strategy"] == "MomentumVolumeTrend"
 
     # Verify Log
-    with open(mock_log, "r") as f:
+    with mock_log.open() as f:
         content = f.read()
     assert "Bull Market" in content
     assert "MomentumVolumeTrend" in content
@@ -106,7 +111,7 @@ def test_regime_sideways_market(mock_ta, mock_ccxt, mock_project_root, mock_conf
     rs.main()
 
     # Verify Config
-    with open(mock_config, "r") as f:
+    with mock_config.open() as f:
         config = json.load(f)
     assert config["strategy"] == "BollingerRSI"
 
@@ -134,6 +139,6 @@ def test_regime_crash_market(mock_ta, mock_ccxt, mock_project_root, mock_config,
     rs.main()
 
     # Verify Config
-    with open(mock_config, "r") as f:
+    with mock_config.open() as f:
         config = json.load(f)
     assert config["strategy"] == "VolatilityBreakout"

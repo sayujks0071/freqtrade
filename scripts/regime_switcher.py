@@ -8,12 +8,12 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
-import re
 from pathlib import Path
 
 import ccxt
 import pandas as pd
 import talib.abstract as ta
+
 
 # Setup logging
 logging.basicConfig(
@@ -34,9 +34,7 @@ def fetch_market_data(pair="BTC/USDT", timeframe="1d", limit=300):
     try:
         exchange = ccxt.kucoin()
         ohlcv = exchange.fetch_ohlcv(pair, timeframe, limit=limit)
-        df = pd.DataFrame(
-            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["date"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         return df
     except Exception as e:
@@ -104,11 +102,14 @@ def load_config_robust(path):
     """
     try:
         import rapidjson
-        with open(path, "r") as f:
-            return rapidjson.load(f, parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS)
+
+        with path.open() as f:
+            return rapidjson.load(
+                f, parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
+            )
     except ImportError:
         # Fallback to standard json
-        with open(path, "r") as f:
+        with path.open() as f:
             content = f.read()
 
         # We try to load as standard JSON.
@@ -118,9 +119,12 @@ def load_config_robust(path):
         try:
             return json.loads(content)
         except json.JSONDecodeError:
-            logger.warning("Failed to load config with standard JSON parser. "
-                           "If your config contains comments, please install 'python-rapidjson'.")
+            logger.warning(
+                "Failed to load config with standard JSON parser. "
+                "If your config contains comments, please install 'python-rapidjson'."
+            )
             raise
+
 
 def update_config(strategy_name):
     """
@@ -143,7 +147,7 @@ def update_config(strategy_name):
 
         config["strategy"] = strategy_name
 
-        with open(config_path, "w") as f:
+        with config_path.open("w") as f:
             json.dump(config, f, indent=4)
 
         logger.info(f"Updated config strategy to {strategy_name}")
@@ -165,11 +169,11 @@ def log_regime(regime, strategy):
 
     # Create header if file doesn't exist
     if not log_path.exists():
-        with open(log_path, "w") as f:
+        with log_path.open("w") as f:
             f.write("| Timestamp | Regime | Activated Strategy |\n")
             f.write("|---|---|---|\n")
 
-    with open(log_path, "a") as f:
+    with log_path.open("a") as f:
         f.write(log_entry)
 
     logger.info(f"Logged regime change: {regime} -> {strategy}")
