@@ -65,9 +65,9 @@ def read_backtest_result(filepath):
         with zipfile.ZipFile(filepath, "r") as z:
             json_files = [f for f in z.namelist() if f.endswith(".json")]
             target_file = None
-            for f in json_files:
-                if "backtest-result" in f:
-                    target_file = f
+            for fname in json_files:
+                if "backtest-result" in fname:
+                    target_file = fname
                     break
             if not target_file and json_files:
                 target_file = json_files[0]
@@ -103,17 +103,20 @@ def find_worst_strategy(backtest_data):
     return worst_strategy, min_sharpe, worst_stats
 
 
-def find_available_strategy():
+def find_available_strategies():
+    """Finds all available strategy files in the user_data/strategies directory."""
     files = list(STRATEGIES_DIR.glob("*.py"))
+    strategies = []
     for f in files:
         if f.stem != "__init__" and not f.stem.startswith("_"):
-            return f.stem
-    return None
+            strategies.append(f.stem)
+    return strategies
 
 
-def run_backtest_job(strategy_name):
+def run_backtest_job(strategy_name_or_list, extra_config=None):
+    """Runs a backtest job for a single strategy or a list of strategies."""
     timerange = get_timerange()
-    print(f"Running backtest for {strategy_name} over {timerange}...")
+
     cmd = [
         "freqtrade",
         "backtesting",
@@ -125,9 +128,18 @@ def run_backtest_job(strategy_name):
         "1h",
         "--cache",
         "none",
-        "--strategy",
-        strategy_name,
     ]
+
+    if extra_config:
+        cmd.extend(["--config", str(extra_config)])
+
+    if isinstance(strategy_name_or_list, list):
+        print(f"Running backtest for {len(strategy_name_or_list)} strategies over {timerange}...")
+        cmd.append("--strategy-list")
+        cmd.extend(strategy_name_or_list)
+    else:
+        print(f"Running backtest for {strategy_name_or_list} over {timerange}...")
+        cmd.extend(["--strategy", strategy_name_or_list])
 
     run_command(cmd, capture=True)
 
@@ -143,10 +155,7 @@ def check_git_status():
     Returns True if clean, False otherwise.
     """
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
@@ -166,10 +175,7 @@ def check_git_status():
 def get_current_branch():
     """Get the current git branch name."""
     result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
     )
     if result.returncode == 0:
         return result.stdout.strip()
@@ -195,16 +201,16 @@ def extract_hyperopt_params(output: str) -> dict:
             if line.strip() == "{":
                 try:
                     params = json.loads(json_str)
-                    if "params" in params:
-                        return params["params"]
-                    # Sometimes it returns the strategy config object directly
-                    return params
+                    # We want the full config object (containing minimal_roi, params, etc.)
+                    # Verify it has at least 'params' or 'minimal_roi' to be valid
+                    if "params" in params or "minimal_roi" in params:
+                        return params
                 except json.JSONDecodeError:
                     continue  # Keep looking if this wasn't valid JSON or not the right one
     return {}
 
 
-def main():
+def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -218,26 +224,21 @@ Examples:
 
   # Skip confirmation prompts:
   %(prog)s --yes
-        """
+        """,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run optimization without committing or pushing changes"
+        help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
         "--branch",
         type=str,
         default=None,
-        help=(
-            "Target branch for pushing changes "
-            "(default: create feature branch 'optimize-YYYYMMDD')"
-        )
+        help=("Target branch for pushing changes (default: main)"),
     )
     parser.add_argument(
-        "--yes", "-y",
-        action="store_true",
-        help="Skip confirmation prompts before pushing"
+        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
@@ -259,11 +260,11 @@ Examples:
 
     if not backtest_data:
         print("No valid baseline found. Running initial backtest...")
-        fallback_strategy = find_available_strategy()
-        if not fallback_strategy:
+        strategies = find_available_strategies()
+        if not strategies:
             print("No strategy file found.")
             sys.exit(1)
-        backtest_data = run_backtest_job(fallback_strategy)
+        backtest_data = run_backtest_job(strategies)
 
     if not backtest_data:
         print("Failed to produce backtest baseline.")
@@ -347,7 +348,7 @@ Examples:
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy)
+    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
@@ -390,42 +391,7 @@ Examples:
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
             # Determine target branch
-            if args.branch:
-                target_branch = args.branch
-            else:
-                target_branch = f"optimize-{datetime.now().strftime('%Y%m%d')}"
-
-            current_branch = get_current_branch()
-
-            # Create and switch to feature branch if not already on it
-            if current_branch != target_branch:
-                print(f"\nCreating feature branch: {target_branch}")
-                # Check if branch already exists
-                check_result = subprocess.run(
-                    ["git", "rev-parse", "--verify", target_branch],
-                    capture_output=True,
-                    text=True,
-                    check=False
-                )
-                if check_result.returncode == 0:
-                    # Branch exists, just switch to it
-                    print(f"Branch '{target_branch}' already exists, switching to it...")
-                    result = run_command(["git", "checkout", target_branch], capture=True)
-                else:
-                    # Branch doesn't exist, create it
-                    result = run_command(["git", "checkout", "-b", target_branch], capture=True)
-
-                if result.returncode != 0:
-                    print("Failed to create or switch to feature branch.")
-                    if result.stderr:
-                        print(f"Git error: {result.stderr}")
-                    print("Reverting changes...")
-                    if not created_new:
-                        shutil.move(backup_json, strategy_json)
-                    else:
-                        if strategy_json.exists():
-                            strategy_json.unlink()
-                    sys.exit(1)
+            target_branch = args.branch if args.branch else "main"
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
@@ -436,27 +402,30 @@ Examples:
                 print(f"\nReady to push changes to branch '{target_branch}'")
                 print("This will:")
                 print(f"  - Push optimized strategy parameters for {worst_strategy}")
-                print(f"  - Create/update remote branch: {target_branch}")
-                print("\nYou can then create a pull request to review and merge these changes.")
+                print(f"  - Update remote branch: {target_branch}")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ['y', 'yes']:
+                if response not in ["y", "yes"]:
                     print("Push cancelled. Changes are committed locally.")
-                    print(f"You can manually push later with: git push origin {target_branch}")
                     if backup_json.exists():
                         backup_json.unlink()
                     return
 
             print(f"\nPushing to {target_branch}...")
-            result = run_command(["git", "push", "origin", target_branch], capture=True)
+
+            push_cmd = ["git", "push", "origin"]
+            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+
+            result = run_command(push_cmd, capture=True)
 
             if result.returncode == 0:
                 print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
-                print("\nNext steps:")
-                print(f"  1. Create a pull request from '{target_branch}' to your main branch")
-                print("  2. Review the changes and test the optimized strategy")
-                print("  3. Merge the pull request after verification")
             else:
                 print(f"\nFailed to push to {target_branch}")
+                print(result.stderr)
                 print("Changes are committed locally. You can manually push later.")
 
         if backup_json.exists():
