@@ -38,9 +38,7 @@ def setup_args():
         default=0.25,
         help="Max ratio of removed pairs allowed",
     )
-    parser.add_argument(
-        "--strict-volume", action="store_true", help="Fail on low volume markets"
-    )
+    parser.add_argument("--strict-volume", action="store_true", help="Fail on low volume markets")
     parser.add_argument("--out-whitelist", type=Path, help="Path to write valid whitelist JSON")
     parser.add_argument(
         "--filter-mode",
@@ -196,8 +194,8 @@ def main():  # noqa: C901
 
     if all_errors:
         logger.error("Validation FAILED.")
-        for e in all_errors:
-            logger.error(e)
+        for err in all_errors:
+            logger.error(err)
         sys.exit(2)
     else:
         logger.info("Validation PASSED.")

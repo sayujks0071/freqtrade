@@ -1,11 +1,16 @@
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import pandas_ta as ta
 
 from freqtrade.strategy import IStrategy
-from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
+
+
+sys.path.append(str(Path(__file__).parent))
+from _base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
