@@ -107,7 +107,14 @@ This repository is configured as a production-ready crypto trading stack for Del
     ```bash
     ./scripts/update_markets_and_whitelist.sh
     ```
-    This fetches active markets, validates schema, and generates `user_data/pairlists/whitelist.delta.json`.
+    This fetches active markets, validates schema (drift, format, liquidity), and generates `user_data/pairlists/whitelist.delta.json`.
+    If validation fails, the whitelist is NOT updated.
+
+    **Validation Configuration** (in `.env`):
+    - `MIN_MARKETS` (default 20): Minimum active markets required.
+    - `MAX_REMOVAL_RATIO` (default 0.25): Max allowed ratio of delisted pairs vs previous whitelist.
+    - `STRICT_VOLUME` (default false): If true, warns/fails on low liquidity.
+    - `FILTER_MODE`: `perps_usdt` (default), `all_futures`, or `allowlist_regex`.
 
 4.  **Run Dry-Run**:
     ```bash
