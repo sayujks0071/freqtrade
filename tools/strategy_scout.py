@@ -50,16 +50,38 @@ class StrategyScout:
                 reset = core["reset"]
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
-                    reset_time = datetime.datetime.fromtimestamp(reset, tz=datetime.timezone.utc)
+                    # Use datetime.UTC if available (Python 3.11+)
+                    # Since we target modern envs in CI, we use datetime.UTC
+                    reset_time = datetime.datetime.fromtimestamp(reset, tz=datetime.timezone.utc)  # noqa: UP017
                     print(
                         f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
                     )
                     return False
             return True
-        except Exception as e:  # noqa: S110
+        except Exception as e:
             # If rate limit check fails, assume we can proceed cautiously
             print(f"Error checking rate limit: {e}")
             return True
+
+    def _search_query(self, query):
+        """Perform a single search query."""
+        print(f"Querying: {query}")
+        params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+        found = {}
+        try:
+            resp = self.session.get(
+                f"{GITHUB_API_URL}/search/repositories", params=params, timeout=TIMEOUT
+            )
+            if resp.status_code == 200:
+                items = resp.json().get("items", [])
+                for item in items:
+                    found[item["full_name"]] = item
+                print(f"Found {len(items)} items for query '{query}'")
+            else:
+                print(f"Search failed: {resp.status_code} {resp.text}")
+        except Exception as e:
+            print(f"Exception during search: {e}")
+        return found
 
     def search_github(self):
         """Search GitHub for strategy repositories."""
@@ -71,22 +93,8 @@ class StrategyScout:
             if not self.check_rate_limit():
                 break
 
-            print(f"Querying: {query}")
-            # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
-            try:
-                resp = self.session.get(
-                    f"{GITHUB_API_URL}/search/repositories", params=params, timeout=TIMEOUT
-                )
-                if resp.status_code == 200:
-                    items = resp.json().get("items", [])
-                    for item in items:
-                        found_repos[item["full_name"]] = item
-                    print(f"Found {len(items)} items for query '{query}'")
-                else:
-                    print(f"Search failed: {resp.status_code} {resp.text}")
-            except Exception as e:
-                print(f"Exception during search: {e}")
+            results = self._search_query(query)
+            found_repos.update(results)
 
             # Be polite
             time.sleep(1)
@@ -125,14 +133,12 @@ class StrategyScout:
 
             # 1. License Check
             license_name = "Unknown"
-            has_valid_license = False
 
             if license_data:
                 if license_data.get("key") != "other":
                     license_name = license_data.get("name", "Unknown")
                     score += 5  # Clear license
                     notes.append("Clear License")
-                    has_valid_license = True
                 else:
                     license_name = "Other (Check manually)"
                     score += 1
@@ -147,8 +153,10 @@ class StrategyScout:
                 try:
                     pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                     # Make pushed_dt timezone-aware (UTC) to match now(utc)
-                    pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)
-                    age_days = (datetime.datetime.now(datetime.timezone.utc) - pushed_dt).days # noqa: UP017
+                    pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)  # noqa: UP017
+                    age_days = (
+                        datetime.datetime.now(datetime.timezone.utc) - pushed_dt  # noqa: UP017
+                    ).days
                 except ValueError:
                     pass
 
@@ -201,11 +209,11 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception: # noqa: S110
-                pass
+            except Exception as e:
+                print(f"Error checking path {path}: {e}")
         return strategies, found_path
 
-    def deep_inspect(self, limit=15):  # noqa: C901
+    def deep_inspect(self, limit=15):
         """Deeply inspect top candidates to check for strategy files and content."""
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
@@ -281,7 +289,7 @@ class StrategyScout:
         report_dir = Path("user_data/reports")
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d") # noqa: UP017
+        date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")  # noqa: UP017
         filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
         top_10 = self.candidates[:10]
@@ -299,7 +307,9 @@ class StrategyScout:
                 f.write(f"- **Strategies Found:** {repo.get('strategy_count', 'N/A')}\n")
                 if repo.get("pushed_at"):
                     last_update = repo.get("pushed_at", "").split("T")[0]
-                    f.write(f"- **Last Update:** {last_update} ({repo.get('age_days', '?')} days ago)\n")
+                    f.write(
+                        f"- **Last Update:** {last_update} ({repo.get('age_days', '?')} days ago)\n"
+                    )
 
                 desc = repo.get("description")
                 if desc:
@@ -341,6 +351,64 @@ class StrategyScout:
         print(f"Report written to {filename}")
         return top_10
 
+    def _vendor_repo(self, repo, vendor_base_dir):
+        """Vendor a single repository."""
+        full_name = repo["full_name"]
+        repo_name = repo["name"]
+        safe_name = full_name.replace("/", "_")
+        path = repo.get("strategy_path")
+
+        if not path:
+            return False
+
+        print(f"Vendoring from {full_name}...")
+
+        vendor_dir = vendor_base_dir / safe_name
+        vendor_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                contents = resp.json()
+                downloaded = 0
+
+                if isinstance(contents, list):
+                    for file_info in contents:
+                        is_py = file_info["name"].endswith(".py")
+                        is_init = file_info["name"] == "__init__.py"
+
+                        if is_py and not is_init:
+                            if downloaded >= 3:
+                                break  # Limit per repo
+
+                            raw_url = file_info.get("download_url")
+                            if raw_url:
+                                r = requests.get(raw_url, timeout=TIMEOUT)
+                                if r.status_code == 200:
+                                    # Save file
+                                    with (vendor_dir / file_info["name"]).open("w") as f:
+                                        f.write(r.text)
+                                    downloaded += 1
+                                    print(f"  Downloaded {file_info['name']}")
+
+                # Create LICENSE_NOTE.md
+                license_file = vendor_dir / "LICENSE_NOTE.md"
+                with license_file.open("w") as f:
+                    f.write(f"# License Note for {repo_name}\n\n")
+                    f.write(f"Source: {repo['html_url']}\n")
+                    f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
+                    f.write(
+                        "Please check the original repository for full license details.\n"
+                    )
+                    license_info = repo.get("license") or {}
+                    if license_info.get("url"):
+                        f.write(f"License URL: {license_info['url']}\n")
+                return True
+        except Exception as e:
+            print(f"Error vendoring {full_name}: {e}")
+        return False
+
     def vendor_strategies(self, candidates, top_n=5):
         """Download strategies from top candidates."""
         print(f"Vendoring top {top_n} strategies...")
@@ -352,62 +420,8 @@ class StrategyScout:
             if count >= top_n:
                 break
 
-            full_name = repo["full_name"]
-            repo_name = repo["name"]
-            safe_name = full_name.replace("/", "_")
-            path = repo.get("strategy_path")
-
-            if not path:
-                # If we didn't inspect this repo deeply enough to find the path, skip
-                continue
-
-            print(f"Vendoring from {full_name}...")
-
-            vendor_dir = vendor_base_dir / safe_name
-            vendor_dir.mkdir(parents=True, exist_ok=True)
-
-            try:
-                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
-                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
-                if resp.status_code == 200:
-                    contents = resp.json()
-                    downloaded = 0
-
-                    if isinstance(contents, list):
-                        for file_info in contents:
-                            is_py = file_info["name"].endswith(".py")
-                            is_init = file_info["name"] == "__init__.py"
-
-                            if is_py and not is_init:
-                                if downloaded >= 3:
-                                    break # Limit per repo
-
-                                raw_url = file_info.get("download_url")
-                                if raw_url:
-                                    r = requests.get(raw_url, timeout=TIMEOUT)
-                                    if r.status_code == 200:
-                                        # Save file
-                                        with (vendor_dir / file_info["name"]).open("w") as f:
-                                            f.write(r.text)
-                                        downloaded += 1
-                                        print(f"  Downloaded {file_info['name']}")
-
-                    # Create LICENSE_NOTE.md
-                    license_file = vendor_dir / "LICENSE_NOTE.md"
-                    with license_file.open("w") as f:
-                        f.write(f"# License Note for {repo_name}\n\n")
-                        f.write(f"Source: {repo['html_url']}\n")
-                        f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write(
-                            "Please check the original repository for full license details.\n"
-                        )
-                        license_info = repo.get("license") or {}
-                        if license_info.get("url"):
-                            f.write(f"License URL: {license_info['url']}\n")
-
-                    count += 1
-            except Exception as e:
-                print(f"Error vendoring {full_name}: {e}")
+            if self._vendor_repo(repo, vendor_base_dir):
+                count += 1
 
 
 def main():
