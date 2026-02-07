@@ -4,11 +4,12 @@ Daily Trading Report Generator
 Connects to Freqtrade SQLite database and generates a markdown summary.
 """
 
-import sqlite3
 import argparse
+import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import json
+
 
 def setup_args():
     parser = argparse.ArgumentParser(description="Generate Daily Trading Report")
@@ -16,6 +17,7 @@ def setup_args():
     parser.add_argument("--days", type=int, default=1, help="Number of days to look back")
     parser.add_argument("--out", type=Path, help="Output markdown file path")
     return parser.parse_args()
+
 
 def generate_report(db_path, days, out_path):
     if not Path(db_path).exists():
@@ -27,7 +29,7 @@ def generate_report(db_path, days, out_path):
     cursor = conn.cursor()
 
     # Calculate time range (UTC)
-    now = datetime.now(timezone.utc) # noqa: UP017
+    now = datetime.now(timezone.utc)  # noqa: UP017
     start_date = now - timedelta(days=days)
 
     # Query closed trades
@@ -55,28 +57,30 @@ def generate_report(db_path, days, out_path):
 
     # Analyze
     total_trades = len(trades)
-    winning_trades = [t for t in trades if t['close_profit'] > 0]
-    losing_trades = [t for t in trades if t['close_profit'] <= 0]
+    winning_trades = [t for t in trades if t["close_profit"] > 0]
+    losing_trades = [t for t in trades if t["close_profit"] <= 0]
 
     win_rate = (len(winning_trades) / total_trades * 100) if total_trades > 0 else 0.0
-    total_profit_abs = sum(t['close_profit_abs'] for t in trades if t['close_profit_abs'])
-    avg_profit_pct = (sum(t['close_profit'] for t in trades) / total_trades * 100) if total_trades > 0 else 0.0
+    total_profit_abs = sum(t["close_profit_abs"] for t in trades if t["close_profit_abs"])
+    avg_profit_pct = (
+        (sum(t["close_profit"] for t in trades) / total_trades * 100) if total_trades > 0 else 0.0
+    )
 
     # Top Pairs
     pair_stats = {}
     for t in trades:
-        pair = t['pair']
+        pair = t["pair"]
         if pair not in pair_stats:
-            pair_stats[pair] = {'count': 0, 'profit_abs': 0.0}
-        pair_stats[pair]['count'] += 1
-        pair_stats[pair]['profit_abs'] += (t['close_profit_abs'] or 0.0)
+            pair_stats[pair] = {"count": 0, "profit_abs": 0.0}
+        pair_stats[pair]["count"] += 1
+        pair_stats[pair]["profit_abs"] += t["close_profit_abs"] or 0.0
 
-    sorted_pairs = sorted(pair_stats.items(), key=lambda x: x[1]['profit_abs'], reverse=True)
+    sorted_pairs = sorted(pair_stats.items(), key=lambda x: x[1]["profit_abs"], reverse=True)
 
     # Top Reasons
     reason_stats = {}
     for t in trades:
-        reason = t['exit_reason']
+        reason = t["exit_reason"]
         reason_stats[reason] = reason_stats.get(reason, 0) + 1
 
     sorted_reasons = sorted(reason_stats.items(), key=lambda x: x[1], reverse=True)
@@ -106,13 +110,15 @@ def generate_report(db_path, days, out_path):
     report.append("| Date | Pair | Side | Profit % | Profit Abs | Reason |")
     report.append("| --- | --- | --- | --- | --- | --- |")
     for t in trades[:10]:
-        p_pct = t['close_profit'] * 100 if t['close_profit'] else 0.0
-        p_abs = t['close_profit_abs'] or 0.0
+        p_pct = t["close_profit"] * 100 if t["close_profit"] else 0.0
+        p_abs = t["close_profit_abs"] or 0.0
         # Determine side (approximate based on logic or strategy, usually Long for spot/futures unless shorting)
         # Assuming Long for simplicity or generic
         side = "Long/Short"
-        date_str = str(t['close_date']).split('.')[0]
-        report.append(f"| {date_str} | {t['pair']} | {side} | {p_pct:.2f}% | {p_abs:.2f} | {t['exit_reason']} |")
+        date_str = str(t["close_date"]).split(".")[0]
+        report.append(
+            f"| {date_str} | {t['pair']} | {side} | {p_pct:.2f}% | {p_abs:.2f} | {t['exit_reason']} |"
+        )
 
     content = "\n".join(report)
 
@@ -122,6 +128,7 @@ def generate_report(db_path, days, out_path):
         print(f"Report written to {out_path}")
     else:
         print(content)
+
 
 if __name__ == "__main__":
     args = setup_args()
