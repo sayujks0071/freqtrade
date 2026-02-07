@@ -427,6 +427,8 @@ def test_api_run(default_conf, mocker, caplog):
     apiserver = ApiServer(default_conf)
     apiserver.add_rpc_handler(RPC(get_patched_freqtradebot(mocker, default_conf)))
 
+    assert log_has_re(r".*Generated a random key for this session.*", caplog)
+
     assert server_mock.call_count == 1
     assert apiserver._config == default_conf
     apiserver.start_api()
@@ -474,7 +476,6 @@ def test_api_run(default_conf, mocker, caplog):
         "Please make sure that this is intentional!",
         caplog,
     )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
 
     server_mock.reset_mock()
     apiserver._standalone = True
