@@ -497,7 +497,9 @@ class Backtesting:
 
             # Create a copy of the dataframe before shifting, that way the entry signal/tag
             # remains on the correct candle for callbacks.
-            df_analyzed = df_analyzed.copy()
+            # We only need specific columns for backtesting, so we can copy only those
+            # to save memory and time.
+            df_analyzed = df_analyzed.reindex(columns=HEADERS)
 
             # To avoid using data from future, we use entry/exit signals shifted
             # from the previous candle
@@ -505,7 +507,7 @@ class Backtesting:
                 tag_col = col in ("enter_tag", "exit_tag")
                 if col in df_analyzed.columns:
                     df_analyzed[col] = (
-                        df_analyzed.loc[:, col]
+                        df_analyzed[col]
                         .replace([nan], [0 if not tag_col else None])
                         .shift(1)
                     )
