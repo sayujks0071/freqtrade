@@ -4,6 +4,7 @@ import ast
 import sys
 from pathlib import Path
 
+
 HEADER_TEMPLATE = """
 Strategy: {strategy_name}
 Author: {author}
@@ -112,14 +113,10 @@ def check_comments_in_trend_funcs(source_lines):
             continue
 
         if in_func:
-            if stripped.startswith("def ") or (
-                stripped.startswith("class ") and line[0] != " "
-            ):
+            if stripped.startswith("def ") or (stripped.startswith("class ") and line[0] != " "):
                 # End of function (heuristic based on indentation or next def)
                 if not comment_found:
-                    errors.append(
-                        f"Missing comments in {func_name} explaining market thesis."
-                    )
+                    errors.append(f"Missing comments in {func_name} explaining market thesis.")
                 in_func = False
                 continue
 
@@ -168,9 +165,7 @@ def audit_file(filepath, fix=False):  # noqa: C901
             # Re-read and re-parse
             return audit_file(filepath, fix=False)
         else:
-            errors.append(
-                "Missing module docstring (Header block). Use --fix to auto-insert."
-            )
+            errors.append("Missing module docstring (Header block). Use --fix to auto-insert.")
     else:
         # Validate content
         for req in REQUIRED_HEADERS:
@@ -190,9 +185,7 @@ def audit_file(filepath, fix=False):  # noqa: C901
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases:
                 if "AuditedStrategyMixin" not in bases:
-                    errors.append(
-                        f"Class {node.name} must inherit AuditedStrategyMixin."
-                    )
+                    errors.append(f"Class {node.name} must inherit AuditedStrategyMixin.")
 
                 # Check process_only_new_candles for the strategy class
                 if not visitor.has_process_new_candles:
