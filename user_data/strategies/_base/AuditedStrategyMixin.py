@@ -57,7 +57,10 @@ class AuditedStrategyMixin:
         """
         pair = pair.upper()
         if "/" not in pair:
-            msg = f"AUDIT_ERROR | Pair {pair} does not contain '/', invalid format for Freqtrade."
+            msg = (
+                f"AUDIT_ERROR | Pair {pair} does not contain '/', "
+                "invalid format for Freqtrade."
+            )
             logger.error(msg)
             raise ValueError(msg)
         return pair

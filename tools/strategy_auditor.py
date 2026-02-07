@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import ast
-import re
 import sys
 from pathlib import Path
 
@@ -76,10 +75,10 @@ class AuditVisitor(ast.NodeVisitor):
                         # In Python 3.9+, slice is just the node.
                         # In older, it might be Index.
                         if isinstance(sl, ast.Index):
-                             sl = sl.value
+                            sl = sl.value
 
                         if self.contains_compare(sl):
-                             self.errors.append(
+                            self.errors.append(
                                 f"Line {stmt.lineno}: Complex logic inside .loc[]. "
                                 "Use named boolean variables for conditions (no raw comparisons)."
                             )
@@ -104,17 +103,23 @@ def check_comments_in_trend_funcs(source_lines):
 
     for i, line in enumerate(source_lines):
         stripped = line.strip()
-        if stripped.startswith("def populate_entry_trend") or stripped.startswith("def populate_exit_trend"):
+        if stripped.startswith("def populate_entry_trend") or stripped.startswith(
+            "def populate_exit_trend"
+        ):
             in_func = True
             func_name = stripped.split("(")[0].replace("def ", "")
             comment_found = False
             continue
 
         if in_func:
-            if stripped.startswith("def ") or (stripped.startswith("class ") and line[0] != " "):
+            if stripped.startswith("def ") or (
+                stripped.startswith("class ") and line[0] != " "
+            ):
                 # End of function (heuristic based on indentation or next def)
                 if not comment_found:
-                    errors.append(f"Missing comments in {func_name} explaining market thesis.")
+                    errors.append(
+                        f"Missing comments in {func_name} explaining market thesis."
+                    )
                 in_func = False
                 continue
 
@@ -128,7 +133,7 @@ def check_comments_in_trend_funcs(source_lines):
     return errors
 
 
-def audit_file(filepath, fix=False):
+def audit_file(filepath, fix=False):  # noqa: C901
     print(f"Auditing {filepath}...")
     path = Path(filepath)
     try:
@@ -156,14 +161,16 @@ def audit_file(filepath, fix=False):
                 author="Unknown",
                 version="1.0",
                 timeframe="1h",
-                entry_exit_rules="Define me"
+                entry_exit_rules="Define me",
             )
             source = f'"""{new_header}"""\n\n' + source
             path.write_text(source, encoding="utf-8")
             # Re-read and re-parse
             return audit_file(filepath, fix=False)
         else:
-            errors.append("Missing module docstring (Header block). Use --fix to auto-insert.")
+            errors.append(
+                "Missing module docstring (Header block). Use --fix to auto-insert."
+            )
     else:
         # Validate content
         for req in REQUIRED_HEADERS:
@@ -176,24 +183,27 @@ def audit_file(filepath, fix=False):
     errors.extend(visitor.errors)
 
     # Check for AuditedStrategyMixin inheritance
-    is_strategy = False
     has_class = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             has_class = True
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases:
-                is_strategy = True
                 if "AuditedStrategyMixin" not in bases:
-                    errors.append(f"Class {node.name} must inherit AuditedStrategyMixin.")
+                    errors.append(
+                        f"Class {node.name} must inherit AuditedStrategyMixin."
+                    )
 
                 # Check process_only_new_candles for the strategy class
                 if not visitor.has_process_new_candles:
-                     errors.append("Missing 'process_only_new_candles = True'. Logic must run on closed candles.")
+                    errors.append(
+                        "Missing 'process_only_new_candles = True'. "
+                        "Logic must run on closed candles."
+                    )
 
     if not has_class:
-         # Likely not a strategy file
-         pass
+        # Likely not a strategy file
+        pass
 
     # 3. Comment Check
     source_lines = source.splitlines()
@@ -226,13 +236,16 @@ def main():
             failed = True
     else:
         for file in target.rglob("*.py"):
-            if file.name.startswith("__"): continue
-            if "AuditedStrategyMixin.py" in str(file): continue
+            if file.name.startswith("__"):
+                continue
+            if "AuditedStrategyMixin.py" in str(file):
+                continue
             if not audit_file(file, args.fix):
                 failed = True
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

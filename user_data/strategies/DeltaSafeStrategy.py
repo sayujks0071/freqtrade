@@ -12,13 +12,15 @@ Repainting: No repainting (process_only_new_candles=True)
 import sys
 from pathlib import Path
 
+import talib.abstract as ta
+from pandas import DataFrame
+
+from freqtrade.strategy import IStrategy
+
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 
-import talib.abstract as ta
-from pandas import DataFrame
-from freqtrade.strategy import IStrategy
-from AuditedStrategyMixin import AuditedStrategyMixin
+from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -61,8 +63,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         Called on startup. Validate whitelist.
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             for pair in self.config["exchange"]["pair_whitelist"]:
-                 self.normalize_pair(pair)
+            for pair in self.config["exchange"]["pair_whitelist"]:
+                self.normalize_pair(pair)
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
@@ -72,13 +74,15 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Check whitelist before processing
         if self.config.get("exchange", {}).get("pair_whitelist"):
-            self.assert_pair_in_whitelist(metadata["pair"], self.config["exchange"]["pair_whitelist"])
+            self.assert_pair_in_whitelist(
+                metadata["pair"], self.config["exchange"]["pair_whitelist"]
+            )
 
         # RSI Over-sold condition
-        long_rsi = (dataframe["rsi"] < 30)
+        long_rsi = dataframe["rsi"] < 30
 
         # Volume filter
-        volume_check = (dataframe["volume"] > 0)
+        volume_check = dataframe["volume"] > 0
 
         # Combined Entry Condition
         # Market Thesis: Enter long when RSI is oversold (<30) and there is volume activity.
@@ -90,10 +94,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI Over-bought condition
-        long_rsi_exit = (dataframe["rsi"] > 70)
+        long_rsi_exit = dataframe["rsi"] > 70
 
         # Volume filter
-        volume_check = (dataframe["volume"] > 0)
+        volume_check = dataframe["volume"] > 0
 
         # Combined Exit Condition
         # Market Thesis: Exit long when RSI is overbought (>70) and liquidity exists.
@@ -124,7 +128,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         snapshot = {
             "rsi": last_candle.get("rsi"),
             "volume": last_candle.get("volume"),
-            "close": last_candle.get("close")
+            "close": last_candle.get("close"),
         }
 
         self.log_signal(
@@ -132,7 +136,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason=f"Entry Signal {entry_tag}",
             ts_utc=current_time,
-            indicators_snapshot=snapshot
+            indicators_snapshot=snapshot,
         )
         return True
 
@@ -148,7 +152,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_time,
         **kwargs,
     ) -> bool:
-
         # Snapshot indicators
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-1].squeeze()
@@ -156,7 +159,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         snapshot = {
             "rsi": last_candle.get("rsi"),
             "volume": last_candle.get("volume"),
-            "close": last_candle.get("close")
+            "close": last_candle.get("close"),
         }
 
         self.log_signal(
@@ -164,6 +167,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=trade.trade_direction,
             reason=f"Exit Signal {sell_reason}",
             ts_utc=current_time,
-            indicators_snapshot=snapshot
+            indicators_snapshot=snapshot,
         )
         return True
