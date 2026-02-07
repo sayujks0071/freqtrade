@@ -17,7 +17,7 @@ except ImportError:
 
 # Import the script
 sys.path.append(str(Path(__file__).parents[2]))
-import scripts.regime_switcher as rs  # noqa: E402
+import scripts.regime_switcher as rs  # noqa: E402, RUF100
 
 
 @pytest.fixture
