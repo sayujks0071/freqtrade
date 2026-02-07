@@ -5,11 +5,10 @@ Validates market schema, fields, uniqueness, volume/limits, environment sanity, 
 """
 import argparse
 import json
-import math
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -96,9 +95,6 @@ def validate_volume_limits(m: dict[str, Any], symbol: str) -> list[str]:
     # Check for NaN or negative numbers in common fields
     # "info" often contains raw exchange data where we might find volume
 
-    # If using STRICT_VOLUME, we could check limits/min_amount if available
-    # But for now, just basic sanity.
-
     # Example check: limits.amount.min > 0
     limits = m.get("limits", {})
     if isinstance(limits, dict):
@@ -107,6 +103,11 @@ def validate_volume_limits(m: dict[str, Any], symbol: str) -> list[str]:
             min_amt = amt.get("min")
             if isinstance(min_amt, (int, float)) and min_amt < 0:
                  errs.append(f"{symbol}: Negative min amount {min_amt}")
+
+            # Use STRICT_VOLUME to potentially fail on tiny limits (placehoder logic)
+            if STRICT_VOLUME and isinstance(min_amt, (int, float)) and min_amt == 0:
+                 # Just a warning or info for now, as 0 might be valid for some
+                 pass
 
     return errs
 
@@ -143,7 +144,13 @@ def validate_markets(markets: list[dict[str, Any]]) -> tuple[set[str], list[str]
         future = m.get("future")
 
         # We expect futures/swaps for Delta
-        if not (m_type in ["future", "swap"] or contract or future or m.get("linear") or m.get("inverse")):
+        if not (
+            m_type in ["future", "swap"]
+            or contract
+            or future
+            or m.get("linear")
+            or m.get("inverse")
+        ):
              # Maybe it's a spot market in the dump?
              # If filter mode is strict, we might care, but for schema validation
              # we mostly care that fields are correct.
@@ -187,7 +194,33 @@ def validate_environment_sanity(markets: list[dict[str, Any]], env: str) -> list
     return warnings
 
 
-def validate_drift(current_symbols: set[str], prev_whitelist_path: str | None) -> tuple[list[str], list[str]]:
+def check_format_changes(prev_symbols: set[str], current_symbols: set[str]) -> list[str]:
+    """
+    Check for format changes in existing pairs.
+    """
+    # Construct map of Base/Quote -> FullSymbol for previous
+    def extract_base_quote(s):
+        # handle BASE/QUOTE:SETTLE or BASE/QUOTE
+        if ":" in s:
+            return s.split(":")[0]
+        return s
+
+    prev_base_quotes = {extract_base_quote(s): s for s in prev_symbols}
+    curr_base_quotes = {extract_base_quote(s): s for s in current_symbols}
+
+    format_changes = []
+    for bq, prev_s in prev_base_quotes.items():
+        if bq in curr_base_quotes:
+            curr_s = curr_base_quotes[bq]
+            if prev_s != curr_s:
+                format_changes.append(f"Format changed for {bq}: {prev_s} -> {curr_s}")
+    return format_changes
+
+
+def validate_drift(
+    current_symbols: set[str],
+    prev_whitelist_path: str | None
+) -> tuple[list[str], list[str]]:
     """
     Checks for dangerous drift (large removal ratio, format changes).
     Returns (errors, drift_stats)
@@ -243,33 +276,12 @@ def validate_drift(current_symbols: set[str], prev_whitelist_path: str | None) -
 
     errors = []
     if removal_ratio > MAX_REMOVAL_RATIO:
-        errors.append(f"Large delist drift: {removal_ratio:.2%} > MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO:.2%})")
+        errors.append(
+            f"Large delist drift: {removal_ratio:.2%} > MAX_REMOVAL_RATIO "
+            f"({MAX_REMOVAL_RATIO:.2%})"
+        )
 
-    # Check for format changes in what appears to be the "same" pair?
-    # This is tricky without base/quote decomposition.
-    # But if we assume symbols are BASE/QUOTE:SETTLE, we can check if BASE/QUOTE stayed but SETTLE changed?
-    # Or if BASE/QUOTE changed format?
-    # Since we strictly validate format of current symbols, we mainly care if we lost a lot of pairs (removal ratio).
-    # "If pair-format changed for any existing pair"
-    # This implies we can identify "existing pair" across format changes.
-    # E.g. BTC/USDT -> BTC/USDT:USDT.
-
-    # Construct map of Base/Quote -> FullSymbol for previous
-    def extract_base_quote(s):
-        # handle BASE/QUOTE:SETTLE or BASE/QUOTE
-        if ":" in s:
-            return s.split(":")[0]
-        return s
-
-    prev_base_quotes = {extract_base_quote(s): s for s in prev_symbols}
-    curr_base_quotes = {extract_base_quote(s): s for s in current_symbols}
-
-    format_changes = []
-    for bq, prev_s in prev_base_quotes.items():
-        if bq in curr_base_quotes:
-            curr_s = curr_base_quotes[bq]
-            if prev_s != curr_s:
-                format_changes.append(f"Format changed for {bq}: {prev_s} -> {curr_s}")
+    format_changes = check_format_changes(prev_symbols, current_symbols)
 
     if format_changes:
         errors.append("Format changes detected in existing pairs:")
@@ -300,7 +312,11 @@ def main() -> None:
     data = load_json(args.markets)
     markets, schema_errors = validate_schema(data)
 
-    report_lines = ["# Markets Schema Validation Report", f"Date: {datetime.now(UTC).isoformat()}", f"File: {args.markets}"]
+    report_lines = [
+        "# Markets Schema Validation Report",
+        f"Date: {datetime.now(timezone.utc).isoformat()}",
+        f"File: {args.markets}"
+    ]
 
     if schema_errors:
         report_lines.extend(["", "**STATUS: FAIL**", "", "## Schema Errors"])
