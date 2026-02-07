@@ -499,6 +499,7 @@ class Backtesting:
             # remains on the correct candle for callbacks.
             # We only need specific columns for backtesting, so we can copy only those
             # to save memory and time.
+            # HEADERS includes signal columns (enter_long, exit_long, etc), so reindex keeps them.
             df_analyzed = df_analyzed.reindex(columns=HEADERS)
 
             # To avoid using data from future, we use entry/exit signals shifted
