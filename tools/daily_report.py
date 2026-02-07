@@ -1,85 +1,133 @@
 #!/usr/bin/env python3
-import os
+"""
+Daily Trading Report Generator
+Connects to Freqtrade SQLite database and generates a markdown summary.
+"""
+
+import argparse
 import sqlite3
-import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pandas as pd
+
+def setup_args():
+    parser = argparse.ArgumentParser(description="Generate Daily Trading Report")
+    parser.add_argument("--db-url", default="user_data/tradesv3.sqlite", help="Path to SQLite DB")
+    parser.add_argument("--days", type=int, default=1, help="Number of days to look back")
+    parser.add_argument("--out", type=Path, help="Output markdown file path")
+    return parser.parse_args()
 
 
-# DB Path
-DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
+def generate_report(db_path, days, out_path):
+    if not Path(db_path).exists():
+        print(f"Database not found at {db_path}")
+        return
 
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
-def get_db_connection():
-    if not Path(DB_URL).exists():
-        print(f"Database not found at {DB_URL}")
-        sys.exit(1)
-    return sqlite3.connect(DB_URL)
+    # Calculate time range (UTC)
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    start_date = now - timedelta(days=days)
 
-
-def generate_report():
-    conn = get_db_connection()
-
+    # Query closed trades
     query = """
-    SELECT * FROM trades
-    WHERE close_date >= datetime('now', '-1 day')
-    AND is_open = 0
+    SELECT
+        pair,
+        is_open,
+        amount,
+        stake_amount,
+        open_rate,
+        close_rate,
+        open_date,
+        close_date,
+        close_profit,
+        close_profit_abs,
+        exit_reason,
+        strategy
+    FROM trades
+    WHERE close_date >= ?
+    ORDER BY close_date DESC
     """
 
-    try:
-        df = pd.read_sql_query(query, conn)
-    except Exception as e:
-        print(f"Error querying DB: {e}")
-        # Fallback to verify table exists
-        sys.exit(1)
+    cursor.execute(query, (start_date,))
+    trades = cursor.fetchall()
 
-    conn.close()
+    # Analyze
+    total_trades = len(trades)
+    winning_trades = [t for t in trades if t["close_profit"] > 0]
+    # losing_trades = [t for t in trades if t["close_profit"] <= 0]
 
-    date_str = datetime.utcnow().strftime("%Y-%m-%d")
-    report_file = f"user_data/reports/daily_summary_{date_str}.md"
+    win_rate = (len(winning_trades) / total_trades * 100) if total_trades > 0 else 0.0
+    total_profit_abs = sum(t["close_profit_abs"] for t in trades if t["close_profit_abs"])
+    avg_profit_pct = (
+        (sum(t["close_profit"] for t in trades) / total_trades * 100) if total_trades > 0 else 0.0
+    )
 
-    with Path(report_file).open("w") as f:
-        f.write(f"# Daily Trading Report ({date_str})\n\n")
+    # Top Pairs
+    pair_stats = {}
+    for t in trades:
+        pair = t["pair"]
+        if pair not in pair_stats:
+            pair_stats[pair] = {"count": 0, "profit_abs": 0.0}
+        pair_stats[pair]["count"] += 1
+        pair_stats[pair]["profit_abs"] += t["close_profit_abs"] or 0.0
 
-        if df.empty:
-            f.write("No closed trades in the last 24 hours.\n")
-            print(f"Report written to {report_file} (Empty)")
-            return
+    sorted_pairs = sorted(pair_stats.items(), key=lambda x: x[1]["profit_abs"], reverse=True)
 
-        # Metrics
-        total_trades = len(df)
-        wins = df[df["close_profit"] > 0]
-        win_rate = (len(wins) / total_trades) * 100
-        avg_return = df["close_profit"].mean() * 100
-        total_profit_abs = df["close_profit_abs"].sum()
+    # Top Reasons
+    reason_stats = {}
+    for t in trades:
+        reason = t["exit_reason"]
+        reason_stats[reason] = reason_stats.get(reason, 0) + 1
 
-        # Max Drawdown (Approximate from closed trades)
-        # For real max drawdown we need high res data, but we can use cumulative profit min
-        df["cum_profit"] = df["close_profit_abs"].cumsum()
+    sorted_reasons = sorted(reason_stats.items(), key=lambda x: x[1], reverse=True)
 
-        f.write("## Summary\n")
-        f.write(f"- **Total Trades**: {total_trades}\n")
-        f.write(f"- **Win Rate**: {win_rate:.2f}%\n")
-        f.write(f"- **Avg Return**: {avg_return:.2f}%\n")
-        f.write(f"- **Total Profit**: {total_profit_abs:.4f}\n\n")
+    # Generate Markdown
+    report = []
+    report.append(f"# Daily Trading Report ({now.strftime('%Y-%m-%d')})")
+    report.append(f"Period: Last {days} days")
 
-        f.write("## Top Pairs\n")
-        top_pairs = df["pair"].value_counts().head(5)
-        for pair, count in top_pairs.items():
-            f.write(f"- {pair}: {count} trades\n")
-        f.write("\n")
+    report.append("## Summary")
+    report.append(f"- **Total Trades**: {total_trades}")
+    report.append(f"- **Win Rate**: {win_rate:.2f}%")
+    report.append(f"- **Total Profit**: {total_profit_abs:.2f} USDT")
+    report.append(f"- **Avg Return**: {avg_profit_pct:.2f}%")
 
-        f.write("## Top Exit Reasons\n")
-        top_reasons = df["exit_reason"].value_counts().head(5)
-        for reason, count in top_reasons.items():
-            f.write(f"- {reason}: {count}\n")
+    report.append("## Top Pairs by Profit")
+    report.append("| Pair | Trades | Profit (USDT) |")
+    report.append("| --- | --- | --- |")
+    for pair, stats in sorted_pairs[:5]:
+        report.append(f"| {pair} | {stats['count']} | {stats['profit_abs']:.2f} |")
 
-        f.write("\n_Generated by Daily Report Tool_")
+    report.append("## Exit Reasons")
+    for reason, count in sorted_reasons:
+        report.append(f"- {reason}: {count}")
 
-    print(f"Report written to {report_file}")
+    report.append("## Recent Trades")
+    report.append("| Date | Pair | Side | Profit % | Profit Abs | Reason |")
+    report.append("| --- | --- | --- | --- | --- | --- |")
+    for t in trades[:10]:
+        p_pct = t["close_profit"] * 100 if t["close_profit"] else 0.0
+        p_abs = t["close_profit_abs"] or 0.0
+        # Determine side (approximate based on logic or strategy, usually Long for spot/futures)
+        side = "Long/Short"
+        date_str = str(t["close_date"]).split(".")[0]
+        report.append(
+            f"| {date_str} | {t['pair']} | {side} | {p_pct:.2f}% | {p_abs:.2f} | {t['exit_reason']} |"  # noqa: E501
+        )
+
+    content = "\n".join(report)
+
+    if out_path:
+        with out_path.open("w") as f:
+            f.write(content)
+        print(f"Report written to {out_path}")
+    else:
+        print(content)
 
 
 if __name__ == "__main__":
-    generate_report()
+    args = setup_args()
+    generate_report(args.db_url, args.days, args.out)

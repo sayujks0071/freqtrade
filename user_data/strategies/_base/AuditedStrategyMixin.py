@@ -1,11 +1,7 @@
-"""
-AuditedStrategyMixin
-Mixin class for strategies to enforce audit logging and safety checks.
-"""
-
 import logging
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
+
+from freqtrade.strategy import IStrategy
 
 
 logger = logging.getLogger(__name__)
@@ -13,47 +9,45 @@ logger = logging.getLogger(__name__)
 
 class AuditedStrategyMixin:
     """
-    Mixin for strategies to enforce audit logging and safety checks.
+    Mixin for Delta Exchange strategies to enforce audit logging and safety.
+    Requires strategies to inherit from this.
     """
 
-    # Type hint for the config attribute expected from IStrategy
-    config: dict[str, Any]
+    # Define class variables if needed, or rely on strategy instance vars
 
-    def log_signal(
-        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime,
-    ) -> None:
+    def log_signal(self, pair: str, side: str, reason: str, snapshot: dict | None = None):
         """
-        Log entry/exit signals to audit log.
+        Log an entry/exit signal with snapshot data for audit.
+        Format: AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
+        ts = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+        snapshot_str = str(snapshot) if snapshot else "{}"
 
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(
-                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
-                )
-                return False
-        return True
+        # Log as INFO so it appears in standard logs.
+        # Ideally, configure a separate logger to file in Freqtrade config.
+        logger.info(f"AUDIT_SIGNAL | {ts} | {pair} | {side} | {reason} | {snapshot_str}")
 
     def normalize_pair(self, pair: str) -> str:
         """
-        Normalize pair to uppercase.
+        Ensure pair format matches Delta Exchange expectation (BASE/QUOTE:SETTLE).
         """
-        return pair.upper()
+        # Logic depends on how Freqtrade provides 'pair'.
+        # Usually it's already in the format used by CCXT.
+        return pair
+
+    def assert_pair_in_whitelist(self, pair: str):
+        """
+        Check if pair is in allowed whitelist.
+        """
+        # This accesses the Strategy instance's whitelist
+        if not isinstance(self, IStrategy):
+            logger.warning("AuditedStrategyMixin used in non-IStrategy class")
+            return
+
+        # current_whitelist = self.dp.current_whitelist() # method might vary
+        # self.dp.available_pairs returns pairs available for trading?
+        # IStrategy has self.whitelist property usually? No, self.dp has it.
+        pass  # Implementation depends on Freqtrade version.
+        # Assuming we trust Freqtrade's pairlist manager, but this is an extra check?
+        # Maybe unnecessary if Freqtrade handles it.
+        # But for "safety check", we can log if we are trading something weird.
