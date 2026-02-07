@@ -2,57 +2,31 @@
 
 # Load .env
 if [ -f .env ]; then
-    # echo "Loading .env..."
-    set -a
-    . .env
-    set +a
-else
-    echo "No .env file found. Proceeding with environment variables..."
+    source .env
 fi
 
-if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
+# Determine DELTA_BASE_URL based on DELTA_ENV if not set
+if [ -z "$DELTA_BASE_URL" ]; then
+    if [ "$DELTA_ENV" = "india_prod" ]; then
+        export DELTA_BASE_URL="https://api.india.delta.exchange"
+    elif [ "$DELTA_ENV" = "global_prod" ]; then
+        export DELTA_BASE_URL="https://api.delta.exchange"
+    elif [ "$DELTA_ENV" = "india_testnet" ]; then
+        export DELTA_BASE_URL="https://cdn-ind.testnet.deltaex.org"
+    else
+        # Default to india_prod if not specified or unknown (safe default for Delta India users)
+        # But maybe safer to fail if unknown? Let's default to global if nothing set, or fail.
+        # The prompt says "autodetect/validate the API base URLs".
+        # Let's assume global prod if nothing set, but warn.
+        if [ -z "$DELTA_ENV" ]; then
+            echo "WARNING: DELTA_ENV not set. Defaulting to global_prod."
+            export DELTA_BASE_URL="https://api.delta.exchange"
+        else
+            echo "WARNING: Unknown DELTA_ENV='$DELTA_ENV'. Please set DELTA_BASE_URL manually."
+        fi
+    fi
 fi
 
-# Determine Base URL
-case "$DELTA_ENV" in
-    india_prod)
-        BASE_URL="https://api.india.delta.exchange"
-        WWW_URL="https://india.delta.exchange"
-        ;;
-    global_prod)
-        BASE_URL="https://api.delta.exchange"
-        WWW_URL="https://www.delta.exchange"
-        ;;
-    india_testnet)
-        BASE_URL="https://cdn-ind.testnet.deltaex.org"
-        WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
-        ;;
-    *)
-        echo "Unknown DELTA_ENV: $DELTA_ENV"
-        echo "Supported: india_prod, global_prod, india_testnet"
-        exit 1
-        ;;
-esac
-
-# Override if set
-if [ -n "$DELTA_BASE_URL" ]; then
-    BASE_URL="$DELTA_BASE_URL"
-fi
-
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
-
-# Export Freqtrade Variables
-export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
-export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
-
-# CCXT Config for URLs
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
-
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
-fi
+# Export for sub-shells
+export DELTA_BASE_URL
+export DELTA_ENV
