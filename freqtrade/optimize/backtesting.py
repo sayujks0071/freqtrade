@@ -508,9 +508,7 @@ class Backtesting:
                 tag_col = col in ("enter_tag", "exit_tag")
                 if col in df_analyzed.columns:
                     df_analyzed[col] = (
-                        df_analyzed[col]
-                        .replace([nan], [0 if not tag_col else None])
-                        .shift(1)
+                        df_analyzed[col].replace([nan], [0 if not tag_col else None]).shift(1)
                     )
                 elif not df_analyzed.empty:
                     df_analyzed[col] = 0 if not tag_col else None
