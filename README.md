@@ -133,6 +133,22 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   **Observability**: Daily reports and structured logging.
 -   **Audit Logs**: Strategy signals are logged with `AUDIT_SIGNAL` prefix in the logs (`user_data/logs/freqtrade.log`).
 
+## Strategy & Pair Management
+
+### How to choose pairs on Delta
+Always pick pairs from the generated markets dump, never hand-type blind.
+Run `./scripts/update_markets_and_whitelist.sh` to generate the latest `user_data/reports/markets_<timestamp>.json` and `user_data/pairlists/whitelist.delta.json`.
+Inspect these files to find valid Freqtrade-compatible symbols (e.g., `BTC/USDT:USDT`).
+See [Symbol Mapping Guide](user_data/reports/symbol_mapping_manual.md) for details.
+
+### How to interpret logs
+The `AuditedStrategyMixin` ensures every trade decision is explainable.
+Check the logs in `user_data/logs/freqtrade.log` for entries starting with `AUDIT_SIGNAL`.
+Format: `AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT`
+Example:
+`AUDIT_SIGNAL | 2023-10-27T10:00:00+00:00 | BTC/USDT:USDT | long | Entry Signal rsi_oversold | {'rsi': 28.5, 'volume': 1500}`
+This allows you to trace exactly why a trade was entered or exited.
+
 ## Tools
 
 -   `tools/daily_report.py`: Generates daily trading summary.
