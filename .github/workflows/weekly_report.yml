@@ -1,0 +1,33 @@
+name: Weekly Optimization Report
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push the report
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for git log analysis
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Configure Git
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Generate Weekly Report
+      # Note: optimization_log.txt must be present in the repo for "Stuck Strategies" analysis.
+      # If daily_optimize.py runs in a different environment, ensure logs are synchronized.
+      run: python scripts/generate_weekly_report.py
