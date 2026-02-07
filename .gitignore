@@ -40,3 +40,6 @@ npm-cache/
 tmp/
 fake_home/
 .jules/
+user_data/backtest_results/
+user_data/data/
+ft_userdata/
