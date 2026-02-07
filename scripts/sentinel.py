@@ -124,7 +124,7 @@ def get_open_trades(token):
 class Sentinel:
     def __init__(self):
         self.balance_history = []  # List of (timestamp, balance)
-        self.btc_history = []      # List of (timestamp, price)
+        self.btc_history = []  # List of (timestamp, price)
         self.token = None
 
     def refresh_token(self):
@@ -139,9 +139,7 @@ class Sentinel:
 
         # Prune history older than 1 hour
         one_hour_ago = now - timedelta(hours=1)
-        self.balance_history = [
-            (t, b) for t, b in self.balance_history if t >= one_hour_ago
-        ]
+        self.balance_history = [(t, b) for t, b in self.balance_history if t >= one_hour_ago]
 
         if not self.balance_history:
             return False
@@ -166,9 +164,7 @@ class Sentinel:
 
         # Prune history older than 4 hours
         four_hours_ago = now - timedelta(hours=4)
-        self.btc_history = [
-            (t, p) for t, p in self.btc_history if t >= four_hours_ago
-        ]
+        self.btc_history = [(t, p) for t, p in self.btc_history if t >= four_hours_ago]
 
         if not self.btc_history:
             return False
@@ -185,58 +181,63 @@ class Sentinel:
             return True
         return False
 
-    def trigger_emergency(self, reason):
-        """Execute emergency procedures."""
-        logger.critical(f"EMERGENCY TRIGGERED: {reason}")
-
-        # 1. Alert
+    def _send_alert(self, reason):
+        """Send alert via OpenClaw."""
         try:
             requests.post(OPENCLAW_URL, json={"message": f"CRITICAL ALERT: {reason}"}, timeout=10)
         except Exception as e:
             logger.error(f"Failed to send alert: {e}")
 
-        # 2. Liquidation (StopBuy + ForceExit)
+    def _stop_buying(self, headers):
+        """Stop buying on Freqtrade."""
+        try:
+            requests.post(f"{API_URL}/api/v1/stopbuy", headers=headers, timeout=10)
+            logger.info("Executed /stopbuy")
+        except Exception as e:
+            logger.error(f"Failed to execute /stopbuy: {e}")
+
+    def _force_exit_all(self, headers):
+        """Force exit all open trades."""
+        open_trades = get_open_trades(self.token)
+        if open_trades:
+            logger.info(f"Found {len(open_trades)} open trades. Attempting to force exit...")
+            for trade in open_trades:
+                trade_id = trade.get("trade_id")
+                if trade_id:
+                    try:
+                        requests.post(
+                            f"{API_URL}/api/v1/forceexit",
+                            headers=headers,
+                            json={"tradeid": trade_id},
+                            timeout=10,
+                        )
+                        logger.info(f"Executed /forceexit for trade {trade_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to execute /forceexit for trade {trade_id}: {e}")
+        else:
+            logger.info("No open trades found to liquidate.")
+
+    def _stop_bot(self, headers):
+        """Stop the Freqtrade bot process."""
+        try:
+            # Wait 5 seconds to let forceexit requests register
+            time.sleep(5)
+            requests.post(f"{API_URL}/api/v1/stop", headers=headers, timeout=10)
+            logger.critical("Executed /stop")
+        except Exception as e:
+            logger.error(f"Failed to execute /stop: {e}")
+
+    def trigger_emergency(self, reason):
+        """Execute emergency procedures."""
+        logger.critical(f"EMERGENCY TRIGGERED: {reason}")
+
+        self._send_alert(reason)
+
         if self.token:
             headers = {"Authorization": f"Bearer {self.token}"}
-            try:
-                requests.post(f"{API_URL}/api/v1/stopbuy", headers=headers, timeout=10)
-                logger.info("Executed /stopbuy")
-            except Exception as e:
-                logger.error(f"Failed to execute /stopbuy: {e}")
-
-            # Fetch open trades and force exit each
-            open_trades = get_open_trades(self.token)
-            if open_trades:
-                logger.info(f"Found {len(open_trades)} open trades. Attempting to force exit...")
-                for trade in open_trades:
-                    trade_id = trade.get("trade_id")
-                    if trade_id:
-                        try:
-                            requests.post(
-                                f"{API_URL}/api/v1/forceexit",
-                                headers=headers,
-                                json={"tradeid": trade_id},
-                                timeout=10,
-                            )
-                            logger.info(f"Executed /forceexit for trade {trade_id}")
-                        except Exception as e:
-                            logger.error(f"Failed to execute /forceexit for trade {trade_id}: {e}")
-            else:
-                logger.info("No open trades found to liquidate.")
-
-            # 3. Kill Switch (Stop Process)
-            # The prompt says "Kill Switch: Immediately runs freqtrade stop".
-            # This implies the process stops. However, "Liquidation" implies selling.
-            # If we stop the process immediately, open orders might remain or be cancelled.
-            # We need the bot running to manage the sell orders from /forceexit.
-            # We wait a brief moment for the exit orders to be placed, then stop.
-            try:
-                # Wait 5 seconds to let forceexit requests register
-                time.sleep(5)
-                requests.post(f"{API_URL}/api/v1/stop", headers=headers, timeout=10)
-                logger.critical("Executed /stop")
-            except Exception as e:
-                logger.error(f"Failed to execute /stop: {e}")
+            self._stop_buying(headers)
+            self._force_exit_all(headers)
+            self._stop_bot(headers)
 
         # Stop monitoring
         sys.exit(1)

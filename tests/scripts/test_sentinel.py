@@ -50,7 +50,8 @@ class TestSentinel(unittest.TestCase):
         # Ensure NO emergency actions triggered
         # Filter calls to OPENCLAW_URL or /stopbuy
         emergency_calls = [
-            c for c in mock_post.call_args_list
+            c
+            for c in mock_post.call_args_list
             if "stopbuy" in str(c) or "forceexit" in str(c) or "stop" in str(c)
         ]
         self.assertEqual(len(emergency_calls), 0)
@@ -91,10 +92,7 @@ class TestSentinel(unittest.TestCase):
         self.assertTrue(any("stop" in url for url in post_urls))
 
         # Verify forceexit called for specific trades
-        forceexit_calls = [
-            c for c in mock_post.call_args_list
-            if "forceexit" in str(c)
-        ]
+        forceexit_calls = [c for c in mock_post.call_args_list if "forceexit" in str(c)]
         self.assertEqual(len(forceexit_calls), 2)
         # Check payloads
         payloads = [c[1].get("json") for c in forceexit_calls]
@@ -102,8 +100,10 @@ class TestSentinel(unittest.TestCase):
         self.assertIn({"tradeid": 2}, payloads)
 
         # Alert check
-        self.assertTrue(any("openclaw" in str(c) for c in mock_post.call_args_list) or
-                        any("OPENCLAW" in str(c) for c in mock_post.call_args_list))
+        self.assertTrue(
+            any("openclaw" in str(c) for c in mock_post.call_args_list)
+            or any("OPENCLAW" in str(c) for c in mock_post.call_args_list)
+        )
 
     @patch("sentinel.requests.post")
     @patch("sentinel.requests.get")
