@@ -1,9 +1,21 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+Strategy: DeltaSafeStrategy
+Author: Generated
+Version: 1.1
+Timeframe: 1h
+Pair Format: Delta futures (e.g. BTCUSDT) or Freqtrade (e.g. BTC/USDT:USDT)
+Timezone: UTC ISO-8601
+Entry:
+  - Long: RSI < 30 and Volume > 0
+  - Short: Disabled
+Exit:
+  - Long: RSI > 70 and Volume > 0
+  - Short: Disabled
+Repainting: No (process_only_new_candles=True)
 """
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -52,24 +64,48 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        :param **kwargs: Ensure keep up to date with IStrategy.bot_start
+        """
+        for pair in self.config.get("exchange", {}).get("pair_whitelist", []):
+            if "/" not in pair or ":" not in pair:
+                raise ValueError(
+                    f"Strategy requires futures pair format (e.g. BTC/USDT:USDT). Found: {pair}"
+                )
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
+        # Check whitelist first
+        if self.config.get("exchange", {}).get("pair_whitelist"):
+            if not self.assert_pair_in_whitelist(
+                metadata["pair"], self.config["exchange"]["pair_whitelist"]
+            ):
+                return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        # Market Thesis: Buy when RSI is oversold (<30) and there is volume.
+        # This indicates a potential reversal from a dip.
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        long_rsi_condition = dataframe["rsi"] < 30
+        long_volume_condition = dataframe["volume"] > 0
+
+        dataframe.loc[(long_rsi_condition & long_volume_condition), "enter_long"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        # Market Thesis: Sell when RSI is overbought (>70) and there is volume.
+        # This indicates a potential reversal from a peak.
+
+        exit_long_rsi_condition = dataframe["rsi"] > 70
+        exit_long_volume_condition = dataframe["volume"] > 0
+
+        dataframe.loc[(exit_long_rsi_condition & exit_long_volume_condition), "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -79,7 +115,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
+        current_time: datetime,
         entry_tag,
         side: str,
         **kwargs,
@@ -87,5 +123,58 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        # Snapshot indicators
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        # Use last closed candle (iloc[-2]) as per requirements for process_only_new_candles=True
+        last_candle = dataframe.iloc[-2]
+
+        snapshot = {
+            "rsi": last_candle["rsi"],
+            "volume": last_candle["volume"],
+            "close": last_candle["close"],
+            "date": str(last_candle["date"]),
+        }
+
+        self.log_signal(
+            pair=pair,
+            side=side,
+            reason=entry_tag or "Signal Confirmed",
+            ts_utc=current_time.astimezone(UTC),
+            indicators_snapshot=snapshot,
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        last_candle = dataframe.iloc[-2]
+
+        snapshot = {
+            "rsi": last_candle["rsi"],
+            "volume": last_candle["volume"],
+            "close": last_candle["close"],
+            "date": str(last_candle["date"]),
+        }
+
+        # Exit is opposite side? No, side usually refers to position side.
+        # But log_signal expects 'side'. Usually side=buy/sell or long/short.
+        # Here let's use the trade direction.
+        # If trade is long, we are exiting long.
+        self.log_signal(
+            pair=pair,
+            side="long" if trade.is_short else "short",
+            reason=exit_reason,
+            ts_utc=current_time.astimezone(UTC),
+            indicators_snapshot=snapshot,
+        )
         return True
