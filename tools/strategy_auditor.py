@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 
+
 # Standard Header Template
 HEADER_TEMPLATE = '''"""
 Strategy: {strategy_name}
@@ -18,13 +19,14 @@ Repainting: No (Closed candle only)
 """
 '''
 
+
 def audit_file(filepath, fix=False):  # noqa: C901
     print(f"Auditing {filepath}...")
     try:
         with Path(filepath).open() as f:
             source = f.read()
-    except Exception as e:
-        print(f"FAIL: Could not read {filepath}: {e}")
+    except Exception as exc:
+        print(f"FAIL: Could not read {filepath}: {exc}")
         return False
 
     try:
@@ -55,10 +57,10 @@ def audit_file(filepath, fix=False):  # noqa: C901
         if missing_sections:
             errors.append(f"Header missing sections: {', '.join(missing_sections)}")
             if fix:
-                 # Trying to fix existing docstring is hard without messing up format.
-                 # Maybe just prepend/append?
-                 # For now, we only fix completely missing headers.
-                 pass
+                # Trying to fix existing docstring is hard without messing up format.
+                # Maybe just prepend/append?
+                # For now, we only fix completely missing headers.
+                pass
 
     # Check 2: Unsafe Imports
     for node in ast.walk(tree):
@@ -92,12 +94,12 @@ def audit_file(filepath, fix=False):  # noqa: C901
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
                 # Only strictly enforce for strategies in user_data/strategies/ (not _base)
                 if "_base" not in filepath and "Mixin" not in filepath:
-                     errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
+                    errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
 
     # Check 5: "closed candle only" note or logic
     # Heuristic: check if source mentions "closed candle" or "process_only_new_candles"
     if "closed candle" not in source.lower() and "process_only_new_candles" not in source:
-         errors.append("Missing 'closed candle' note/comment or 'process_only_new_candles' setting.")
+        errors.append("Missing 'closed candle' note/comment or 'process_only_new_candles' setting.")
 
     # Check 6: Complex conditions (named sub-conditions)
     # Heuristic: Check for assignments to dataframe with complex BoolOp index
@@ -130,15 +132,15 @@ def audit_file(filepath, fix=False):  # noqa: C901
     if not has_class:
         # Might be a library file, skip strict checks if filename starts with _?
         if Path(filepath).name.startswith("_"):
-             # reduce severity or skip
-             pass
+            # reduce severity or skip
+            pass
 
     if fixed:
         with Path(filepath).open("w") as f:
             f.write(source)
         print(f"FIXED: Applied fixes to {filepath}")
         # Re-run check?
-        return True # Assume fixed for now, or we could recurse.
+        return True  # Assume fixed for now, or we could recurse.
 
     if errors:
         for e in errors:
@@ -152,7 +154,9 @@ def audit_file(filepath, fix=False):  # noqa: C901
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Auditor")
     parser.add_argument("path", help="File or directory to audit")
-    parser.add_argument("--fix", action="store_true", help="Attempt to fix simple issues (e.g. missing header)")
+    parser.add_argument(
+        "--fix", action="store_true", help="Attempt to fix simple issues (e.g. missing header)"
+    )
     args = parser.parse_args()
 
     target = args.path

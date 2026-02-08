@@ -9,7 +9,8 @@ import datetime
 import os
 import time
 from pathlib import Path
-from typing import Any, List, Dict
+from typing import Any
+
 
 try:
     import requests
@@ -38,7 +39,7 @@ class StrategyScout:
         if self.token:
             self.session.headers.update({"Authorization": f"token {self.token}"})
         self.session.headers.update({"Accept": "application/vnd.github.v3+json"})
-        self.candidates: List[Dict[str, Any]] = []
+        self.candidates: list[dict[str, Any]] = []
 
     def check_rate_limit(self):
         try:
@@ -51,7 +52,9 @@ class StrategyScout:
 
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: GitHub API rate limit low ({remaining}). Resets at {reset_time}.")
+                    print(
+                        f"WARNING: GitHub API rate limit low ({remaining}). Resets at {reset_time}."
+                    )
                     return False
             return True
         except Exception as e:
@@ -138,8 +141,8 @@ class StrategyScout:
             else:
                 # No license
                 if full_name in KNOWN_SOURCES:
-                     score += 5
-                     notes.append("Known source (No explicit license field)")
+                    score += 5
+                    notes.append("Known source (No explicit license field)")
                 else:
                     # REJECT no license
                     continue
@@ -199,7 +202,7 @@ class StrategyScout:
                             strategies = potential
                             found_path = path
                             break
-            except Exception: # noqa: S110
+            except Exception:  # noqa: S110
                 pass
         return strategies, found_path
 
@@ -229,8 +232,8 @@ class StrategyScout:
                         repo["scout_score"] -= 10
                         repo["scout_notes"].append("Martingale detected (Risk!)")
                     if "future" not in content.lower() and "margin" not in content.lower():
-                         # Maybe only spot?
-                         pass
+                        # Maybe only spot?
+                        pass
 
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
@@ -267,7 +270,7 @@ class StrategyScout:
                 repo["scout_notes"].append("No strategy files found")
 
             inspected_count += 1
-            time.sleep(0.5) # Be nice to API
+            time.sleep(0.5)  # Be nice to API
 
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
@@ -319,7 +322,8 @@ class StrategyScout:
                 f.write("| Rank | Repository | Score | Stars | License |\n")
                 f.write("|---|---|---|---|---|\n")
                 for i, repo in enumerate(rest_candidates, 11):
-                    if i > 50: break # Limit table size
+                    if i > 50:
+                        break  # Limit table size
                     url = repo["html_url"]
                     full = repo["full_name"]
                     score = repo.get("scout_score", 0)
@@ -385,7 +389,9 @@ class StrategyScout:
                             f.write(f"# License Note for {repo_name}\n\n")
                             f.write(f"Source: {repo['html_url']}\n")
                             f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                            f.write("Please check the original repository for full license details.\n")
+                            f.write(
+                                "Please check the original repository for full license details.\n"
+                            )
 
                         count += 1
             except Exception as e:

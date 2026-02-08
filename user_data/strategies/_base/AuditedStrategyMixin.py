@@ -91,7 +91,8 @@ class AuditedStrategyMixin:
                 [Trade.is_open.is_(False), Trade.close_date >= start_of_day]
             ).all()
 
-            daily_profit = sum(t.close_profit_abs for t in trades)
+            # Fix for mypy: 'float | None'. Handle None as 0.0
+            daily_profit = sum((t.close_profit_abs or 0.0) for t in trades)
 
             # Total balance
             if not hasattr(self, "wallets"):
