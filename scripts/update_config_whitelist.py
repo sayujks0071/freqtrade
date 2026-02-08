@@ -4,11 +4,16 @@ import json
 import sys
 from pathlib import Path
 
+
 def main():
     parser = argparse.ArgumentParser(description="Update Freqtrade whitelist from markets dump.")
-    parser.add_argument("--markets", required=True, help="Path to markets JSON file (list of strings)")
+    parser.add_argument(
+        "--markets", required=True, help="Path to markets JSON file (list of strings)"
+    )
     parser.add_argument("--config", required=True, help="Path to Freqtrade config file")
-    parser.add_argument("--validate-only", action="store_true", help="Only validate whitelist, do not update")
+    parser.add_argument(
+        "--validate-only", action="store_true", help="Only validate whitelist, do not update"
+    )
 
     args = parser.parse_args()
 
@@ -57,11 +62,15 @@ def main():
     else:
         # Update whitelist
         # Logic: If whitelist is empty or default, populate with all futures from markets dump.
-        # Or simply overwrite with all available futures (since list-markets filters by trading mode).
+        # Or simply overwrite with all available futures
+        # (since list-markets filters by trading mode).
         # But dumping *all* futures might be too many (hundreds).
-        # A safe approach: If whitelist has < 5 pairs (default/minimal), populate with top 20 or all.
-        # The prompt says: "whitelist must be generated from the list-markets output... and written into config automatically".
-        # Let's populate with all available markets from the dump, assuming the dump is already filtered (e.g. by volume or just all futures).
+        # A safe approach: If whitelist has < 5 pairs (default/minimal),
+        # populate with top 20 or all.
+        # The prompt says: "whitelist must be generated from the list-markets output...
+        # and written into config automatically".
+        # Let's populate with all available markets from the dump, assuming the dump is already
+        # filtered (e.g. by volume or just all futures).
         # The `list-markets` command in `validate_exchange.sh` filters by `--trading-mode futures`.
 
         new_whitelist = sorted(markets)
@@ -77,6 +86,7 @@ def main():
         with config_path.open("w") as f:
             json.dump(config, f, indent=4)
         print(f"SUCCESS: Config updated: {config_path}")
+
 
 if __name__ == "__main__":
     main()
