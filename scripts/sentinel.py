@@ -27,7 +27,7 @@ logger = logging.getLogger("Sentinel")
 
 class Sentinel:
     def __init__(self, config_path: str | None = None):
-        self.config = {}
+        self.config: dict = {}
         self.api_url = os.getenv("FREQTRADE_API_URL", "http://127.0.0.1:8080")
         self.api_username = os.getenv("FREQTRADE_API_USERNAME", "freqtrader")
         self.api_password = os.getenv("FREQTRADE_API_PASSWORD", "SuperSecurePassword123!")

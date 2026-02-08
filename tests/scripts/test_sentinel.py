@@ -7,7 +7,7 @@ from unittest.mock import patch
 # Ensure scripts directory is in path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "scripts"))
 
-from sentinel import Sentinel
+from sentinel import Sentinel  # noqa: E402, RUF100
 
 
 class TestSentinel(unittest.TestCase):
