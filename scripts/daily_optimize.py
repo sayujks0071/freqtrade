@@ -118,6 +118,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -172,16 +174,6 @@ def check_git_status():
     return True
 
 
-def get_current_branch():
-    """Get the current git branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
-    return None
-
-
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
@@ -210,21 +202,189 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
-def main():  # noqa: C901
+def establish_baseline():
+    """
+    Establishes a performance baseline.
+    Checks for a recent backtest result (within 24 hours).
+    If missing or old, runs a new backtest on all strategies.
+    Returns the backtest data.
+    """
+    latest_file = get_latest_backtest_file()
+
+    if latest_file:
+        # Check if file is recent (within 24 hours)
+        mtime = datetime.fromtimestamp(latest_file.stat().st_mtime)
+        if datetime.now() - mtime < timedelta(hours=24):
+            print(f"Using recent baseline from: {latest_file}")
+            return read_backtest_result(latest_file)
+        else:
+            print(f"Baseline outdated ({mtime}). Generating new baseline...")
+    else:
+        print("No baseline found. Generating new baseline...")
+
+    strategies = find_available_strategies()
+    if not strategies:
+        print("No strategy files found.")
+        sys.exit(1)
+
+    return run_backtest_job(strategies)
+
+
+def run_hyperopt(strategy_name):
+    """Runs hyperopt for the given strategy."""
+    print(f"Running Hyperopt for {strategy_name}...")
+    cmd_hyperopt = [
+        sys.executable,
+        "-m",
+        "freqtrade",
+        "hyperopt",
+        "--config",
+        str(CONFIG_FILE),
+        "--strategy",
+        strategy_name,
+        "--epochs",
+        str(EPOCHS),
+        "--spaces",
+        *SPACES,
+        "--hyperopt-loss",
+        HYPEROPT_LOSS,
+        "--min-trades",
+        "1",
+        "--timerange",
+        get_timerange(),
+        "--no-color",
+        "--print-json",
+        "-j",
+        "1",
+    ]
+
+    return run_command(cmd_hyperopt, capture=True)
+
+
+def evaluate_and_update(
+    worst_strategy, current_sharpe, current_drawdown, result_hyperopt, strategy_json, args
+):
+    """
+    Evaluates hyperopt results and updates strategy if improved.
+    Returns (success, message) tuple.
+    """
+    backup_json = strategy_json.with_suffix(".json.bak")
+    created_new = False
+
+    if strategy_json.exists():
+        print(f"Backing up {strategy_json} to {backup_json}")
+        shutil.copy(strategy_json, backup_json)
+    else:
+        created_new = True
+
+    try:
+        # Apply new parameters
+        new_params = extract_hyperopt_params(result_hyperopt.stdout)
+        if new_params:
+            print(f"Applying new parameters to {strategy_json}")
+            with strategy_json.open("w") as f:
+                json.dump(new_params, f, indent=4)
+        else:
+            print("Could not extract new parameters from hyperopt output.")
+            return False, "Failed to extract parameters"
+
+        # Verification Backtest
+        print("Running verification backtest with new parameters...")
+        new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
+
+        if not new_backtest_data:
+            print("Failed to run verification backtest.")
+            return False, "Verification backtest failed"
+
+        new_stats = new_backtest_data["strategy"][worst_strategy]
+        new_sharpe = new_stats.get("sharpe", -float("inf"))
+        if new_sharpe is None:
+            new_sharpe = -float("inf")
+        new_drawdown = new_stats.get("max_drawdown_account", 1.0)
+        avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+
+        print(f"New Sharpe: {new_sharpe}")
+        print(f"New Drawdown: {new_drawdown}")
+
+        sharpe_improved = new_sharpe > (current_sharpe * 1.05)
+        drawdown_improved = new_drawdown < current_drawdown
+
+        print(f"Sharpe Improved: {sharpe_improved}")
+        print(f"Drawdown Improved: {drawdown_improved}")
+
+        if sharpe_improved and drawdown_improved:
+            print("Evaluation PASSED.")
+            if backup_json.exists():
+                backup_json.unlink()
+            msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
+            return True, msg
+        else:
+            print("Evaluation FAILED. Reverting changes.")
+            # Fall through to revert logic
+
+    except Exception as e:
+        print(f"Error during evaluation: {e}")
+        # Fall through to revert logic
+
+    # Revert logic
+    if strategy_json.exists() and not created_new and backup_json.exists():
+        shutil.move(backup_json, strategy_json)
+    elif created_new and strategy_json.exists():
+        strategy_json.unlink()
+
+    return False, "Evaluation failed"
+
+
+def commit_and_push(strategy_json, msg, args):
+    """Commits and pushes changes."""
+    if args.dry_run:
+        print("\n[DRY-RUN MODE] Would have committed and pushed:")
+        print(f"  File: {strategy_json}")
+        print(f"  Message: {msg}")
+        if args.branch:
+            print(f"  Branch: {args.branch}")
+        else:
+            print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+        print("\nNo changes were made. Use without --dry-run to apply changes.")
+        return
+
+    # Determine target branch
+    target_branch = args.branch if args.branch else "main"
+
+    # Use -f to force add in case user_data is gitignored
+    run_command(["git", "add", "-f", str(strategy_json)])
+    run_command(["git", "commit", "-m", msg])
+
+    # Confirm before pushing
+    if not args.yes:
+        print(f"\nReady to push changes to branch '{target_branch}'")
+        response = input("\nProceed with push? [y/N]: ").strip().lower()
+        if response not in ["y", "yes"]:
+            print("Push cancelled. Changes are committed locally.")
+            return
+
+    print(f"\nPushing to {target_branch}...")
+
+    push_cmd = ["git", "push", "origin"]
+    if target_branch == "main":
+        push_cmd.append("HEAD:main")
+    else:
+        push_cmd.append(target_branch)
+
+    result = run_command(push_cmd, capture=True)
+
+    if result.returncode == 0:
+        print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
+    else:
+        print(f"\nFailed to push to {target_branch}")
+        print(result.stderr)
+        print("Changes are committed locally. You can manually push later.")
+
+
+def main():
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Dry-run mode (no git operations):
-  %(prog)s --dry-run
-
-  # Push to a feature branch instead of main:
-  %(prog)s --branch optimize-strategy-$(date +%%Y%%m%%d)
-
-  # Skip confirmation prompts:
-  %(prog)s --yes
-        """,
     )
     parser.add_argument(
         "--dry-run",
@@ -243,29 +403,14 @@ Examples:
 
     args = parser.parse_args()
 
-    # Check git status before starting (unless in dry-run mode)
+    # Check git status
     if not args.dry_run:
         if not check_git_status():
             print("\nPlease commit or stash your changes before running this script.")
-            print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
     # 1. Establish Baseline
-    latest_file = get_latest_backtest_file()
-
-    backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
-
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
-        strategies = find_available_strategies()
-        if not strategies:
-            print("No strategy file found.")
-            sys.exit(1)
-        backtest_data = run_backtest_job(strategies)
-
+    backtest_data = establish_baseline()
     if not backtest_data:
         print("Failed to produce backtest baseline.")
         sys.exit(1)
@@ -276,168 +421,28 @@ Examples:
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
-
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
     print(f"Current Drawdown: {current_drawdown}")
 
-    # 2. Hyperopt Execution
-    strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
-    backup_json = strategy_json.with_suffix(".json.bak")
-    created_new = False
-
-    if strategy_json.exists():
-        print(f"Backing up {strategy_json} to {backup_json}")
-        shutil.copy(strategy_json, backup_json)
-    else:
-        created_new = True
-
-    print(f"Running Hyperopt for {worst_strategy}...")
-    cmd_hyperopt = [
-        "freqtrade",
-        "hyperopt",
-        "--config",
-        str(CONFIG_FILE),
-        "--strategy",
-        worst_strategy,
-        "--epochs",
-        str(EPOCHS),
-        "--spaces",
-        *SPACES,
-        "--hyperopt-loss",
-        HYPEROPT_LOSS,
-        "--min-trades",
-        "1",
-        "--timerange",
-        get_timerange(),
-        "--no-color",
-        "--print-json",
-        "-j",
-        "1",
-    ]
-
-    result_hyperopt = run_command(cmd_hyperopt, capture=True)
-
+    # 2. Hyperopt
+    result_hyperopt = run_hyperopt(worst_strategy)
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
-        print(result_hyperopt.stderr)  # Print stderr on failure
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
+        print(result_hyperopt.stderr)
         sys.exit(1)
 
-    # Apply new parameters
-    new_params = extract_hyperopt_params(result_hyperopt.stdout)
-    if new_params:
-        print(f"Applying new parameters to {strategy_json}")
-        with strategy_json.open("w") as f:
-            json.dump(new_params, f, indent=4)
+    # 3. Evaluation & Update
+    strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
+    success, msg = evaluate_and_update(
+        worst_strategy, current_sharpe, current_drawdown, result_hyperopt, strategy_json, args
+    )
+
+    # 4. Commit & Push
+    if success:
+        commit_and_push(strategy_json, msg, args)
     else:
-        print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
-        # If capture failed to get json, we should probably revert and exit
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
-        sys.exit(1)
-
-    # 3. Evaluation (Verification Backtest)
-    print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
-
-    if not new_backtest_data:
-        print("Failed to run verification backtest.")
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
-        sys.exit(1)
-
-    new_stats = new_backtest_data["strategy"][worst_strategy]
-    new_sharpe = new_stats.get("sharpe", -float("inf"))
-    if new_sharpe is None:
-        new_sharpe = -float("inf")
-    new_drawdown = new_stats.get("max_drawdown_account", 1.0)
-
-    # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
-
-    print(f"New Sharpe: {new_sharpe}")
-    print(f"New Drawdown: {new_drawdown}")
-
-    sharpe_improved = new_sharpe > (current_sharpe * 1.05)
-    drawdown_improved = new_drawdown < current_drawdown
-
-    print(f"Sharpe Improved: {sharpe_improved}")
-    print(f"Drawdown Improved: {drawdown_improved}")
-
-    if sharpe_improved and drawdown_improved:
-        print("Evaluation PASSED. Committing changes.")
-        msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
-
-        if args.dry_run:
-            print("\n[DRY-RUN MODE] Would have committed and pushed:")
-            print(f"  File: {strategy_json}")
-            print(f"  Message: {msg}")
-            if args.branch:
-                print(f"  Branch: {args.branch}")
-            else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
-            print("\nNo changes were made. Use without --dry-run to apply changes.")
-        else:
-            # Determine target branch
-            target_branch = args.branch if args.branch else "main"
-
-            # Use -f to force add in case user_data is gitignored
-            run_command(["git", "add", "-f", str(strategy_json)])
-            run_command(["git", "commit", "-m", msg])
-
-            # Confirm before pushing
-            if not args.yes:
-                print(f"\nReady to push changes to branch '{target_branch}'")
-                print("This will:")
-                print(f"  - Push optimized strategy parameters for {worst_strategy}")
-                print(f"  - Update remote branch: {target_branch}")
-                response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ["y", "yes"]:
-                    print("Push cancelled. Changes are committed locally.")
-                    if backup_json.exists():
-                        backup_json.unlink()
-                    return
-
-            print(f"\nPushing to {target_branch}...")
-
-            push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
-            if target_branch == "main":
-                push_cmd.append("HEAD:main")
-            else:
-                push_cmd.append(target_branch)
-
-            result = run_command(push_cmd, capture=True)
-
-            if result.returncode == 0:
-                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
-            else:
-                print(f"\nFailed to push to {target_branch}")
-                print(result.stderr)
-                print("Changes are committed locally. You can manually push later.")
-
-        if backup_json.exists():
-            backup_json.unlink()
-
-    else:
-        print("Evaluation FAILED. Reverting changes.")
-        if not created_new:
-            shutil.move(backup_json, strategy_json)
-        else:
-            if strategy_json.exists():
-                strategy_json.unlink()
+        print(f"Optimization failed or rejected: {msg}")
 
 
 if __name__ == "__main__":
