@@ -140,6 +140,16 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
 
+## How to choose pairs on Delta
+Always pick pairs from the generated markets dump (`user_data/reports/markets_*.json`) or the output of `freqtrade list-markets`. Never hand-type blind guesses.
+See [Symbol Mapping Report](user_data/reports/symbol_mapping_20260208.md) for details on Delta vs Freqtrade formats.
+
+## How to interpret logs
+The strategy auditor enforces a specific log format for every signal:
+`AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT`
+- **SNAPSHOT**: JSON object containing key indicators at the time of the signal (e.g., RSI, Volume, Close).
+- You can grep for `AUDIT_SIGNAL` in the logs to trace every trade decision.
+
 ## Documentation
 
 -   [Risk Profile](user_data/reports/risk_profile.md)

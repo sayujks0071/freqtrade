@@ -22,31 +22,28 @@ class AuditedStrategyMixin:
     def log_signal(
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators_snapshot: dict[str, Any],
     ) -> None:
         """
         Log entry/exit signals to audit log.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
+        # Format: AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
+            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
+            f"{side} | {reason} | {indicators_snapshot}"
         )
         logger.info(msg)
 
-    def check_whitelist(self, pair: str) -> bool:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> bool:
         """
         Assert pair is in current whitelist.
         """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
-                return False
+        if pair not in whitelist:
+            logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
+            return False
         return True
 
     def normalize_pair(self, pair: str) -> str:
