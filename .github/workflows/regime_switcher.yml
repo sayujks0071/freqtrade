@@ -1,0 +1,37 @@
+name: Regime Switcher
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  regime-switch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas ccxt ft-pandas-ta
+
+      - name: Run Regime Switcher
+        run: python scripts/regime_switcher.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "RegimeSwitcherBot"
+          git config --global user.email "regimeswitcher@freqtrade.io"
+          git add user_data/configs/config_production.json regime_log.md
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: Update regime and strategy [skip ci]" && git push)
