@@ -1,4 +1,5 @@
 import logging
+import secrets
 from ipaddress import ip_address
 from typing import Any
 
@@ -130,6 +131,14 @@ class ApiServer(RPCHandler):
         ApiServer.__initialized = True
 
         api_config = self._config["api_server"]
+
+        if api_config.get("jwt_secret_key", "super-secret") in ("super-secret", "somethingrandom"):
+            api_config["jwt_secret_key"] = secrets.token_hex(32)
+            logger.warning(
+                "SECURITY WARNING - `jwt_secret_key` seems to be default. "
+                "Generated a random secret key for this session. "
+                "Your session will be invalidated on restart."
+            )
 
         self.app = FastAPI(
             title="Freqtrade API",
@@ -299,14 +308,6 @@ class ApiServer(RPCHandler):
             logger.warning(
                 "SECURITY WARNING - No password for local REST Server defined. "
                 "Please make sure that this is intentional!"
-            )
-
-        if self._config["api_server"].get("jwt_secret_key", "super-secret") in (
-            "super-secret, somethingrandom"
-        ):
-            logger.warning(
-                "SECURITY WARNING - `jwt_secret_key` seems to be default."
-                "Others may be able to log into your bot."
             )
 
         logger.info("Starting Local Rest Server.")
