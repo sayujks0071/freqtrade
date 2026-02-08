@@ -48,7 +48,15 @@ This script will:
 
 If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
 
-### 4. Start Dry-Run
+### 4. Fetch Markets & Whitelist (Daily Refresh)
+
+You can manually trigger the daily market validation and whitelist update workflow:
+```bash
+./scripts/update_markets_and_whitelist.sh
+```
+This fetches active markets, validates schema/drift, and generates `user_data/pairlists/whitelist.delta.json`.
+
+### 5. Start Dry-Run
 
 Start the bot in Dry-Run mode (simulated trading with live data):
 ```bash
@@ -58,7 +66,7 @@ Start the bot in Dry-Run mode (simulated trading with live data):
 - Logs can be viewed with: `docker compose logs -f`
 - Access the UI at: http://localhost:8080 (Default login: `freqtrader` / `password` - Change this in config!)
 
-### 5. Go Live 🚀
+### 6. Go Live 🚀
 
 **WARNING:** This will trade with REAL funds.
 
@@ -73,53 +81,18 @@ Start the bot in Dry-Run mode (simulated trading with live data):
    ```
    Confirm the prompt to start.
 
-## Troubleshooting
+## Configuration Knobs
 
-- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
-- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
-- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
-- **Time Drift:** Ensure your server time is synced (`ntp`).
+The following environment variables (in `.env`) control market validation and whitelist generation:
 
-## Directory Structure
-
-- `docker-compose.yml`: Main service definition.
-- `user_data/configs/`: Configuration files (dryrun vs live).
-- `scripts/`: Helper scripts for management.
-- `.env`: Secrets (Git-ignored).
-# Delta Exchange Trading Stack (Freqtrade)
-
-This repository is configured as a production-ready crypto trading stack for Delta Exchange (India + Global), built on Freqtrade.
-
-## Quick Start
-
-1.  **Bootstrap**:
-    ```bash
-    ./scripts/bootstrap.sh
-    ```
-    This creates necessary directories and copies `.env.example` to `.env`.
-
-2.  **Configure**:
-    Edit `.env` with your Delta Exchange credentials.
-    - `DELTA_ENV`: `india_prod`, `global_prod`, or `india_testnet`.
-    - `DELTA_API_KEY` / `SECRET`.
-
-3.  **Fetch Markets & Whitelist**:
-    ```bash
-    ./scripts/update_markets_and_whitelist.sh
-    ```
-    This fetches active markets, validates schema, and generates `user_data/pairlists/whitelist.delta.json`.
-
-4.  **Run Dry-Run**:
-    ```bash
-    ./scripts/run_dryrun.sh
-    ```
-    Starts Freqtrade in Docker with `config.delta.dryrun.json`.
-
-5.  **Run Live**:
-    ```bash
-    ./scripts/run_live.sh
-    ```
-    **WARNING**: This uses real money. Ensure you have tested thoroughly.
+- `MIN_MARKETS` (default: 20): Minimum number of markets required in the dump to be considered valid.
+- `MAX_REMOVAL_RATIO` (default: 0.25): Maximum ratio of removed pairs allowed compared to the previous whitelist. Prevents accidental mass delisting.
+- `STRICT_VOLUME` (default: false): If true, rejects markets with very low volume.
+- `FILTER_MODE` (default: perps_usdt): Controls which markets are added to the whitelist.
+  - `perps_usdt`: Only USDT-margined perpetuals.
+  - `all_futures`: All futures contracts.
+  - `allowlist_regex`: Uses `ALLOWLIST_REGEX` to filter symbols.
+- `ALLOWLIST_REGEX`: Regex pattern for `allowlist_regex` mode.
 
 ## Key Features
 
@@ -139,6 +112,20 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/strategy_scout.py`: Finds strategies on GitHub.
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
+
+## Troubleshooting
+
+- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
+- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
+- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
+- **Time Drift:** Ensure your server time is synced (`ntp`).
+
+## Directory Structure
+
+- `docker-compose.yml`: Main service definition.
+- `user_data/configs/`: Configuration files (dryrun vs live).
+- `scripts/`: Helper scripts for management.
+- `.env`: Secrets (Git-ignored).
 
 ## Documentation
 
