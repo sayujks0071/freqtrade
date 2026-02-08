@@ -7,12 +7,13 @@ Output:
     - Exit code 2: FAIL
     - Generates a Markdown report.
 """
+
 import argparse
 import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 
@@ -229,15 +230,19 @@ def validate_drift(current_symbols, prev_symbols, max_removal_ratio, errors):
 
     for r in removed:
         # specific check: if 'BTC/USDT' was removed and 'BTC/USDT:USDT' was added
-        if ":" not in r:
-            # prev was spot-like?
-            pass
+        # Check if any added symbol corresponds to r but with a colon appended
+        for a in added:
+            if a.startswith(f"{r}:"):
+                errors.append(f"Format change detected for {r} -> {a}")
+            elif ":" in r and r.startswith(f"{a}:"):
+                # Reverse case: BTC/USDT:USDT removed, BTC/USDT added
+                errors.append(f"Format change detected for {r} -> {a}")
 
     return list(removed), ratio
 
 
 def generate_report(out_path, status, errors, stats, drift_stats):
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(datetime.UTC).isoformat()
 
     error_section = ""
     if errors:
@@ -265,9 +270,9 @@ def generate_report(out_path, status, errors, stats, drift_stats):
 **Date:** {ts}
 
 ## Summary
-- Total Markets in Dump: {stats['total']}
-- Eligible Markets: {stats['eligible']}
-- Whitelist Size (Potential): {stats['eligible']}
+- Total Markets in Dump: {stats["total"]}
+- Eligible Markets: {stats["eligible"]}
+- Whitelist Size (Potential): {stats["eligible"]}
 
 {drift_section}
 
@@ -356,10 +361,7 @@ def main():
     if errors:
         status = "FAIL"
 
-    stats = {
-        "total": len(markets_list),
-        "eligible": len(valid_symbols)
-    }
+    stats = {"total": len(markets_list), "eligible": len(valid_symbols)}
 
     generate_report(args.out_report, status, errors, stats, drift_stats)
 
