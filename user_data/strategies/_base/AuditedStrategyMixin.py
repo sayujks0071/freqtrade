@@ -14,7 +14,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from freqtrade.persistence import Trade
 
@@ -37,7 +37,7 @@ class AuditedStrategyMixin:
         direction: str,
         reason: str,
         candle_date: datetime,
-        snapshot: Optional[Dict[str, Any]] = None,
+        snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -56,7 +56,9 @@ class AuditedStrategyMixin:
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
             if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
+                logger.warning(
+                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
+                )
                 return False
         return True
 
@@ -79,18 +81,24 @@ class AuditedStrategyMixin:
             if current_time.tzinfo is None:
                 current_time = current_time.replace(tzinfo=UTC)
 
-            start_of_day = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_of_day = current_time.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
 
             # Query closed trades for today
             # Trade.get_trades expects a list of filters
-            trades = Trade.get_trades([Trade.is_open.is_(False), Trade.close_date >= start_of_day]).all()
+            trades = Trade.get_trades(
+                [Trade.is_open.is_(False), Trade.close_date >= start_of_day]
+            ).all()
 
             daily_profit = sum(t.close_profit_abs for t in trades)
 
             # Total balance
             if not hasattr(self, "wallets"):
-                 logger.warning("AUDIT_PROTECTION | self.wallets not found. Skipping daily loss check.")
-                 return True
+                logger.warning(
+                    "AUDIT_PROTECTION | self.wallets not found. Skipping daily loss check."
+                )
+                return True
 
             total_balance = self.wallets.get_total_stake_amount()
 
@@ -98,7 +106,10 @@ class AuditedStrategyMixin:
             loss_limit_abs = total_balance * (max_daily_loss_pct / 100.0)
 
             if daily_profit < -loss_limit_abs:
-                logger.warning(f"AUDIT_PROTECTION | Daily Loss Limit Hit! PnL: {daily_profit:.2f} < -{loss_limit_abs:.2f}. Blocking entry.")
+                logger.warning(
+                    f"AUDIT_PROTECTION | Daily Loss Limit Hit! PnL: {daily_profit:.2f} "
+                    f"< -{loss_limit_abs:.2f}. Blocking entry."
+                )
                 return False
 
             return True
