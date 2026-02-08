@@ -1,5 +1,13 @@
 """
-AuditedStrategyMixin
+Strategy: AuditedStrategyMixin
+Author: Freqtrade User
+Version: 1.0
+Timeframe: 1h
+Pair Format: BASE/QUOTE:SETTLE
+Timezone: UTC
+Entry/Exit: Limit/Limit
+Repainting: No (Closed candle only)
+
 Mixin class for strategies to enforce audit logging and safety checks.
 """
 
