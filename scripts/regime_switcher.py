@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-import sys
 import json
 import logging
-from pathlib import Path
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import ccxt
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta as ta  # noqa: F401
+
 
 # Constants
 PAIR = "BTC/USDT"
@@ -78,7 +79,7 @@ def analyze_regime(df):
         # If Price > EMA200 but ADX < 25 (but > 20), it's neither Bull nor Sideways.
         # Maybe weak trend?
         # I'll default to VolatilityBreakout (Bear/Volatile) if Price < EMA200.
-        # If Price > EMA200 and ADX in [20, 25], let's default to Sideways (BollingerRSI) as it's low trend.
+        # If Price > EMA200 and ADX in [20, 25], let's default to Sideways (BollingerRSI).
 
         if close < ema200:
             regime = "Volatile/Bear"
@@ -99,7 +100,7 @@ def update_config(strategy_name):
         return False
 
     try:
-        with open(CONFIG_PATH, "r") as f:
+        with CONFIG_PATH.open() as f:
             config = json.load(f)
 
         current_strategy = config.get("strategy")
@@ -109,7 +110,7 @@ def update_config(strategy_name):
 
         config["strategy"] = strategy_name
 
-        with open(CONFIG_PATH, "w") as f:
+        with CONFIG_PATH.open("w") as f:
             json.dump(config, f, indent=4)
 
         logger.info(f"Updated config with strategy: {strategy_name}")
@@ -120,17 +121,17 @@ def update_config(strategy_name):
 
 
 def log_decision(regime, strategy_name):
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017
     message = (
         f"- **{timestamp}**: Regime detected: `{regime}`. Action: Switched to `{strategy_name}`.\n"
     )
 
     # Ensure file exists or create it
     if not LOG_FILE.exists():
-        with open(LOG_FILE, "w") as f:
+        with LOG_FILE.open("w") as f:
             f.write("# Regime Switcher Log\n\n")
 
-    with open(LOG_FILE, "a") as f:
+    with LOG_FILE.open("a") as f:
         f.write(message)
     logger.info("Logged decision to regime_log.md")
 
