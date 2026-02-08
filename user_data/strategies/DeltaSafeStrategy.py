@@ -15,8 +15,8 @@ Repainting: No (process_only_new_candles=True)
 """
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -72,8 +72,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Check whitelist first
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             if not self.assert_pair_in_whitelist(metadata["pair"], self.config["exchange"]["pair_whitelist"]):
-                 return dataframe
+            if not self.assert_pair_in_whitelist(
+                metadata["pair"], self.config["exchange"]["pair_whitelist"]
+            ):
+                return dataframe
 
         # Market Thesis: Buy when RSI is oversold (<30) and there is volume.
         # This indicates a potential reversal from a dip.
@@ -125,15 +127,15 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             "rsi": last_candle["rsi"],
             "volume": last_candle["volume"],
             "close": last_candle["close"],
-            "date": str(last_candle["date"])
+            "date": str(last_candle["date"]),
         }
 
         self.log_signal(
             pair=pair,
             side=side,
             reason=entry_tag or "Signal Confirmed",
-            ts_utc=current_time.astimezone(timezone.utc),
-            indicators_snapshot=snapshot
+            ts_utc=current_time.astimezone(UTC),
+            indicators_snapshot=snapshot,
         )
         return True
 
@@ -157,17 +159,18 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             "rsi": last_candle["rsi"],
             "volume": last_candle["volume"],
             "close": last_candle["close"],
-            "date": str(last_candle["date"])
+            "date": str(last_candle["date"]),
         }
 
+        # Exit is opposite side? No, side usually refers to position side.
+        # But log_signal expects 'side'. Usually side=buy/sell or long/short.
+        # Here let's use the trade direction.
+        # If trade is long, we are exiting long.
         self.log_signal(
             pair=pair,
-            side="long" if trade.is_short else "short", # Exit is opposite side? No, side usually refers to position side.
-            # But log_signal expects 'side'. Usually side=buy/sell or long/short.
-            # Here let's use the trade direction.
-            # If trade is long, we are exiting long.
+            side="long" if trade.is_short else "short",
             reason=exit_reason,
-            ts_utc=current_time.astimezone(timezone.utc),
-            indicators_snapshot=snapshot
+            ts_utc=current_time.astimezone(UTC),
+            indicators_snapshot=snapshot,
         )
         return True

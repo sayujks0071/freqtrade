@@ -4,7 +4,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 
