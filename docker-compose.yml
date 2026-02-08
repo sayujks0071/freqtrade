@@ -7,34 +7,36 @@ services:
     container_name: freqtrade
     volumes:
       - "./user_data:/freqtrade/user_data"
+      - "./tools:/freqtrade/tools"
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      - FREQTRADE__EXCHANGE__KEY
-      - FREQTRADE__EXCHANGE__SECRET
-      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public
-      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private
-      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www
-    # Default command used when running `docker compose up`
+      - FREQTRADE__EXCHANGE__KEY=${DELTA_API_KEY}
+      - FREQTRADE__EXCHANGE__SECRET=${DELTA_API_SECRET}
+      # Map Delta Base URL to CCXT config if needed, or rely on exchange class logic if it supports env vars.
+      # CCXT usually doesn't pick up arbitrary env vars for URLs unless we map them.
+      # Freqtrade allows generic overrides via FREQTRADE__EXCHANGE__...
+      # For Delta, we might need to use 'urls' config override if the exchange class doesn't check env.
+      # However, Freqtrade's exchange resolver might not support dynamic URL injection easily without config.
+      # But we can try to pass it and let the bot script handle it or use the config json for base settings.
+      # The user prompt says "Allow DELTA_BASE_URL override."
+      # And "scripts/common.sh" sets it.
+      # We can map it here just in case custom scripts inside use it.
       - DELTA_ENV=${DELTA_ENV:-india_testnet}
-      - DELTA_API_KEY=${DELTA_API_KEY}
-      - DELTA_API_SECRET=${DELTA_API_SECRET}
-      - DELTA_BASE_URL=${DELTA_BASE_URL:-}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - DELTA_BASE_URL=${DELTA_BASE_URL}
+      # Map CCXT specific URL overrides if supported by Freqtrade structure
+      # (This depends on how Freqtrade parses env vars for nested config)
+      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public=${DELTA_BASE_URL}
+      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private=${DELTA_BASE_URL}
+      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www=https://www.delta.exchange
     command: >
       trade
       --logfile /freqtrade/user_data/logs/freqtrade.log
       --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
       --config /freqtrade/user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
+      --config /freqtrade/user_data/pairlists/whitelist.delta.json
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/ping || exit 1"]
       interval: 1m
       timeout: 10s
       retries: 3
-      --config /freqtrade/user_data/config.json
-      --config /freqtrade/user_data/pairlists/whitelist.delta.json
-      --strategy SampleStrategy

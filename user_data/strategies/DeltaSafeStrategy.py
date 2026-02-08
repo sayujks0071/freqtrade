@@ -1,5 +1,13 @@
 """
-DeltaSafeStrategy
+Strategy: DeltaSafeStrategy
+Author: Freqtrade User
+Version: 1.0
+Timeframe: 1h
+Pair Format: BASE/QUOTE:SETTLE
+Timezone: UTC
+Entry/Exit: Limit/Limit
+Repainting: No (Closed candle only)
+
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 
@@ -87,5 +95,30 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        # 1. Check Daily Loss Limit
+        if not self.check_daily_loss_limit(current_time):
+            return False
+
+        # 2. Snapshot & Log
+        snapshot = {}
+        try:
+            # Snapshot key indicators from the signal candle (last closed candle)
+            # Since process_only_new_candles=True, current_time is usually the open
+            # of the new candle.
+            # We look at iloc[-2] (the previous closed candle).
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            if not dataframe.empty and len(dataframe) > 1:
+                last_candle = dataframe.iloc[-2]
+                snapshot = {
+                    "rsi": float(last_candle.get("rsi", 0)),
+                    "close": float(last_candle.get("close", 0)),
+                    "volume": float(last_candle.get("volume", 0)),
+                    "date": str(last_candle.get("date", "")),
+                }
+        except Exception as e:
+            snapshot = {"error": str(e)}
+
+        self.log_signal(
+            pair, self.timeframe, side, "Signal Confirmed", current_time, snapshot
+        )
         return True

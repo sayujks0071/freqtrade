@@ -7,10 +7,16 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
+import time
 from pathlib import Path
 from typing import Any
 
-import requests
+
+try:
+    import requests
+except ImportError:
+    print("Error: 'requests' library not found. Please install it.")
+    exit(1)
 
 
 # Constants
@@ -22,9 +28,7 @@ SEARCH_QUERIES = [
     "crypto trading strategy python freqtrade",
 ]
 KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
-REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
-TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
 
 
@@ -45,15 +49,17 @@ class StrategyScout:
                 core = data["resources"]["core"]
                 remaining = core["remaining"]
                 reset = core["reset"]
-                print(f"DEBUG: Rate limit remaining: {remaining}")
+
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
+                    print(
+                        f"WARNING: GitHub API rate limit low ({remaining}). Resets at {reset_time}."
+                    )
                     return False
             return True
         except Exception as e:
             print(f"Error checking rate limit: {e}")
-            return True  # Assume ok if check fails, to avoid loop
+            return True  # Assume ok if check fails, to avoid blocking loop on network glitch
 
     def search_github(self):
         print("Searching GitHub...")
@@ -116,19 +122,33 @@ class StrategyScout:
             pushed_at = repo.get("pushed_at")
             license_data = repo.get("license")
 
-            # 1. License Check
+            # 1. License Check (Strict)
+            # Must have a license, or be in KNOWN_SOURCES
             license_name = "Unknown"
-            if license_data and license_data.get("key") != "other":
+            if license_data:
                 license_name = license_data.get("name", "Unknown")
-                score += 5  # Clear license
-            elif license_data and license_data.get("key") == "other":
-                license_name = "Other (Check manually)"
-                score += 1
+                key = license_data.get("key", "")
+
+                if key == "other":
+                    if full_name in KNOWN_SOURCES:
+                        score += 5
+                        notes.append("Known source (Other license)")
+                    else:
+                        score -= 5
+                        notes.append("Custom/Other license (Check carefully)")
+                elif key:
+                    score += 5  # Standard license
             else:
-                if full_name not in KNOWN_SOURCES:
+                # No license
+                if full_name in KNOWN_SOURCES:
+                    score += 5
+                    notes.append("Known source (No explicit license field)")
+                else:
+                    # REJECT no license
                     continue
 
             # 2. Recency
+            age_days = 9999
             if pushed_at:
                 pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                 age_days = (datetime.datetime.now() - pushed_dt).days
@@ -139,14 +159,15 @@ class StrategyScout:
                 elif age_days < 365:
                     score += 1
                 else:
-                    score -= 2  # Stale
-            else:
-                age_days = 9999
+                    score -= 5  # Stale
+                    notes.append("Stale repo (>1 year)")
 
             # 3. Description / Documentation
             description = repo.get("description", "") or ""
             if "freqtrade" in description.lower():
                 score += 2
+
+            # Penalize simple forks (heuristic: low stars compared to age? hard to tell)
 
             repo["scout_score"] = score
             repo["scout_notes"] = notes
@@ -210,6 +231,10 @@ class StrategyScout:
                     if "martingale" in content.lower():
                         repo["scout_score"] -= 10
                         repo["scout_notes"].append("Martingale detected (Risk!)")
+                    if "future" not in content.lower() and "margin" not in content.lower():
+                        # Maybe only spot?
+                        pass
+
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
@@ -217,12 +242,15 @@ class StrategyScout:
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
+        # Create a new list for re-sorted candidates
+        # We modify objects in place, so self.candidates will reflect changes
+
         for repo in self.candidates:
             if inspected_count >= limit:
                 break
 
             if not self.check_rate_limit():
-                print("Rate limit exhausted, stopping inspection.")
+                print("Rate limit exhausted/low, stopping inspection.")
                 break
 
             full_name = repo["full_name"]
@@ -234,13 +262,15 @@ class StrategyScout:
             repo["strategy_path"] = found_path
 
             if len(strategies) > 0:
-                repo["scout_score"] += min(len(strategies), 5) * 1  # +1 per strategy up to 5
+                repo["scout_score"] += min(len(strategies), 3) * 1  # +1 per strategy up to 3
                 # Check the first strategy file for content
                 self._analyze_strategy_content(strategies[0], repo)
             else:
-                repo["scout_score"] -= 5
+                repo["scout_score"] -= 10
+                repo["scout_notes"].append("No strategy files found")
 
             inspected_count += 1
+            time.sleep(0.5)  # Be nice to API
 
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
@@ -253,6 +283,7 @@ class StrategyScout:
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
         filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
+        # Separate into Top 10 and rest
         top_10 = self.candidates[:10]
         rest_candidates = self.candidates[10:]
 
@@ -270,9 +301,8 @@ class StrategyScout:
                     last_update = repo.get("pushed_at", "").split("T")[0]
                     f.write(f"- **Last Update:** {last_update}\n")
 
-                desc = repo.get("description")
-                if desc:
-                    f.write(f"- **Description:** {desc}\n")
+                desc = repo.get("description") or "No description"
+                f.write(f"- **Description:** {desc}\n")
 
                 if repo.get("scout_notes"):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
@@ -292,6 +322,8 @@ class StrategyScout:
                 f.write("| Rank | Repository | Score | Stars | License |\n")
                 f.write("|---|---|---|---|---|\n")
                 for i, repo in enumerate(rest_candidates, 11):
+                    if i > 50:
+                        break  # Limit table size
                     url = repo["html_url"]
                     full = repo["full_name"]
                     score = repo.get("scout_score", 0)
@@ -333,32 +365,35 @@ class StrategyScout:
                 if resp.status_code == 200:
                     contents = resp.json()
                     downloaded = 0
-                    for file_info in contents:
-                        fname = file_info.get("name", "")
-                        if not fname.endswith(".py") or fname == "__init__.py":
-                            continue
+                    if isinstance(contents, list):
+                        for file_info in contents:
+                            fname = file_info.get("name", "")
+                            if not fname.endswith(".py") or fname == "__init__.py":
+                                continue
 
-                        if downloaded >= 3:
-                            # Limit to 3 files per repo to save bandwidth/noise
-                            break
+                            if downloaded >= 3:
+                                # Limit to 3 files per repo to save bandwidth/noise
+                                break
 
-                        raw_url = file_info.get("download_url")
-                        if raw_url:
-                            r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
-                            if r.status_code == 200:
-                                file_path = vendor_dir / file_info["name"]
-                                with file_path.open("w") as f:
-                                    f.write(r.text)
-                                downloaded += 1
+                            raw_url = file_info.get("download_url")
+                            if raw_url:
+                                r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
+                                if r.status_code == 200:
+                                    file_path = vendor_dir / file_info["name"]
+                                    with file_path.open("w") as f:
+                                        f.write(r.text)
+                                    downloaded += 1
 
-                    license_file = vendor_dir / "LICENSE_NOTE.md"
-                    with license_file.open("w") as f:
-                        f.write(f"# License Note for {repo_name}\n\n")
-                        f.write(f"Source: {repo['html_url']}\n")
-                        f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write("Please check the original repository for full license details.\n")
+                        license_file = vendor_dir / "LICENSE_NOTE.md"
+                        with license_file.open("w") as f:
+                            f.write(f"# License Note for {repo_name}\n\n")
+                            f.write(f"Source: {repo['html_url']}\n")
+                            f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
+                            f.write(
+                                "Please check the original repository for full license details.\n"
+                            )
 
-                    count += 1
+                        count += 1
             except Exception as e:
                 print(f"Error vendoring {full_name}: {e}")
 

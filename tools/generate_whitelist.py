@@ -47,8 +47,12 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    try:
+        with Path(sys.argv[1]).open() as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error reading file {sys.argv[1]}: {e}")
+        sys.exit(1)
 
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]

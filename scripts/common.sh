@@ -1,58 +1,45 @@
 #!/bin/bash
+# scripts/common.sh
+# Common environment variables and helper functions
 
-# Load .env
+# Load .env if it exists
 if [ -f .env ]; then
-    # echo "Loading .env..."
-    set -a
-    . .env
-    set +a
-else
-    echo "No .env file found. Proceeding with environment variables..."
+    # Filter comments and empty lines
+    export $(grep -v '^#' .env | xargs)
 fi
 
-if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
-fi
+# Defaults
+export DELTA_ENV=${DELTA_ENV:-india_testnet}
+export FREQTRADE_IMAGE=${FREQTRADE_IMAGE:-freqtradeorg/freqtrade:stable}
+export FREQTRADE_CONFIG_FILE=${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
 
-# Determine Base URL
+# Delta Exchange Base URLs
 case "$DELTA_ENV" in
     india_prod)
-        BASE_URL="https://api.india.delta.exchange"
-        WWW_URL="https://india.delta.exchange"
+        DEFAULT_BASE_URL="https://api.india.delta.exchange"
         ;;
     global_prod)
-        BASE_URL="https://api.delta.exchange"
-        WWW_URL="https://www.delta.exchange"
+        DEFAULT_BASE_URL="https://api.delta.exchange"
         ;;
     india_testnet)
-        BASE_URL="https://cdn-ind.testnet.deltaex.org"
-        WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
+        DEFAULT_BASE_URL="https://cdn-ind.testnet.deltaex.org"
         ;;
     *)
-        echo "Unknown DELTA_ENV: $DELTA_ENV"
-        echo "Supported: india_prod, global_prod, india_testnet"
-        exit 1
+        echo "Unknown DELTA_ENV: $DELTA_ENV. Defaulting to india_testnet."
+        DEFAULT_BASE_URL="https://cdn-ind.testnet.deltaex.org"
         ;;
 esac
 
-# Override if set
-if [ -n "$DELTA_BASE_URL" ]; then
-    BASE_URL="$DELTA_BASE_URL"
-fi
+# Allow override
+export DELTA_BASE_URL=${DELTA_BASE_URL:-$DEFAULT_BASE_URL}
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
+echo "Environment: $DELTA_ENV"
+echo "Base URL: $DELTA_BASE_URL"
 
-# Export Freqtrade Variables
-export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
-export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
-
-# CCXT Config for URLs
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
-
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
-fi
+# Helper to check docker
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        echo "Error: Docker is not installed or not in PATH."
+        exit 1
+    fi
+}
