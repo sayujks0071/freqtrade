@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+LOG_FILE = Path("optimization_log.txt")
 
 # Optimization Parameters
 EPOCHS = 200
@@ -31,6 +32,12 @@ def run_command(cmd, capture=True):
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
     return result
+
+
+def append_log(message):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with LOG_FILE.open("a") as f:
+        f.write(f"{timestamp} - {message}\n")
 
 
 def get_timerange():
@@ -210,6 +217,29 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def commit_log_only(strategy_name, reason, args):
+    if args.dry_run:
+        print(f"[DRY-RUN] Would commit log for failed optimization: {reason}")
+        return
+
+    msg = f"chore: record failed optimization for {strategy_name} ({reason})"
+    print(f"Committing log update: {msg}")
+
+    run_command(["git", "add", str(LOG_FILE)])
+    run_command(["git", "commit", "-m", msg])
+
+    target_branch = args.branch if args.branch else "main"
+
+    print(f"Pushing to {target_branch}...")
+    push_cmd = ["git", "push", "origin"]
+    if target_branch == "main":
+        push_cmd.append("HEAD:main")
+    else:
+        push_cmd.append(target_branch)
+
+    run_command(push_cmd, capture=True)
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -281,6 +311,8 @@ Examples:
     print(f"Current Sharpe: {current_sharpe}")
     print(f"Current Drawdown: {current_drawdown}")
 
+    append_log(f"Strategy: {worst_strategy} - Result: STARTED")
+
     # 2. Hyperopt Execution
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
     backup_json = strategy_json.with_suffix(".json.bak")
@@ -320,11 +352,13 @@ Examples:
 
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
+        append_log(f"Strategy: {worst_strategy} - Result: FAILURE (Hyperopt failed)")
         print(result_hyperopt.stderr)  # Print stderr on failure
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
             strategy_json.unlink()
+        commit_log_only(worst_strategy, "Hyperopt failed", args)
         sys.exit(1)
 
     # Apply new parameters
@@ -352,10 +386,12 @@ Examples:
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
+        append_log(f"Strategy: {worst_strategy} - Result: FAILURE (Verification failed)")
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
             strategy_json.unlink()
+        commit_log_only(worst_strategy, "Verification failed", args)
         sys.exit(1)
 
     new_stats = new_backtest_data["strategy"][worst_strategy]
@@ -378,6 +414,7 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
+        append_log(f"Strategy: {worst_strategy} - Result: SUCCESS")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         if args.dry_run:
@@ -395,6 +432,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", str(LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -433,11 +471,13 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+        append_log(f"Strategy: {worst_strategy} - Result: FAILURE")
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+        commit_log_only(worst_strategy, "Evaluation failed", args)
 
 
 if __name__ == "__main__":
