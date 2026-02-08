@@ -159,12 +159,19 @@ jobs:
       shell: powershell
       run: |
         $PSVersionTable
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
         # Reset PSGallery if needed
         $repo = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
         if (-not $repo) {
             Write-Host "PSGallery repository not found. Registering..."
-            Register-PSRepository -Default
+            try {
+                Register-PSRepository -Default -Verbose
+            }
+            catch {
+                Write-Host "Register-PSRepository -Default failed. Trying with SourceLocation..."
+                Register-PSRepository -Name PSGallery -SourceLocation 'https://www.powershellgallery.com/api/v2' -InstallationPolicy Trusted -Verbose
+            }
         }
 
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
