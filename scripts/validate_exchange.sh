@@ -37,8 +37,10 @@ echo "Skipping explicit 'list-exchanges' (assumed valid in image)."
 # 3. FETCH MARKETS
 echo "[3/4] Fetching Markets..."
 TIMESTAMP=$(date +%s)
+RAW_OUTPUT="user_data/reports/markets_raw_${TIMESTAMP}.txt"
 REPORT_FILE="user_data/reports/markets_${TIMESTAMP}.json"
 CONFIG_FILE="/freqtrade/user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}"
+LOCAL_CONFIG_FILE="user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}"
 
 echo "Saving markets to $REPORT_FILE using config $CONFIG_FILE"
 
@@ -47,76 +49,34 @@ docker compose run --rm freqtrade list-markets \
     --config "$CONFIG_FILE" \
     --exchange delta \
     --trading-mode futures \
-    --print-json > "${REPORT_FILE}.tmp"
+    --print-json > "$RAW_OUTPUT"
 
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE" || true
+# Extract JSON
+python3 scripts/extract_json.py < "$RAW_OUTPUT" > "$REPORT_FILE"
 
-if [ ! -s "$REPORT_FILE" ]; then
+if [ ! -s "$REPORT_FILE" ] || [ "$(cat $REPORT_FILE)" == "[]" ]; then
     echo "ERROR: Failed to fetch markets or parse output."
-    echo "Raw Output (tail):"
-    tail -n 20 "${REPORT_FILE}.tmp"
-    rm -f "${REPORT_FILE}.tmp"
+    echo "Raw Output:"
+    cat "$RAW_OUTPUT"
+    rm -f "$RAW_OUTPUT" "$REPORT_FILE"
     exit 1
 fi
-rm "${REPORT_FILE}.tmp"
+rm "$RAW_OUTPUT"
 echo "Markets saved to $REPORT_FILE"
 
-# 4. VALIDATE WHITELIST
-echo "[4/4] Validating Whitelist..."
+# 4. UPDATE/VALIDATE WHITELIST
+echo "[4/4] Updating Whitelist in $LOCAL_CONFIG_FILE..."
 
-LOCAL_CONFIG_FILE="user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}"
+# Update whitelist in config using our new script
+python3 scripts/update_config_whitelist.py \
+    --markets "$REPORT_FILE" \
+    --config "$LOCAL_CONFIG_FILE"
 
-if [ ! -f "$LOCAL_CONFIG_FILE" ]; then
-    echo "ERROR: Config file $LOCAL_CONFIG_FILE not found!"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to update whitelist."
     exit 1
 fi
 
-python3 -c "
-import json
-import sys
-
-try:
-    report_file = sys.argv[1]
-    config_file = sys.argv[2]
-
-    # Load Markets
-    with open(report_file, 'r') as f:
-        markets = json.load(f) # List of strings ['BTC/USDT:USDT', ...]
-
-    # Load Config
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
-
-    print(f'Checking {len(whitelist)} pairs against {len(markets)} active markets...')
-
-    missing = []
-    for pair in whitelist:
-        if pair not in markets:
-            missing.append(pair)
-
-    if missing:
-        print('ERROR: The following pairs are in whitelist but NOT active on Delta:')
-        for m in missing:
-            print(f' - {m}')
-        sys.exit(1)
-
-    print('SUCCESS: All whitelist pairs are valid.')
-
-except Exception as e:
-    print(f'Error during validation: {e}')
-    sys.exit(1)
-" "$REPORT_FILE" "$LOCAL_CONFIG_FILE"
-
-if [ $? -eq 0 ]; then
-    echo "---------------------------------------------------"
-    echo "VALIDATION SUCCESSFUL"
-    echo "---------------------------------------------------"
-else
-    echo "---------------------------------------------------"
-    echo "VALIDATION FAILED"
-    echo "---------------------------------------------------"
-    exit 1
-fi
+echo "---------------------------------------------------"
+echo "VALIDATION SUCCESSFUL & CONFIG UPDATED"
+echo "---------------------------------------------------"
