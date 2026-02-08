@@ -64,6 +64,17 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        :param **kwargs: Ensure keep up to date with IStrategy.bot_start
+        """
+        for pair in self.config.get("exchange", {}).get("pair_whitelist", []):
+            if "/" not in pair or ":" not in pair:
+                raise ValueError(
+                    f"Strategy requires futures pair format (e.g. BTC/USDT:USDT). Found: {pair}"
+                )
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
@@ -83,10 +94,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         long_rsi_condition = dataframe["rsi"] < 30
         long_volume_condition = dataframe["volume"] > 0
 
-        dataframe.loc[
-            (long_rsi_condition & long_volume_condition),
-            "enter_long"
-        ] = 1
+        dataframe.loc[(long_rsi_condition & long_volume_condition), "enter_long"] = 1
 
         return dataframe
 
@@ -97,10 +105,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         exit_long_rsi_condition = dataframe["rsi"] > 70
         exit_long_volume_condition = dataframe["volume"] > 0
 
-        dataframe.loc[
-            (exit_long_rsi_condition & exit_long_volume_condition),
-            "exit_long"
-        ] = 1
+        dataframe.loc[(exit_long_rsi_condition & exit_long_volume_condition), "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -151,7 +156,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_time: datetime,
         **kwargs,
     ) -> bool:
-
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-2]
 

@@ -4,6 +4,7 @@ import ast
 import sys
 from pathlib import Path
 
+
 REQUIRED_HEADER_FIELDS = [
     "Strategy",
     "Author",
@@ -88,10 +89,7 @@ def check_process_only_new_candles(tree):
             for item in node.body:
                 if isinstance(item, ast.Assign):
                     for target in item.targets:
-                        if (
-                            isinstance(target, ast.Name)
-                            and target.id == "process_only_new_candles"
-                        ):
+                        if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
                             if isinstance(item.value, ast.Constant) and item.value.value is True:
                                 return []
     return ["Missing or False process_only_new_candles (Must be True)"]
@@ -163,9 +161,7 @@ def check_log_signal_usage(tree):
                 if method in defined_methods:
                     # Find the method node
                     method_node = next(
-                        n
-                        for n in node.body
-                        if isinstance(n, ast.FunctionDef) and n.name == method
+                        n for n in node.body if isinstance(n, ast.FunctionDef) and n.name == method
                     )
                     has_log = False
                     for child in ast.walk(method_node):
