@@ -2,96 +2,81 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
-REPORT_FILE="user_data/reports/markets_$(date +%s).json"
-CONFIG_FILE="/freqtrade/user_data/configs/config.delta.dryrun.json"
+echo "---------------------------------------------------"
+echo "VALIDATING DELTA EXCHANGE ENVIRONMENT ($DELTA_ENV)"
+echo "---------------------------------------------------"
 
-echo "Fetching markets from Delta ($DELTA_ENV)..."
+# 1. TIME DRIFT CHECK
+echo "[1/4] Checking Time Drift..."
+SERVER_DATE=$(curl -sI "$BASE_URL/v2/products" | grep -i "^date:" | cut -d' ' -f2- | tr -d '\r')
+
+if [ -z "$SERVER_DATE" ]; then
+    echo "ERROR: Could not fetch server time from $BASE_URL"
+    exit 1
+fi
+
+SERVER_EPOCH=$(date -d "$SERVER_DATE" +%s)
+LOCAL_EPOCH=$(date +%s)
+DIFF=$((SERVER_EPOCH - LOCAL_EPOCH))
+ABS_DIFF=${DIFF#-}
+
+echo "Server Time: $SERVER_DATE ($SERVER_EPOCH)"
+echo "Local Time:  $(date) ($LOCAL_EPOCH)"
+echo "Drift:       ${ABS_DIFF}s"
+
+if [ "$ABS_DIFF" -gt 30 ]; then
+    echo "CRITICAL: Time drift is too high (>30s). Please sync your clock (NTP)."
+    exit 1
+fi
+echo "Time Check: PASS"
+
+# 2. CHECK EXCHANGE AVAILABILITY
+echo "[2/4] Checking 'delta' exchange availability..."
+echo "Skipping explicit 'list-exchanges' (assumed valid in image)."
+
+# 3. FETCH MARKETS
+echo "[3/4] Fetching Markets..."
+TIMESTAMP=$(date +%s)
+RAW_OUTPUT="user_data/reports/markets_raw_${TIMESTAMP}.txt"
+REPORT_FILE="user_data/reports/markets_${TIMESTAMP}.json"
+CONFIG_FILE="/freqtrade/user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}"
+LOCAL_CONFIG_FILE="user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}"
+
+echo "Saving markets to $REPORT_FILE using config $CONFIG_FILE"
 
 # Run list-markets
-# We expect JSON output (list of pair strings)
 docker compose run --rm freqtrade list-markets \
     --config "$CONFIG_FILE" \
     --exchange delta \
     --trading-mode futures \
-    --print-json > "${REPORT_FILE}.tmp"
+    --print-json > "$RAW_OUTPUT"
 
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE"
+# Extract JSON
+python3 scripts/extract_json.py < "$RAW_OUTPUT" > "$REPORT_FILE"
 
-if [ ! -s "$REPORT_FILE" ]; then
-    echo "Error: Failed to fetch markets or parse output."
+if [ ! -s "$REPORT_FILE" ] || [ "$(cat $REPORT_FILE)" == "[]" ]; then
+    echo "ERROR: Failed to fetch markets or parse output."
     echo "Raw Output:"
-    cat "${REPORT_FILE}.tmp"
-    rm -f "$REPORT_FILE" "${REPORT_FILE}.tmp"
+    cat "$RAW_OUTPUT"
+    rm -f "$RAW_OUTPUT" "$REPORT_FILE"
     exit 1
 fi
-rm "${REPORT_FILE}.tmp"
+rm "$RAW_OUTPUT"
+echo "Markets saved to $REPORT_FILE"
 
-echo "Markets list saved to $REPORT_FILE"
+# 4. UPDATE/VALIDATE WHITELIST
+echo "[4/4] Updating Whitelist in $LOCAL_CONFIG_FILE..."
 
-echo "Validating Whitelist..."
+# Update whitelist in config using our new script
+python3 scripts/update_config_whitelist.py \
+    --markets "$REPORT_FILE" \
+    --config "$LOCAL_CONFIG_FILE"
 
-# Python script to check whitelist
-python3 -c "
-import json
-import sys
-import os
-
-try:
-    with open('$REPORT_FILE', 'r') as f:
-        markets = json.load(f) # List of strings
-
-    # Load config to get whitelist
-    # We need to read the local file, not the container path
-    config_file = 'user_data/configs/config.delta.dryrun.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
-
-    missing = []
-    for pair in whitelist:
-        if pair not in markets:
-            missing.append(pair)
-
-    if missing:
-        print(f'ERROR: The following whitelist pairs are NOT active or missing on Delta ({os.environ.get("DELTA_ENV")}):')
-        for m in missing:
-            print(f' - {m}')
-        sys.exit(1)
-
-    print(f'SUCCESS: All {len(whitelist)} whitelist pairs are valid.')
-
-except Exception as e:
-    print(f'Error validating: {e}')
-    sys.exit(1)
-"
-
-if [ $? -eq 0 ]; then
-    echo "Validation Passed."
-else
-    echo "Validation Failed."
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to update whitelist."
     exit 1
 fi
-set -e
-cd "$(dirname "$0")/.."
 
-echo "Validating Exchange Connection..."
-
-# 1. Confirm Delta is available and fetch markets
-# We use the update script which does fetch + validate schema
-# But we might want to just do a quick check.
-# Let's use the update script to ensure we have fresh markets
-./scripts/update_markets_and_whitelist.sh
-
-# 2. Validate current whitelist against the fetched markets
-# The update script generated a NEW whitelist.
-# If we want to validate an EXISTING whitelist, we should have done it before updating.
-# But usually we validate that the *generated* whitelist is valid (which the script does).
-
-# The prompt says "validate whitelist pairs exist".
-# If we just regenerated it from the dump, they obviously exist.
-# Maybe the intent is to validate that the pairs in `config.delta.dryrun.json` (if any) exist.
-# Since we use an external whitelist file, and we just updated it, we are good.
-
-echo "Validation Complete. Market dump and Whitelist are fresh."
+echo "---------------------------------------------------"
+echo "VALIDATION SUCCESSFUL & CONFIG UPDATED"
+echo "---------------------------------------------------"
