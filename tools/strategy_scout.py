@@ -46,7 +46,7 @@ def _extract_assign_value(item: ast.Assign, target_id: str, details: dict[str, A
             isinstance(item.value, ast.UnaryOp)
             and isinstance(item.value.op, ast.USub)
             and isinstance(item.value.operand, ast.Constant)
-            and isinstance(item.value.operand.value, int | float)
+            and isinstance(item.value.operand.value, (int, float))
         ):
             details["stoploss"] = -item.value.operand.value
     elif target_id == "minimal_roi" and isinstance(item.value, ast.Dict):
@@ -366,9 +366,7 @@ class StrategyScout:
             adoption.append("Check for `can_short` if trading futures.")
 
         if details.get("stoploss"):
-            adoption.append(
-                f"Uses stoploss {details['stoploss']}. Verify against exchange limits."
-            )
+            adoption.append(f"Uses stoploss {details['stoploss']}. Verify against exchange limits.")
         else:
             adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
 
@@ -490,9 +488,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 

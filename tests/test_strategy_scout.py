@@ -1,13 +1,13 @@
-# ruff: noqa: I001
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+
 # Add tools directory to path to import strategy_scout
 sys.path.append(str(Path(__file__).parent.parent / "tools"))
 
-from strategy_scout import extract_strategy_details, StrategyScout  # noqa: E402, RUF100
+from strategy_scout import StrategyScout, extract_strategy_details  # noqa: E402, RUF100
 
 
 class TestStrategyScout(unittest.TestCase):
@@ -58,9 +58,7 @@ def my_func():
             if "rate_limit" in url:
                 return MagicMock(
                     status_code=200,
-                    json=lambda: {
-                        "resources": {"core": {"remaining": 50, "reset": 1234567890}}
-                    },
+                    json=lambda: {"resources": {"core": {"remaining": 50, "reset": 1234567890}}},
                 )
             if "search/repositories" in url:
                 return MagicMock(
@@ -120,16 +118,12 @@ def my_func():
             if "rate_limit" in url:
                 return MagicMock(
                     status_code=200,
-                    json=lambda: {
-                        "resources": {"core": {"remaining": 50, "reset": 1234567890}}
-                    },
+                    json=lambda: {"resources": {"core": {"remaining": 50, "reset": 1234567890}}},
                 )
             if "contents/user_data/strategies" in url:
                 return MagicMock(
                     status_code=200,
-                    json=lambda: [
-                        {"name": "MyStrat.py", "download_url": "http://dl.url"}
-                    ],
+                    json=lambda: [{"name": "MyStrat.py", "download_url": "http://dl.url"}],
                 )
             return MagicMock(status_code=404)
 
