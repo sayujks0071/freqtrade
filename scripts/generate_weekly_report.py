@@ -14,12 +14,14 @@ from pathlib import Path
 LOG_FILE = Path("optimization_log.txt")
 REPORT_FILE = Path("WEEKLY_REPORT.md")
 
+
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
     return result
+
 
 def get_git_commits(days=7):
     """
@@ -29,8 +31,9 @@ def get_git_commits(days=7):
     cmd = ["git", "log", f"--since={days} days ago", "--pretty=format:%s"]
     result = run_command(cmd, capture=True)
     if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip().split('\n')
+        return result.stdout.strip().split("\n")
     return []
+
 
 def parse_commits(commits):
     """
@@ -53,6 +56,7 @@ def parse_commits(commits):
 
     return updated_strategies, total_roi_improvement
 
+
 def parse_optimization_log(days=7):
     """
     Parse optimization_log.txt to find stuck strategies.
@@ -64,7 +68,7 @@ def parse_optimization_log(days=7):
 
     cutoff_date = datetime.now() - timedelta(days=days)
 
-    with LOG_FILE.open('r') as f:
+    with LOG_FILE.open("r") as f:
         lines = f.readlines()
 
     # Regex to extract log entries
@@ -72,7 +76,7 @@ def parse_optimization_log(days=7):
         r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) - Strategy: ([\w\d]+) - Result: (\w+)"
     )
 
-    attempts = {} # Strategy -> list of results
+    attempts = {}  # Strategy -> list of results
 
     for line in lines:
         match = pattern.search(line)
@@ -99,6 +103,7 @@ def parse_optimization_log(days=7):
             stuck_strategies.append(strategy)
 
     return stuck_strategies
+
 
 def generate_report(updated_strategies, total_roi, stuck_strategies):
     """
@@ -131,6 +136,7 @@ def generate_report(updated_strategies, total_roi, stuck_strategies):
 
     return report
 
+
 def main():
     print("Generating Weekly Report...")
 
@@ -145,7 +151,7 @@ def main():
     report_content = generate_report(updated_strategies, total_roi, stuck_strategies)
 
     print("Writing report to WEEKLY_REPORT.md...")
-    with REPORT_FILE.open('w') as f:
+    with REPORT_FILE.open("w") as f:
         f.write(report_content)
 
     # 4. Commit and Push
@@ -162,6 +168,7 @@ def main():
         print("Report pushed.")
     else:
         print("No changes to report.")
+
 
 if __name__ == "__main__":
     main()
