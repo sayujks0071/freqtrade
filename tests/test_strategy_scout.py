@@ -1,12 +1,14 @@
-import unittest
-from unittest.mock import MagicMock, patch
+# ruff: noqa: I001
 import sys
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add tools directory to path to import strategy_scout
 sys.path.append(str(Path(__file__).parent.parent / "tools"))
 
-from strategy_scout import extract_strategy_details, StrategyScout
+from strategy_scout import extract_strategy_details, StrategyScout  # noqa: E402, RUF100
+
 
 class TestStrategyScout(unittest.TestCase):
     def test_extract_strategy_details(self):
@@ -54,11 +56,36 @@ def my_func():
         # Instead of list side_effect which is brittle, let's use a function based on URL
         def side_effect(url, **kwargs):
             if "rate_limit" in url:
-                return MagicMock(status_code=200, json=lambda: {"resources": {"core": {"remaining": 50, "reset": 1234567890}}})
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: {
+                        "resources": {"core": {"remaining": 50, "reset": 1234567890}}
+                    },
+                )
             if "search/repositories" in url:
-                return MagicMock(status_code=200, json=lambda: {"items": [{"full_name": "user/repo1", "stargazers_count": 100, "description": "freqtrade strategy", "pushed_at": "2023-01-01T00:00:00Z"}]})
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: {
+                        "items": [
+                            {
+                                "full_name": "user/repo1",
+                                "stargazers_count": 100,
+                                "description": "freqtrade strategy",
+                                "pushed_at": "2023-01-01T00:00:00Z",
+                            }
+                        ]
+                    },
+                )
             if "repos/freqtrade/freqtrade-strategies" in url:
-                return MagicMock(status_code=200, json=lambda: {"full_name": "freqtrade/freqtrade-strategies", "stargazers_count": 500, "description": "Official", "pushed_at": "2023-01-01T00:00:00Z"})
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: {
+                        "full_name": "freqtrade/freqtrade-strategies",
+                        "stargazers_count": 500,
+                        "description": "Official",
+                        "pushed_at": "2023-01-01T00:00:00Z",
+                    },
+                )
             return MagicMock(status_code=404)
 
         mock_session.get.side_effect = side_effect
@@ -84,16 +111,26 @@ def my_func():
             "description": "freqtrade strategy",
             "html_url": "http://github.com/user/repo1",
             "pushed_at": "2023-01-01T00:00:00Z",
-            "license": {"key": "mit", "name": "MIT License"}
+            "license": {"key": "mit", "name": "MIT License"},
         }
         scout.candidates = [repo]
 
         # Mock session get for find_strategy_files
         def side_effect(url, **kwargs):
             if "rate_limit" in url:
-                return MagicMock(status_code=200, json=lambda: {"resources": {"core": {"remaining": 50, "reset": 1234567890}}})
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: {
+                        "resources": {"core": {"remaining": 50, "reset": 1234567890}}
+                    },
+                )
             if "contents/user_data/strategies" in url:
-                 return MagicMock(status_code=200, json=lambda: [{"name": "MyStrat.py", "download_url": "http://dl.url"}])
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: [
+                        {"name": "MyStrat.py", "download_url": "http://dl.url"}
+                    ],
+                )
             return MagicMock(status_code=404)
 
         mock_session.get.side_effect = side_effect
@@ -107,7 +144,7 @@ class MyStrat(IStrategy):
     timeframe = '5m'
 """
 
-        scout.filter_and_score() # Initialize fields
+        scout.filter_and_score()  # Initialize fields
         scout.deep_inspect(limit=1)
 
         updated_repo = scout.candidates[0]
@@ -122,6 +159,7 @@ class MyStrat(IStrategy):
         # Timeframe: +1
         # Total approx: 7
         self.assertTrue(updated_repo["scout_score"] > 0)
+
 
 if __name__ == "__main__":
     unittest.main()

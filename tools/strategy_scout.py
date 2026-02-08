@@ -29,11 +29,35 @@ TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
 
 
+def _extract_assign_value(item: ast.Assign, target_id: str, details: dict[str, Any]) -> None:
+    """Helper to extract assignment values."""
+    if target_id == "timeframe" and isinstance(item.value, ast.Constant):
+        details["timeframe"] = item.value.value
+    elif target_id == "can_short" and isinstance(item.value, ast.Constant):
+        details["can_short"] = item.value.value
+    elif target_id == "process_only_new_candles" and isinstance(item.value, ast.Constant):
+        details["process_only_new_candles"] = item.value.value
+    elif target_id == "startup_candle_count" and isinstance(item.value, ast.Constant):
+        details["startup_candle_count"] = item.value.value
+    elif target_id == "stoploss":
+        if isinstance(item.value, ast.Constant):
+            details["stoploss"] = item.value.value
+        elif (
+            isinstance(item.value, ast.UnaryOp)
+            and isinstance(item.value.op, ast.USub)
+            and isinstance(item.value.operand, ast.Constant)
+            and isinstance(item.value.operand.value, int | float)
+        ):
+            details["stoploss"] = -item.value.operand.value
+    elif target_id == "minimal_roi" and isinstance(item.value, ast.Dict):
+        details["minimal_roi"] = "Dict defined"
+
+
 def extract_strategy_details(content: str) -> dict[str, Any]:
     """
     Parses strategy content using AST to extract key configuration details.
     """
-    details = {
+    details: dict[str, Any] = {
         "timeframe": None,
         "stoploss": None,
         "minimal_roi": None,
@@ -52,8 +76,6 @@ def extract_strategy_details(content: str) -> dict[str, Any]:
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             # We assume the first class definition is likely the strategy or relevant
-            # But checking if it inherits from IStrategy would be better.
-            # For simplicity, we flag we found a class.
             details["has_class"] = True
 
             for item in node.body:
@@ -61,40 +83,11 @@ def extract_strategy_details(content: str) -> dict[str, Any]:
                 if isinstance(item, ast.Assign):
                     for target in item.targets:
                         if isinstance(target, ast.Name):
-                            # timeframe
-                            if target.id == "timeframe" and isinstance(item.value, ast.Constant):
-                                details["timeframe"] = item.value.value
-                            # can_short
-                            elif target.id == "can_short" and isinstance(item.value, ast.Constant):
-                                details["can_short"] = item.value.value
-                            # process_only_new_candles
-                            elif target.id == "process_only_new_candles" and isinstance(
-                                item.value, ast.Constant
-                            ):
-                                details["process_only_new_candles"] = item.value.value
-                            # startup_candle_count
-                            elif target.id == "startup_candle_count" and isinstance(
-                                item.value, ast.Constant
-                            ):
-                                details["startup_candle_count"] = item.value.value
-                            # stoploss
-                            elif target.id == "stoploss":
-                                if isinstance(item.value, ast.Constant):
-                                    details["stoploss"] = item.value.value
-                                elif (
-                                    isinstance(item.value, ast.UnaryOp)
-                                    and isinstance(item.value.op, ast.USub)
-                                    and isinstance(item.value.operand, ast.Constant)
-                                ):
-                                    details["stoploss"] = -item.value.operand.value
-                            # minimal_roi
-                            elif target.id == "minimal_roi" and isinstance(item.value, ast.Dict):
-                                details["minimal_roi"] = "Dict defined"
+                            _extract_assign_value(item, target.id, details)
 
                 # Check for methods
-                if isinstance(item, ast.FunctionDef):
-                    if item.name == "populate_indicators":
-                        details["populate_indicators"] = True
+                if isinstance(item, ast.FunctionDef) and item.name == "populate_indicators":
+                    details["populate_indicators"] = True
 
     return details
 
@@ -119,7 +112,7 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting.")
                     return False
             return True
         except Exception as e:
@@ -256,6 +249,45 @@ class StrategyScout:
                 pass
         return strategies, found_path
 
+    def _score_strategy(self, content: str, repo: dict[str, Any]) -> None:
+        """Score based on AST analysis and content."""
+        details = extract_strategy_details(content)
+        repo["strategy_details"] = details
+
+        if details["timeframe"]:
+            repo["scout_score"] += 1
+
+        if details["stoploss"] is not None:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append(f"Stoploss: {details['stoploss']}")
+
+        if details["minimal_roi"]:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has ROI")
+
+        if details["can_short"]:
+            repo["scout_score"] += 3
+            repo["scout_notes"].append("Futures (can_short=True)")
+
+        if details["startup_candle_count"]:
+            repo["scout_score"] += 1
+
+        if details["process_only_new_candles"]:
+            repo["scout_score"] += 1
+            repo["scout_notes"].append("Optimized (process_only_new_candles)")
+
+        if details["populate_indicators"]:
+            repo["scout_score"] += 2
+
+        # Negative heuristics (still text based)
+        if "martingale" in content.lower():
+            repo["scout_score"] -= 10
+            repo["scout_notes"].append("Martingale detected (Risk!)")
+
+        if "future" in content.lower() or "short" in content.lower():
+            if not details["can_short"]:
+                repo["scout_notes"].append("Mentions futures/shorts but can_short not True")
+
     def _analyze_strategy_content(self, strat_file, repo):
         """Helper to download and analyze strategy content."""
         try:
@@ -263,48 +295,7 @@ class StrategyScout:
             if download_url:
                 content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
                 if content_resp.status_code == 200:
-                    content = content_resp.text
-
-                    details = extract_strategy_details(content)
-
-                    # Store details in repo for report
-                    repo["strategy_details"] = details
-
-                    # Scoring based on AST analysis
-                    if details["timeframe"]:
-                        repo["scout_score"] += 1
-
-                    if details["stoploss"] is not None:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append(f"Stoploss: {details['stoploss']}")
-
-                    if details["minimal_roi"]:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-
-                    if details["can_short"]:
-                        repo["scout_score"] += 3
-                        repo["scout_notes"].append("Futures (can_short=True)")
-
-                    if details["startup_candle_count"]:
-                         repo["scout_score"] += 1
-
-                    if details["process_only_new_candles"]:
-                         repo["scout_score"] += 1
-                         repo["scout_notes"].append("Optimized (process_only_new_candles)")
-
-                    if details["populate_indicators"]:
-                        repo["scout_score"] += 2
-
-                    # Negative heuristics (still text based)
-                    if "martingale" in content.lower():
-                        repo["scout_score"] -= 10
-                        repo["scout_notes"].append("Martingale detected (Risk!)")
-
-                    if "future" in content.lower() or "short" in content.lower():
-                        if not details["can_short"]:
-                             repo["scout_notes"].append("Mentions futures/shorts but can_short not True")
-
+                    self._score_strategy(content_resp.text, repo)
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
@@ -340,6 +331,50 @@ class StrategyScout:
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
 
+    def _write_report_entry(self, f, repo, i):
+        f.write(f"### {i}. [{repo['full_name']}]({repo['html_url']})\n")
+        f.write(f"- **Score:** {repo.get('scout_score', 0)}\n")
+        f.write(f"- **Stars:** {repo.get('stargazers_count', 0)}\n")
+        f.write(f"- **License:** {repo.get('license_name', 'Unknown')}\n")
+        f.write(f"- **Strategies Found:** {repo.get('strategy_count', 'N/A')}\n")
+        if repo.get("pushed_at"):
+            last_update = repo.get("pushed_at", "").split("T")[0]
+            f.write(f"- **Last Update:** {last_update}\n")
+
+        desc = repo.get("description")
+        if desc:
+            f.write(f"- **Description:** {desc}\n")
+
+        if repo.get("strategy_details"):
+            det = repo["strategy_details"]
+            if det.get("timeframe"):
+                f.write(f"- **Timeframe:** {det['timeframe']}\n")
+            if det.get("stoploss"):
+                f.write(f"- **Stoploss:** {det['stoploss']}\n")
+            if det.get("can_short"):
+                f.write("- **Can Short:** Yes\n")
+
+        if repo.get("scout_notes"):
+            f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
+
+        f.write("- **Adoption Notes:** ")
+        adoption = []
+        details = repo.get("strategy_details", {})
+        if details.get("can_short"):
+            adoption.append("Strategy supports futures (can_short=True).")
+        else:
+            adoption.append("Check for `can_short` if trading futures.")
+
+        if details.get("stoploss"):
+            adoption.append(
+                f"Uses stoploss {details['stoploss']}. Verify against exchange limits."
+            )
+        else:
+            adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
+
+        f.write(" ".join(adoption) + "\n")
+        f.write("\n")
+
     def generate_report(self):
         print("Generating report...")
         report_dir = Path("user_data/reports")
@@ -356,46 +391,7 @@ class StrategyScout:
             f.write("## Top 10 Candidates\n\n")
 
             for i, repo in enumerate(top_10, 1):
-                f.write(f"### {i}. [{repo['full_name']}]({repo['html_url']})\n")
-                f.write(f"- **Score:** {repo.get('scout_score', 0)}\n")
-                f.write(f"- **Stars:** {repo.get('stargazers_count', 0)}\n")
-                f.write(f"- **License:** {repo.get('license_name', 'Unknown')}\n")
-                f.write(f"- **Strategies Found:** {repo.get('strategy_count', 'N/A')}\n")
-                if repo.get("pushed_at"):
-                    last_update = repo.get("pushed_at", "").split("T")[0]
-                    f.write(f"- **Last Update:** {last_update}\n")
-
-                desc = repo.get("description")
-                if desc:
-                    f.write(f"- **Description:** {desc}\n")
-
-                if repo.get("strategy_details"):
-                    det = repo["strategy_details"]
-                    if det.get("timeframe"):
-                        f.write(f"- **Timeframe:** {det['timeframe']}\n")
-                    if det.get("stoploss"):
-                        f.write(f"- **Stoploss:** {det['stoploss']}\n")
-                    if det.get("can_short"):
-                        f.write("- **Can Short:** Yes\n")
-
-                if repo.get("scout_notes"):
-                    f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
-
-                f.write("- **Adoption Notes:** ")
-                adoption = []
-                details = repo.get("strategy_details", {})
-                if details.get("can_short"):
-                    adoption.append("Strategy supports futures (can_short=True).")
-                else:
-                    adoption.append("Check for `can_short` if trading futures.")
-
-                if details.get("stoploss"):
-                    adoption.append(f"Uses stoploss {details['stoploss']}. Verify against exchange limits.")
-                else:
-                    adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
-
-                f.write(" ".join(adoption) + "\n")
-                f.write("\n")
+                self._write_report_entry(f, repo, i)
 
             if rest_candidates:
                 f.write("## Other Candidates\n\n")
@@ -414,6 +410,49 @@ class StrategyScout:
         print(f"Report written to {filename}")
         return top_10
 
+    def _download_repo_files(self, vendor_dir, full_name, path):
+        """Downloads strategy files from the repo."""
+        try:
+            url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                contents = resp.json()
+                downloaded = 0
+                for file_info in contents:
+                    fname = file_info.get("name", "")
+                    if not fname.endswith(".py") or fname == "__init__.py":
+                        continue
+
+                    if downloaded >= 3:
+                        break
+
+                    raw_url = file_info.get("download_url")
+                    if raw_url:
+                        r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
+                        if r.status_code == 200:
+                            file_path = vendor_dir / file_info["name"]
+                            with file_path.open("w") as f:
+                                f.write(r.text)
+                            downloaded += 1
+        except Exception as e:
+            print(f"Error downloading strategies from {full_name}: {e}")
+
+    def _download_license(self, vendor_dir, full_name):
+        """Attempts to download LICENSE file."""
+        try:
+            license_url = f"{GITHUB_API_URL}/repos/{full_name}/license"
+            lic_resp = self.session.get(license_url, timeout=REQUEST_TIMEOUT)
+            if lic_resp.status_code == 200:
+                lic_data = lic_resp.json()
+                raw_lic_url = lic_data.get("download_url")
+                if raw_lic_url:
+                    r_lic = requests.get(raw_lic_url, timeout=REQUEST_TIMEOUT)
+                    if r_lic.status_code == 200:
+                        with (vendor_dir / "LICENSE").open("w") as f:
+                            f.write(r_lic.text)
+        except Exception:  # noqa: S110
+            pass
+
     def vendor_strategies(self, candidates, top_n=5):
         print(f"Vendoring top {top_n} strategies...")
         vendor_base_dir = Path("user_data/strategies_vendor")
@@ -430,68 +469,30 @@ class StrategyScout:
             path = repo.get("strategy_path")
 
             if not path:
-                continue  # Can't vendor if we didn't find the path
+                continue
 
             print(f"Vendoring from {full_name}...")
-
             vendor_dir = vendor_base_dir / safe_name
             vendor_dir.mkdir(parents=True, exist_ok=True)
 
-            # Download strategies
-            try:
-                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
-                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
-                if resp.status_code == 200:
-                    contents = resp.json()
-                    downloaded = 0
-                    for file_info in contents:
-                        fname = file_info.get("name", "")
-                        if not fname.endswith(".py") or fname == "__init__.py":
-                            continue
+            self._download_repo_files(vendor_dir, full_name, path)
+            self._download_license(vendor_dir, full_name)
 
-                        if downloaded >= 3:
-                            # Limit to 3 files per repo to save bandwidth/noise
-                            break
+            license_file = vendor_dir / "LICENSE_NOTE.md"
+            with license_file.open("w") as f:
+                f.write(f"# License Note for {repo_name}\n\n")
+                f.write(f"Source: {repo['html_url']}\n")
+                f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
+                f.write("Please check the original repository for full license details.\n")
 
-                        raw_url = file_info.get("download_url")
-                        if raw_url:
-                            r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
-                            if r.status_code == 200:
-                                file_path = vendor_dir / file_info["name"]
-                                with file_path.open("w") as f:
-                                    f.write(r.text)
-                                downloaded += 1
-
-                    # Try to download LICENSE
-                    try:
-                        license_url = f"{GITHUB_API_URL}/repos/{full_name}/license"
-                        lic_resp = self.session.get(license_url, timeout=REQUEST_TIMEOUT)
-                        if lic_resp.status_code == 200:
-                            lic_data = lic_resp.json()
-                            raw_lic_url = lic_data.get("download_url")
-                            if raw_lic_url:
-                                r_lic = requests.get(raw_lic_url, timeout=REQUEST_TIMEOUT)
-                                if r_lic.status_code == 200:
-                                     with (vendor_dir / "LICENSE").open("w") as f:
-                                         f.write(r_lic.text)
-                    except Exception:  # noqa: S110
-                        pass
-
-                    license_file = vendor_dir / "LICENSE_NOTE.md"
-                    with license_file.open("w") as f:
-                        f.write(f"# License Note for {repo_name}\n\n")
-                        f.write(f"Source: {repo['html_url']}\n")
-                        f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write("Please check the original repository for full license details.\n")
-
-                    count += 1
-            except Exception as e:
-                print(f"Error vendoring {full_name}: {e}")
+            count += 1
 
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
+    parser.add_argument(
+        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
+    )
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
