@@ -39,24 +39,26 @@ def check_config_risk(filepath: Path) -> bool:
 
 def validate_stoploss_value(value_node, filepath) -> bool:
     """Validate stoploss value node."""
-    val = None
+    val: float | int | None = None
     # Check for negative number (UnaryOp USub)
     if isinstance(value_node, ast.UnaryOp) and isinstance(value_node.op, ast.USub):
         operand = value_node.operand
         if isinstance(operand, ast.Constant):
-            if isinstance(operand.value, int | float):
+            if isinstance(operand.value, (int, float)):
                 val = -operand.value
         elif isinstance(operand, ast.Num):  # Fallback for older python
-            val = -operand.n
+            if isinstance(operand.n, (int, float)):
+                val = -operand.n
 
     # Check for positive number (unlikely for stoploss but possible)
     elif isinstance(value_node, ast.Constant):
-        if isinstance(value_node.value, int | float):
+        if isinstance(value_node.value, (int, float)):
             val = value_node.value
     elif isinstance(value_node, ast.Num):  # Fallback for older python
-        val = value_node.n
+        if isinstance(value_node.n, (int, float)):
+            val = value_node.n
 
-    if val is not None and isinstance(val, int | float) and val < -0.10:
+    if val is not None and isinstance(val, (int, float)) and val < -0.10:
         print(f"VIOLATION: stoploss < -0.10 in {filepath} (found {val})")
         return True
     return False
