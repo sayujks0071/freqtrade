@@ -69,7 +69,8 @@ if [ $VALIDATION_EXIT_CODE -eq 0 ]; then
     python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
 
     # Generate TXT list (symbols only)
-    python3 -c "import json, sys; print('\n'.join(json.load(open('$WHITELIST_JSON'))['exchange']['pair_whitelist']))" > "$WHITELIST_TXT"
+    # Reverting to grep for robustness against JSON structure variations
+    grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
 
     echo "Whitelist updated at $WHITELIST_JSON"
 

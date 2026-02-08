@@ -12,8 +12,9 @@ import json
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
 
 # Configuration defaults
 DEFAULT_MIN_MARKETS = 20
@@ -55,7 +56,7 @@ def validate_market_structure(i, m, errors):
     return symbol
 
 
-def validate_symbol_format(symbol, errors):
+def validate_symbol_format(symbol, m, errors):
     # Requirement: Must match futures style: BASE/QUOTE:SETTLE
     # OR a consistent CCXT format discovered from dump.
     # Also reject whitespace, lowercase, missing settle delimiter if looks like future.
@@ -67,45 +68,50 @@ def validate_symbol_format(symbol, errors):
 
     # Check for futures format characteristic
     # If it's a future/perp on Delta, it should have a settle currency, usually after ':'
-    if ":" not in symbol:
-        # This might be valid for spot, but the prompt implies futures context (Delta).
-        # "Must match futures style ... OR a consistent CCXT format discovered"
-        # If we are strict about futures, we expect 'BASE/QUOTE:SETTLE'.
-        errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
+    # We allow spot markets (no colon) if explicitly marked as spot.
+    is_spot = m.get("type") == "spot" or m.get("spot") is True
+
+    if not is_spot:
+        if ":" not in symbol:
+            # This might be valid for spot, but the prompt implies futures context (Delta).
+            # "Must match futures style ... OR a consistent CCXT format discovered"
+            # If we are strict about futures, we expect 'BASE/QUOTE:SETTLE'.
+            errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
 
     parts = symbol.split("/")
     if len(parts) < 2:
         errors.append(f"Symbol '{symbol}' missing quote delimiter (/)")
 
 
+def _check_val(key, val, limit_name, symbol, errors):
+    if val is None:
+        return
+    if not isinstance(val, (int, float)):
+        # strings might be parsed, but usually json dump has numbers or strings
+        try:
+            val = float(val)
+        except (ValueError, TypeError):
+            return  # skip if not numeric
+
+    if val != val:  # NaN check
+        errors.append(f"{symbol}: {limit_name} is NaN")
+    if val < 0:
+        errors.append(f"{symbol}: {limit_name} is negative ({val})")
+    if val > 1e15:  # Arbitrary huge number
+        errors.append(f"{symbol}: {limit_name} seems absurdly huge ({val})")
+
+
 def validate_numeric_sanity(m, symbol, strict_volume, errors):
     # Reject NaN, negative, absurdly huge
     # Fields to check: limits (amount, price, cost), volume (if present)
-
-    def check_val(key, val, limit_name):
-        if val is None:
-            return
-        if not isinstance(val, (int, float)):
-             # strings might be parsed, but usually json dump has numbers or strings
-             try:
-                 val = float(val)
-             except (ValueError, TypeError):
-                 return # skip if not numeric
-
-        if val != val: # NaN check
-             errors.append(f"{symbol}: {limit_name} is NaN")
-        if val < 0:
-             errors.append(f"{symbol}: {limit_name} is negative ({val})")
-        if val > 1e15: # Arbitrary huge number
-             errors.append(f"{symbol}: {limit_name} seems absurdly huge ({val})")
 
     # Check limits if available
     if "limits" in m and isinstance(m["limits"], dict):
         limits = m["limits"]
         for k, v in limits.items():
             if isinstance(v, dict):
-                check_val(f"limits.{k}.min", v.get("min"), f"limits.{k}.min")
-                check_val(f"limits.{k}.max", v.get("max"), f"limits.{k}.max")
+                _check_val(f"limits.{k}.min", v.get("min"), f"limits.{k}.min", symbol, errors)
+                _check_val(f"limits.{k}.max", v.get("max"), f"limits.{k}.max", symbol, errors)
 
     # Volume check
     # CCXT often puts 24h volume in 'quoteVolume' or 'baseVolume' or just 'volume'
@@ -116,10 +122,10 @@ def validate_numeric_sanity(m, symbol, strict_volume, errors):
 
     vol = m.get("quoteVolume") or m.get("baseVolume") or m.get("volume")
     if vol is not None:
-        check_val("volume", vol, "volume")
+        _check_val("volume", vol, "volume", symbol, errors)
         try:
             val = float(vol)
-            if val < 100 and val > 0: # Arbitrary low threshold for warning
+            if val < 100 and val > 0:  # Arbitrary low threshold for warning
                 msg = f"{symbol}: Low volume ({val})"
                 if strict_volume:
                     errors.append(msg)
@@ -140,7 +146,7 @@ def validate_environment(data, env_name, errors):
 
     check_url = "delta.exchange"
     if env_name == "india_testnet":
-         check_url = "testnet"
+        check_url = "testnet"
 
     # We scan a few markets to see if 'info' has URLs
     found_evidence = False
@@ -153,7 +159,10 @@ def validate_environment(data, env_name, errors):
             break
 
     if not found_evidence and len(data) > 0:
-        warn(f"Could not verify environment '{env_name}' from market metadata. Ensure you are connected to the correct exchange instance.")
+        warn(
+            f"Could not verify environment '{env_name}' from market metadata. "
+            "Ensure you are connected to the correct exchange instance."
+        )
 
 
 def load_previous_whitelist(path):
@@ -168,16 +177,16 @@ def load_previous_whitelist(path):
         # 2. Dict with "exchange": {"pair_whitelist": [...]}
 
         if isinstance(data, list):
-             return set(data)
+            return set(data)
         if isinstance(data, dict):
-             if "exchange" in data and "pair_whitelist" in data["exchange"]:
-                 return set(data["exchange"]["pair_whitelist"])
-             # Maybe just a dict of pairs?
-             return set(data.keys()) # unlikely but possible in some formats
+            if "exchange" in data and "pair_whitelist" in data["exchange"]:
+                return set(data["exchange"]["pair_whitelist"])
+            # Maybe just a dict of pairs?
+            return set(data.keys())  # unlikely but possible in some formats
 
         return None
-    except Exception as e:
-        warn(f"Failed to load previous whitelist: {e}")
+    except Exception as exc:
+        warn(f"Failed to load previous whitelist: {exc}")
         return None
 
 
@@ -197,7 +206,9 @@ def validate_drift(current_symbols, prev_symbols, max_removal_ratio, errors):
     print(f"Drift Check: +{len(added)} / -{removal_count} (Ratio: {ratio:.2f})")
 
     if ratio > max_removal_ratio:
-        errors.append(f"Large delist drift: {ratio:.2f} > {max_removal_ratio}. Manual review required.")
+        errors.append(
+            f"Large delist drift: {ratio:.2f} > {max_removal_ratio}. Manual review required."
+        )
 
     # Format change check
     # If a symbol in previous whitelist exists in current symbols but has a different format...
@@ -208,23 +219,25 @@ def validate_drift(current_symbols, prev_symbols, max_removal_ratio, errors):
     # The requirement likely means: "Reject if we see widespread format changes"
     # OR "If we can detect that the *same* market now has a different symbol format".
     # Without IDs, we can't easily do that.
-    # However, we can check if the *general format* of symbols in the dump is consistent with previous.
+    # However, we can check if the *general format* of symbols in the dump is
+    # consistent with previous.
 
     # Let's interpret "format-change flags" as:
-    # If we see symbols that look like they are the same pair but different format (e.g. BTC/USDT vs BTC/USDT:USDT).
+    # If we see symbols that look like they are the same pair but different format
+    # (e.g. BTC/USDT vs BTC/USDT:USDT).
     # We can check if `removed` contains symbols that are substrings of `added` or vice-versa.
 
     for r in removed:
         # specific check: if 'BTC/USDT' was removed and 'BTC/USDT:USDT' was added
         if ":" not in r:
-             # prev was spot-like?
-             pass
+            # prev was spot-like?
+            pass
 
     return list(removed), ratio
 
 
 def generate_report(out_path, status, errors, stats, drift_stats):
-    ts = datetime.now(UTC).isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
 
     error_section = ""
     if errors:
@@ -264,8 +277,26 @@ def generate_report(out_path, status, errors, stats, drift_stats):
         with Path(out_path).open("w") as f:
             f.write(report)
         print(f"Report written to {out_path}")
-    except Exception as e:
-        warn(f"Could not write report: {e}")
+    except Exception as exc:
+        warn(f"Could not write report: {exc}")
+
+
+def load_market_data(path):
+    try:
+        with Path(path).open() as f:
+            data = json.load(f)
+    except Exception as exc:
+        fail(f"Invalid JSON in markets file: {exc}")
+        return []  # unreachable
+
+    # Handle { "markets": [...] } or [...]
+    if isinstance(data, dict) and "markets" in data:
+        return data["markets"]
+    elif isinstance(data, list):
+        return data
+    else:
+        fail("Root must be a list of markets or dict with 'markets' key")
+        return []  # unreachable
 
 
 def main():
@@ -284,20 +315,7 @@ def main():
 
     print(f"Validating {args.markets} (Env: {args.env})...")
 
-    # 1. Load Data
-    try:
-        with Path(args.markets).open() as f:
-            data = json.load(f)
-    except Exception as e:
-        fail(f"Invalid JSON in markets file: {e}")
-
-    # Handle { "markets": [...] } or [...]
-    if isinstance(data, dict) and "markets" in data:
-        markets_list = data["markets"]
-    elif isinstance(data, list):
-        markets_list = data
-    else:
-        fail("Root must be a list of markets or dict with 'markets' key")
+    markets_list = load_market_data(args.markets)
 
     # 2. Basic Count Check
     if len(markets_list) < min_markets:
@@ -315,17 +333,9 @@ def main():
         # Check active
         # "active (bool or truthy)"
         if not m.get("active"):
-             # Inactive markets might be in the dump, we usually skip them for whitelist but valid in dump?
-             # Requirement says: "For each market that will be eligible for whitelist: ... symbol format checks ... active"
-             # So if it's inactive, maybe we don't strict check format?
-             # But "Required fields present ... active" implies active field must exist.
-             # Let's check format for all, but maybe be lenient on inactive?
-             # Let's assume validation applies to all, or at least active ones.
-             # Requirement C says "For each market that will be eligible for whitelist".
-             # So if active is false, it's not eligible.
-             continue
+            continue
 
-        validate_symbol_format(symbol, errors)
+        validate_symbol_format(symbol, m, errors)
         validate_numeric_sanity(m, symbol, strict_volume, errors)
 
         if symbol in valid_symbols:
@@ -358,11 +368,12 @@ def main():
         for e in errors[:5]:
             print(f"- {e}")
         if len(errors) > 5:
-            print(f"... {len(errors)-5} more")
+            print(f"... {len(errors) - 5} more")
         sys.exit(2)
 
     print("Validation PASSED.")
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
