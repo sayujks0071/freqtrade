@@ -44,17 +44,19 @@ def validate_stoploss_value(value_node, filepath) -> bool:
     if isinstance(value_node, ast.UnaryOp) and isinstance(value_node.op, ast.USub):
         operand = value_node.operand
         if isinstance(operand, ast.Constant):
-            val = -operand.value
+            if isinstance(operand.value, int | float):
+                val = -operand.value
         elif isinstance(operand, ast.Num):  # Fallback for older python
             val = -operand.n
 
     # Check for positive number (unlikely for stoploss but possible)
     elif isinstance(value_node, ast.Constant):
-        val = value_node.value
+        if isinstance(value_node.value, int | float):
+            val = value_node.value
     elif isinstance(value_node, ast.Num):  # Fallback for older python
         val = value_node.n
 
-    if val is not None and val < -0.10:
+    if val is not None and isinstance(val, int | float) and val < -0.10:
         print(f"VIOLATION: stoploss < -0.10 in {filepath} (found {val})")
         return True
     return False
