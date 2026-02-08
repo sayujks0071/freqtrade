@@ -4,8 +4,11 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
+import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Dict, Optional
+
+from freqtrade.persistence import Trade
 
 
 logger = logging.getLogger(__name__)
@@ -26,16 +29,16 @@ class AuditedStrategyMixin:
         direction: str,
         reason: str,
         candle_date: datetime,
+        snapshot: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
+        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE | SNAPSHOT
+        snap_str = str(snapshot) if snapshot else "{}"
         msg = (
             f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
+            f"{direction} | {reason} | {candle_date} | {snap_str}"
         )
         logger.info(msg)
 
@@ -54,3 +57,45 @@ class AuditedStrategyMixin:
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    def check_daily_loss_limit(self, current_time: datetime) -> bool:
+        """
+        Check if daily loss limit is hit. Returns False if limit reached (block trade).
+        """
+        try:
+            # Get limit from env (default 5%)
+            max_daily_loss_pct = float(os.environ.get("MAX_DAILY_LOSS_PCT", 5.0))
+
+            # Calculate start of day (UTC)
+            # current_time is usually timezone aware (UTC) in freqtrade
+            if current_time.tzinfo is None:
+                current_time = current_time.replace(tzinfo=UTC)
+
+            start_of_day = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+
+            # Query closed trades for today
+            # Trade.get_trades expects a list of filters
+            trades = Trade.get_trades([Trade.is_open.is_(False), Trade.close_date >= start_of_day]).all()
+
+            daily_profit = sum(t.close_profit_abs for t in trades)
+
+            # Total balance
+            if not hasattr(self, "wallets"):
+                 logger.warning("AUDIT_PROTECTION | self.wallets not found. Skipping daily loss check.")
+                 return True
+
+            total_balance = self.wallets.get_total_stake_amount()
+
+            # Limit check
+            loss_limit_abs = total_balance * (max_daily_loss_pct / 100.0)
+
+            if daily_profit < -loss_limit_abs:
+                logger.warning(f"AUDIT_PROTECTION | Daily Loss Limit Hit! PnL: {daily_profit:.2f} < -{loss_limit_abs:.2f}. Blocking entry.")
+                return False
+
+            return True
+        except Exception as e:
+            logger.error(f"AUDIT_ERROR | Failed to check daily loss: {e}")
+            # Fail safe? If error, maybe block or allow.
+            # Allowing to prevent bot stall, but logging error.
+            return True

@@ -1,33 +1,45 @@
 name: Strategy CI
 
 on:
-  pull_request:
-    branches: [ main, master ]
+  push:
+    branches: [ main, master, develop ]
     paths:
-      - 'user_data/strategies/**'
+      - 'user_data/strategies/**/*.py'
+      - 'tools/strategy_auditor.py'
+  pull_request:
+    paths:
+      - 'user_data/strategies/**/*.py'
       - 'tools/strategy_auditor.py'
 
-permissions:
-  contents: read
-
 jobs:
-  audit_strategies:
+  audit-strategies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
-      - name: Compile Check
+      - name: Syntax Check (Compileall)
         run: |
-          python3 -m compileall user_data/strategies/
+          python -m compileall user_data/strategies
 
-      - name: Run Strategy Auditor
+      - name: Strategy Auditor
         run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+          # Audit all strategies in user_data/strategies
+          # Exclude vendor directory if needed? The auditor recurses.
+          # We might want to skip vendor or audit it too.
+          # For safety, we audit everything in user_data/strategies
+          python3 tools/strategy_auditor.py user_data/strategies
+
+      - name: Verify Auditor Fix Mode (Dry Run)
+        if: github.event_name == 'pull_request'
+        run: |
+          # Just check if --fix runs without crashing, usually not needed in CI unless we auto-fix
+          # but good to test tool integrity
+          python3 tools/strategy_auditor.py user_data/strategies --fix
+          # Revert changes to not dirty workspace (though CI is ephemeral)
+          git checkout user_data/strategies
