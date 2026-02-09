@@ -1,16 +1,17 @@
 import ast
-import json
-from unittest.mock import MagicMock, patch, mock_open
-import pytest
-from pathlib import Path
-import sys
-import os
 import datetime
+import os
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
+
+import pytest
 
 # Add repo root to sys.path to allow importing from tools
-sys.path.append(os.getcwd())
+sys.path.append(str(Path.cwd()))  # noqa: E402
 
 from tools.strategy_scout import StrategyScout, StrategyVisitor
+
 
 class TestStrategyVisitor:
     def test_visit_assign_simple(self):
@@ -108,7 +109,9 @@ class TestStrategyScout:
         assert len(scout.candidates) >= 2
 
     def test_filter_and_score(self, scout):
-        recent_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        recent_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
 
         scout.candidates = [
             {
@@ -121,10 +124,10 @@ class TestStrategyScout:
             {
                 "full_name": "user/bad_repo",
                 "stargazers_count": 0,
-                "license": None, # Should be filtered out unless known source
+                "license": None,  # Should be filtered out unless known source
                 "pushed_at": recent_date,
                 "description": "No description",
-            }
+            },
         ]
 
         scout.filter_and_score()
@@ -139,9 +142,7 @@ class TestStrategyScout:
 
     @patch("tools.strategy_scout.requests.get")
     def test_deep_inspect(self, mock_get, scout):
-        scout.candidates = [
-            {"full_name": "user/repo1", "scout_score": 10, "scout_notes": []}
-        ]
+        scout.candidates = [{"full_name": "user/repo1", "scout_score": 10, "scout_notes": []}]
 
         # Mock _find_strategy_files response
         # The first call is _find_strategy_files, which uses self.session.get
@@ -178,8 +179,12 @@ class TestStrategyScout:
                 "strategy_count": 1,
                 "pushed_at": "2023-10-01T00:00:00Z",
                 "description": "Best Strat",
-                "extracted_metadata": {"timeframe": "5m", "stoploss": -0.1, "can_short": True},
-                "scout_notes": ["Good"]
+                "extracted_metadata": {
+                    "timeframe": "5m",
+                    "stoploss": -0.1,
+                    "can_short": True,
+                },
+                "scout_notes": ["Good"],
             }
         ]
 
@@ -195,31 +200,31 @@ class TestStrategyScout:
     @patch("pathlib.Path.open", new_callable=mock_open)
     @patch("pathlib.Path.mkdir")
     def test_vendor_strategies(self, mock_mkdir, mock_file, mock_get, scout):
-         candidates = [
+        candidates = [
             {
                 "full_name": "user/repo1",
                 "name": "repo1",
                 "html_url": "url",
                 "license_name": "MIT",
-                "strategy_path": "strategies"
+                "strategy_path": "strategies",
             }
-         ]
+        ]
 
-         # Mock list contents
-         scout.session.get.return_value.status_code = 200
-         scout.session.get.return_value.json.return_value = [
-             {"name": "Strat.py", "download_url": "http://down"}
-         ]
+        # Mock list contents
+        scout.session.get.return_value.status_code = 200
+        scout.session.get.return_value.json.return_value = [
+            {"name": "Strat.py", "download_url": "http://down"}
+        ]
 
-         # Mock file download
-         mock_get.return_value.status_code = 200
-         mock_get.return_value.text = "code"
+        # Mock file download
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.text = "code"
 
-         scout.vendor_strategies(candidates)
+        scout.vendor_strategies(candidates)
 
-         mock_mkdir.assert_called()
-         # Check if file was written
-         # We expect write to be called with "code"
-         handle = mock_file()
-         # It's called for strat file and license file
-         assert handle.write.call_count >= 2
+        mock_mkdir.assert_called()
+        # Check if file was written
+        # We expect write to be called with "code"
+        handle = mock_file()
+        # It's called for strat file and license file
+        assert handle.write.call_count >= 2

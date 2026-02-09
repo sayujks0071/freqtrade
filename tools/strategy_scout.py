@@ -72,7 +72,7 @@ class StrategyVisitor(ast.NodeVisitor):
             if isinstance(value, ast.Constant):
                 self.metadata["process_only_new_candles"] = value.value
         elif name == "minimal_roi":
-             self.metadata["minimal_roi"] = True
+            self.metadata["minimal_roi"] = True
 
     def visit_FunctionDef(self, node):
         if node.name == "populate_indicators":
@@ -86,13 +86,13 @@ class StrategyVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node):
         # We also need to check class attributes
         for item in node.body:
-             if isinstance(item, ast.Assign):
-                 for target in item.targets:
-                     if isinstance(target, ast.Name):
-                         self._check_assignment(target.id, item.value)
-             elif isinstance(item, ast.AnnAssign):
-                 if isinstance(item.target, ast.Name):
-                     self._check_assignment(item.target.id, item.value)
+            if isinstance(item, ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, ast.Name):
+                        self._check_assignment(target.id, item.value)
+            elif isinstance(item, ast.AnnAssign):
+                if isinstance(item.target, ast.Name):
+                    self._check_assignment(item.target.id, item.value)
         self.generic_visit(node)
 
 
@@ -121,8 +121,8 @@ class StrategyScout:
                     print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             elif resp.status_code == 403:
-                 print("WARNING: Rate limit exceeded (403).")
-                 return False
+                print("WARNING: Rate limit exceeded (403).")
+                return False
             return True
         except Exception as e:
             print(f"Error checking rate limit: {e}")
@@ -228,7 +228,7 @@ class StrategyScout:
                 "timeframe": "N/A",
                 "stoploss": "N/A",
                 "can_short": False,
-                "process_only_new_candles": False
+                "process_only_new_candles": False,
             }
 
             repo["scout_score"] = score
@@ -268,6 +268,44 @@ class StrategyScout:
                 pass
         return strategies, found_path
 
+    def _parse_strategy_ast(self, content, repo):
+        """Parse strategy content using AST and update scores."""
+        try:
+            tree = ast.parse(content)
+            visitor = StrategyVisitor()
+            visitor.visit(tree)
+            metadata = visitor.metadata
+
+            # Store metadata
+            repo["extracted_metadata"] = metadata
+
+            # Scoring based on AST
+            if metadata["stoploss"] is not None:
+                repo["scout_score"] += 2
+                repo["scout_notes"].append(f"Stoploss: {metadata['stoploss']}")
+
+            if metadata["minimal_roi"]:
+                repo["scout_score"] += 2
+
+            if metadata["process_only_new_candles"]:
+                repo["scout_score"] += 5
+                repo["scout_notes"].append("Non-repainting (process_only_new_candles)")
+
+            if metadata["can_short"]:
+                repo["scout_score"] += 3
+                repo["scout_notes"].append("Futures/Shorts ready")
+
+            if metadata["populate_indicators"]:
+                repo["scout_score"] += 2
+
+            if metadata["populate_entry_trend"] and metadata["populate_exit_trend"]:
+                repo["scout_score"] += 2
+
+        except SyntaxError:
+            repo["scout_notes"].append("Syntax Error in parsing")
+        except Exception as e:
+            repo["scout_notes"].append(f"AST Error: {e}")
+
     def _analyze_strategy_content(self, strat_file, repo):
         """Helper to download and analyze strategy content using AST."""
         try:
@@ -283,41 +321,7 @@ class StrategyScout:
                         repo["scout_notes"].append("Martingale detected (Risk!)")
 
                     # AST Parsing
-                    try:
-                        tree = ast.parse(content)
-                        visitor = StrategyVisitor()
-                        visitor.visit(tree)
-                        metadata = visitor.metadata
-
-                        # Store metadata
-                        repo["extracted_metadata"] = metadata
-
-                        # Scoring based on AST
-                        if metadata["stoploss"] is not None:
-                            repo["scout_score"] += 2
-                            repo["scout_notes"].append(f"Stoploss: {metadata['stoploss']}")
-
-                        if metadata["minimal_roi"]:
-                            repo["scout_score"] += 2
-
-                        if metadata["process_only_new_candles"]:
-                            repo["scout_score"] += 5
-                            repo["scout_notes"].append("Non-repainting (process_only_new_candles)")
-
-                        if metadata["can_short"]:
-                            repo["scout_score"] += 3
-                            repo["scout_notes"].append("Futures/Shorts ready")
-
-                        if metadata["populate_indicators"]:
-                            repo["scout_score"] += 2
-
-                        if metadata["populate_entry_trend"] and metadata["populate_exit_trend"]:
-                            repo["scout_score"] += 2
-
-                    except SyntaxError:
-                        repo["scout_notes"].append("Syntax Error in parsing")
-                    except Exception as e:
-                        repo["scout_notes"].append(f"AST Error: {e}")
+                    self._parse_strategy_ast(content, repo)
 
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
@@ -392,10 +396,13 @@ class StrategyScout:
 
                 meta = repo.get("extracted_metadata", {})
                 if meta:
-                     f.write(f"- **Timeframe:** {meta.get('timeframe', 'N/A')}\n")
-                     f.write(f"- **Stoploss:** {meta.get('stoploss', 'N/A')}\n")
-                     f.write(f"- **Can Short:** {meta.get('can_short', False)}\n")
-                     f.write(f"- **Process Only New Candles:** {meta.get('process_only_new_candles', False)}\n")
+                    f.write(f"- **Timeframe:** {meta.get('timeframe', 'N/A')}\n")
+                    f.write(f"- **Stoploss:** {meta.get('stoploss', 'N/A')}\n")
+                    f.write(f"- **Can Short:** {meta.get('can_short', False)}\n")
+                    f.write(
+                        f"- **Process Only New Candles:** "
+                        f"{meta.get('process_only_new_candles', False)}\n"
+                    )
 
                 if repo.get("scout_notes"):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
@@ -408,8 +415,12 @@ class StrategyScout:
                     adoption.append("Check for `can_short` if trading futures.")
 
                 stoploss = meta.get("stoploss")
-                if stoploss and isinstance(stoploss, (int, float)) and stoploss > -0.05: # e.g. -0.01 (1%)
-                     adoption.append("Tight stoploss detected.")
+                if (
+                    stoploss
+                    and isinstance(stoploss, (int, float))
+                    and stoploss > -0.05
+                ):  # e.g. -0.01 (1%)
+                    adoption.append("Tight stoploss detected.")
 
                 adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
@@ -493,7 +504,9 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
+    parser.add_argument(
+        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
+    )
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
