@@ -5,6 +5,7 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 """
 
 import argparse
+import ast
 import datetime
 import os
 from pathlib import Path
@@ -28,6 +29,73 @@ TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
 
 
+class StrategyVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.metadata = {
+            "timeframe": None,
+            "stoploss": None,
+            "can_short": False,
+            "process_only_new_candles": False,
+            "minimal_roi": False,
+            "populate_indicators": False,
+            "populate_entry_trend": False,
+            "populate_exit_trend": False,
+            "martingale": False,
+        }
+
+    def visit_Assign(self, node):
+        # Check for global variables or class attributes
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                self._check_assignment(target.id, node.value)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        if isinstance(node.target, ast.Name):
+            self._check_assignment(node.target.id, node.value)
+        self.generic_visit(node)
+
+    def _check_assignment(self, name, value):
+        if name == "timeframe":
+            if isinstance(value, ast.Constant):
+                self.metadata["timeframe"] = value.value
+        elif name == "stoploss":
+            if isinstance(value, ast.Constant):
+                self.metadata["stoploss"] = value.value
+            elif isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.USub):
+                if isinstance(value.operand, ast.Constant):  # Handle -0.1
+                    self.metadata["stoploss"] = -value.operand.value
+        elif name == "can_short":
+            if isinstance(value, ast.Constant):
+                self.metadata["can_short"] = value.value
+        elif name == "process_only_new_candles":
+            if isinstance(value, ast.Constant):
+                self.metadata["process_only_new_candles"] = value.value
+        elif name == "minimal_roi":
+             self.metadata["minimal_roi"] = True
+
+    def visit_FunctionDef(self, node):
+        if node.name == "populate_indicators":
+            self.metadata["populate_indicators"] = True
+        elif node.name == "populate_entry_trend":
+            self.metadata["populate_entry_trend"] = True
+        elif node.name == "populate_exit_trend":
+            self.metadata["populate_exit_trend"] = True
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):
+        # We also need to check class attributes
+        for item in node.body:
+             if isinstance(item, ast.Assign):
+                 for target in item.targets:
+                     if isinstance(target, ast.Name):
+                         self._check_assignment(target.id, item.value)
+             elif isinstance(item, ast.AnnAssign):
+                 if isinstance(item.target, ast.Name):
+                     self._check_assignment(item.target.id, item.value)
+        self.generic_visit(node)
+
+
 class StrategyScout:
     def __init__(self, token: str | None = None):
         self.token = token
@@ -39,17 +107,22 @@ class StrategyScout:
 
     def check_rate_limit(self):
         try:
+            # Check headers from last response if available, or just proceed cautiously
+            # But here we explicitly check /rate_limit endpoint occasionally or on error
             resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
                 core = data["resources"]["core"]
                 remaining = core["remaining"]
                 reset = core["reset"]
-                print(f"DEBUG: Rate limit remaining: {remaining}")
+                # print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
                     print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
+            elif resp.status_code == 403:
+                 print("WARNING: Rate limit exceeded (403).")
+                 return False
             return True
         except Exception as e:
             print(f"Error checking rate limit: {e}")
@@ -74,7 +147,7 @@ class StrategyScout:
 
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 100}
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
@@ -125,7 +198,9 @@ class StrategyScout:
                 license_name = "Other (Check manually)"
                 score += 1
             else:
+                # If no license and not a known source, skip
                 if full_name not in KNOWN_SOURCES:
+                    # print(f"Skipping {full_name} due to missing license.")
                     continue
 
             # 2. Recency
@@ -147,6 +222,14 @@ class StrategyScout:
             description = repo.get("description", "") or ""
             if "freqtrade" in description.lower():
                 score += 2
+
+            # Initialize default metadata in repo dict
+            repo["extracted_metadata"] = {
+                "timeframe": "N/A",
+                "stoploss": "N/A",
+                "can_short": False,
+                "process_only_new_candles": False
+            }
 
             repo["scout_score"] = score
             repo["scout_notes"] = notes
@@ -186,7 +269,7 @@ class StrategyScout:
         return strategies, found_path
 
     def _analyze_strategy_content(self, strat_file, repo):
-        """Helper to download and analyze strategy content."""
+        """Helper to download and analyze strategy content using AST."""
         try:
             download_url = strat_file.get("download_url")
             if download_url:
@@ -194,35 +277,66 @@ class StrategyScout:
                 if content_resp.status_code == 200:
                     content = content_resp.text
 
-                    # Check heuristics
-                    if "stoploss" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has stoploss")
-                    if "minimal_roi" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-                    if "populate_indicators" in content:
-                        repo["scout_score"] += 2
-                    if "can_short" in content:
-                        repo["scout_notes"].append("Futures/Shorts mentioned")
-
-                    # Negative heuristics
+                    # Text-based checks (fallback/supplement)
                     if "martingale" in content.lower():
                         repo["scout_score"] -= 10
                         repo["scout_notes"].append("Martingale detected (Risk!)")
+
+                    # AST Parsing
+                    try:
+                        tree = ast.parse(content)
+                        visitor = StrategyVisitor()
+                        visitor.visit(tree)
+                        metadata = visitor.metadata
+
+                        # Store metadata
+                        repo["extracted_metadata"] = metadata
+
+                        # Scoring based on AST
+                        if metadata["stoploss"] is not None:
+                            repo["scout_score"] += 2
+                            repo["scout_notes"].append(f"Stoploss: {metadata['stoploss']}")
+
+                        if metadata["minimal_roi"]:
+                            repo["scout_score"] += 2
+
+                        if metadata["process_only_new_candles"]:
+                            repo["scout_score"] += 5
+                            repo["scout_notes"].append("Non-repainting (process_only_new_candles)")
+
+                        if metadata["can_short"]:
+                            repo["scout_score"] += 3
+                            repo["scout_notes"].append("Futures/Shorts ready")
+
+                        if metadata["populate_indicators"]:
+                            repo["scout_score"] += 2
+
+                        if metadata["populate_entry_trend"] and metadata["populate_exit_trend"]:
+                            repo["scout_score"] += 2
+
+                    except SyntaxError:
+                        repo["scout_notes"].append("Syntax Error in parsing")
+                    except Exception as e:
+                        repo["scout_notes"].append(f"AST Error: {e}")
+
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
     def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
+        final_candidates = []
 
-        for repo in self.candidates:
+        for i, repo in enumerate(self.candidates):
             if inspected_count >= limit:
-                break
+                # Add the rest without inspection if needed, or just break
+                # But we want to keep the list populated for "Other Candidates"
+                final_candidates.append(repo)
+                continue
 
             if not self.check_rate_limit():
                 print("Rate limit exhausted, stopping inspection.")
+                final_candidates.extend(self.candidates[i:])
                 break
 
             full_name = repo["full_name"]
@@ -240,8 +354,10 @@ class StrategyScout:
             else:
                 repo["scout_score"] -= 5
 
+            final_candidates.append(repo)
             inspected_count += 1
 
+        self.candidates = final_candidates
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
 
@@ -274,15 +390,27 @@ class StrategyScout:
                 if desc:
                     f.write(f"- **Description:** {desc}\n")
 
+                meta = repo.get("extracted_metadata", {})
+                if meta:
+                     f.write(f"- **Timeframe:** {meta.get('timeframe', 'N/A')}\n")
+                     f.write(f"- **Stoploss:** {meta.get('stoploss', 'N/A')}\n")
+                     f.write(f"- **Can Short:** {meta.get('can_short', False)}\n")
+                     f.write(f"- **Process Only New Candles:** {meta.get('process_only_new_candles', False)}\n")
+
                 if repo.get("scout_notes"):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
 
                 f.write("- **Adoption Notes:** ")
                 adoption = []
-                if "Futures/Shorts mentioned" in repo.get("scout_notes", []):
-                    adoption.append("Seems to support futures.")
+                if meta.get("can_short"):
+                    adoption.append("Futures ready (can_short=True).")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
+
+                stoploss = meta.get("stoploss")
+                if stoploss and isinstance(stoploss, (int, float)) and stoploss > -0.05: # e.g. -0.01 (1%)
+                     adoption.append("Tight stoploss detected.")
+
                 adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
