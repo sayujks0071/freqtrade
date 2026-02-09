@@ -474,7 +474,7 @@ def test_api_run(default_conf, mocker, caplog):
         "Please make sure that this is intentional!",
         caplog,
     )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
+    assert log_has_re("SECURITY WARNING - `jwt_secret_key` is default.*", caplog)
 
     server_mock.reset_mock()
     apiserver._standalone = True
@@ -494,6 +494,73 @@ def test_api_run(default_conf, mocker, caplog):
     )
     apiserver.start_api()
     assert log_has("Api server failed to start.", caplog)
+    apiserver.cleanup()
+    ApiServer.shutdown()
+
+
+def test_api_run_updates_weak_jwt_key(default_conf, mocker, caplog):
+    default_conf.update(
+        {
+            "api_server": {
+                "enabled": True,
+                "listen_ip_address": "127.0.0.1",
+                "listen_port": 8080,
+                "username": "TestUser",
+                "password": "testPass",
+                "jwt_secret_key": "super-secret",
+            }
+        }
+    )
+    mocker.patch("freqtrade.rpc.telegram.Telegram._init")
+
+    server_mock = MagicMock()
+    mocker.patch("freqtrade.rpc.api_server.webserver.UvicornServer", server_mock)
+
+    apiserver = ApiServer(default_conf)
+    apiserver.add_rpc_handler(RPC(get_patched_freqtradebot(mocker, default_conf)))
+
+    apiserver.start_api()
+
+    assert log_has(
+        "SECURITY WARNING - `jwt_secret_key` is default. Generated a random key for this session.",
+        caplog,
+    )
+    assert apiserver._config["api_server"]["jwt_secret_key"] != "super-secret"
+    assert len(apiserver._config["api_server"]["jwt_secret_key"]) == 64
+
+    apiserver.cleanup()
+    ApiServer.shutdown()
+
+
+def test_api_run_keeps_custom_key(default_conf, mocker, caplog):
+    default_conf.update(
+        {
+            "api_server": {
+                "enabled": True,
+                "listen_ip_address": "127.0.0.1",
+                "listen_port": 8080,
+                "username": "TestUser",
+                "password": "testPass",
+                "jwt_secret_key": "super",
+            }
+        }
+    )
+    mocker.patch("freqtrade.rpc.telegram.Telegram._init")
+
+    server_mock = MagicMock()
+    mocker.patch("freqtrade.rpc.api_server.webserver.UvicornServer", server_mock)
+
+    apiserver = ApiServer(default_conf)
+    apiserver.add_rpc_handler(RPC(get_patched_freqtradebot(mocker, default_conf)))
+
+    apiserver.start_api()
+
+    assert not log_has(
+        "SECURITY WARNING - `jwt_secret_key` is default. Generated a random key for this session.",
+        caplog,
+    )
+    assert apiserver._config["api_server"]["jwt_secret_key"] == "super"
+
     apiserver.cleanup()
     ApiServer.shutdown()
 
