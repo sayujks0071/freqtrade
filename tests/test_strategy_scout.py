@@ -1,14 +1,8 @@
 import ast
 import datetime
-import os
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
-# Add repo root to sys.path to allow importing from tools
-sys.path.append(str(Path.cwd()))  # noqa: E402
 
 from tools.strategy_scout import StrategyScout, StrategyVisitor
 

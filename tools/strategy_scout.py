@@ -415,11 +415,8 @@ class StrategyScout:
                     adoption.append("Check for `can_short` if trading futures.")
 
                 stoploss = meta.get("stoploss")
-                if (
-                    stoploss
-                    and isinstance(stoploss, (int, float))
-                    and stoploss > -0.05
-                ):  # e.g. -0.01 (1%)
+                if stoploss and isinstance(stoploss, (int, float)) and stoploss > -0.05:
+                    # e.g. -0.01 (1%)
                     adoption.append("Tight stoploss detected.")
 
                 adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
@@ -504,9 +501,7 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument(
-        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
-    )
+    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
