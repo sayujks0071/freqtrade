@@ -4,6 +4,7 @@ import ast
 import sys
 from pathlib import Path
 
+
 REQUIRED_HEADER_FIELDS = [
     "Strategy",
     "Author",
@@ -63,26 +64,33 @@ class StrategyAuditor:
             "Exit: Long exit conditions",
             "No repainting: Only act on closed candles (no incomplete candle usage)",
         ]
+        new_doc_text = '"""\n' + "\n".join(header_fields) + '\n"""'
 
         if not existing_docstring:
-            new_header = '"""\n' + "\n".join(header_fields) + '\n"""\n'
+            # Insert at top, preserving shebang/encoding if present
+            lines = source.splitlines(keepends=True)
+            insert_idx = 0
+            if lines and (lines[0].startswith("#!") or lines[0].startswith("# -*-")):
+                insert_idx += 1
+                if len(lines) > 1 and (lines[1].startswith("#!") or lines[1].startswith("# -*-")):
+                    insert_idx += 1
+
+            new_content = (
+                "".join(lines[:insert_idx]) + new_doc_text + "\n" + "".join(lines[insert_idx:])
+            )
             with Path(filepath).open("w") as f:
-                f.write(new_header + source)
+                f.write(new_content)
         else:
             tree = ast.parse(source)
             doc_node = tree.body[0]
             start_line = doc_node.lineno
             end_line = doc_node.end_lineno
 
-            new_docstring_content = (
-                existing_docstring.strip() + "\n\n" + "\n".join(header_fields)
-            )
+            new_docstring_content = existing_docstring.strip() + "\n\n" + "\n".join(header_fields)
             new_docstring = f'"""\n{new_docstring_content}\n"""'
 
             new_source_lines = (
-                self.source_lines[: start_line - 1]
-                + [new_docstring]
-                + self.source_lines[end_line:]
+                self.source_lines[: start_line - 1] + [new_docstring] + self.source_lines[end_line:]
             )
 
             with Path(filepath).open("w") as f:
@@ -116,9 +124,7 @@ class StrategyAuditor:
                             row_indexer = sl
 
                         if row_indexer:
-                            if isinstance(
-                                row_indexer, (ast.BoolOp, ast.BinOp, ast.Compare)
-                            ):
+                            if isinstance(row_indexer, (ast.BoolOp, ast.BinOp, ast.Compare)):
                                 self.errors.append(
                                     f"In {func_node.name} line {node.lineno}: "
                                     "Condition must be a named variable (found inline expression)."
@@ -238,9 +244,7 @@ class StrategyAuditor:
 def main():
     parser = argparse.ArgumentParser(description="Strategy Auditor")
     parser.add_argument("path", help="File or directory to audit")
-    parser.add_argument(
-        "--fix", action="store_true", help="Attempt to fix simple issues (headers)"
-    )
+    parser.add_argument("--fix", action="store_true", help="Attempt to fix simple issues (headers)")
     args = parser.parse_args()
 
     auditor = StrategyAuditor(fix=args.fix)
