@@ -2,9 +2,10 @@ import sys
 import unittest
 from pathlib import Path
 
+
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent.parent.parent / "scripts"))
-import daily_optimize  # noqa: E402
+import daily_optimize  # noqa: E402; isort: skip
 
 
 class TestDailyOptimize(unittest.TestCase):
