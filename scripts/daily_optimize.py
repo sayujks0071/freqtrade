@@ -26,11 +26,33 @@ HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
 def run_command(cmd, capture=True):
+    # Ensure freqtrade calls use python -m freqtrade
+    if cmd[0] == "freqtrade":
+        cmd = [sys.executable, "-m", "freqtrade"] + cmd[1:]
+
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
     return result
+
+
+def download_data():
+    print("Downloading data for the last 30 days...")
+    cmd = [
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--days",
+        "30",
+        "-t",
+        "1h",
+    ]
+    result = run_command(cmd, capture=True)
+    if result.returncode != 0:
+        print("Warning: Data download failed.")
+        print(result.stderr)
 
 
 def get_timerange():
@@ -252,17 +274,26 @@ Examples:
 
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
-
+    should_run_backtest = True
     backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
 
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
+    if latest_file:
+        # Check age
+        mtime = datetime.fromtimestamp(latest_file.stat().st_mtime)
+        if datetime.now() - mtime < timedelta(hours=24):
+            print(f"Found recent backtest baseline: {latest_file}")
+            should_run_backtest = False
+            backtest_data = read_backtest_result(latest_file)
+        else:
+            print(f"Latest backtest is stale ({mtime}). Generating new baseline...")
+    else:
+        print("No backtest baseline found. Generating new baseline...")
+
+    if should_run_backtest:
+        download_data()
         strategies = find_available_strategies()
         if not strategies:
-            print("No strategy file found.")
+            print("No strategies found.")
             sys.exit(1)
         backtest_data = run_backtest_job(strategies)
 
@@ -370,11 +401,15 @@ Examples:
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
+    print("Evaluation Gatekeeper:")
+    print(f"  Sharpe: {current_sharpe} -> {new_sharpe} (Threshold: {current_sharpe * 1.05})")
+    print(f"  Drawdown: {current_drawdown} -> {new_drawdown} (Threshold: {current_drawdown})")
+
     sharpe_improved = new_sharpe > (current_sharpe * 1.05)
     drawdown_improved = new_drawdown < current_drawdown
 
-    print(f"Sharpe Improved: {sharpe_improved}")
-    print(f"Drawdown Improved: {drawdown_improved}")
+    print(f"  Sharpe Improved: {sharpe_improved}")
+    print(f"  Drawdown Improved: {drawdown_improved}")
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
