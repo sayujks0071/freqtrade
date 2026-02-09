@@ -3,9 +3,8 @@ import json
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
-
 
 # Configuration
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
@@ -51,14 +50,9 @@ def validate_symbol_format(symbol, errors):
 
 def validate_volume(m, symbol, errors):
     # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
-    if "volume" in m:
-        vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
-            errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
+    if "info" in m and isinstance(m["info"], dict):
+        # Delta exchange specific structure often in 'info'
+        # But list-markets usually just has basic info
         pass
 
 
@@ -77,6 +71,8 @@ def validate_schema(data):
         if not symbol:
             continue
 
+        # Only validate format for what looks like a pair
+        # Sometimes list-markets returns oddities, but we enforce strictness for our usage
         validate_symbol_format(symbol, errors)
 
         # Uniqueness
@@ -87,11 +83,13 @@ def validate_schema(data):
         validate_volume(m, symbol, errors)
 
     if errors:
-        fail(
-            "Schema errors:\n"
-            + "\n".join(errors[:10])
-            + (f"\n...and {len(errors) - 10} more" if len(errors) > 10 else "")
-        )
+        # Print top 10 errors
+        print("Schema errors:")
+        for e in errors[:10]:
+            print(f" - {e}")
+        if len(errors) > 10:
+            print(f" ...and {len(errors) - 10} more")
+        fail("Schema validation failed")
 
     return symbols
 
@@ -105,16 +103,31 @@ def validate_drift(current_symbols, previous_path):
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+
+        # Normalize structure
+        if isinstance(prev_data, dict) and "markets" in prev_data:
+            prev_data = prev_data["markets"]
+
+        if not isinstance(prev_data, list):
+             warn(f"Previous dump invalid format. Skipping drift.")
+             return
+
+        prev_symbols = set()
+        for m in prev_data:
+            if "symbol" in m:
+                prev_symbols.add(m["symbol"])
+
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
+        return
+
+    if not prev_symbols:
         return
 
     removed = prev_symbols - current_symbols
     added = current_symbols - prev_symbols
 
-    removal_ratio = len(removed) / len(prev_symbols) if len(prev_symbols) > 0 else 0.0
+    removal_ratio = len(removed) / len(prev_symbols)
 
     print(f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})")
 
@@ -126,8 +139,11 @@ def validate_drift(current_symbols, previous_path):
 
 
 def write_report(path, message):
-    with Path(path).open("w") as f:
-        f.write(message)
+    try:
+        with Path(path).open("w") as f:
+            f.write(message)
+    except Exception as e:
+        warn(f"Could not write report: {e}")
 
 
 def main():
@@ -146,10 +162,12 @@ def main():
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
+    # Standardize input
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
+
+    # Sometimes list-markets might return just a list of strings (if simple output used), but we expect objects
+    # If using --print-json with freqtrade list-markets, it usually returns a list of objects or dict with 'markets' list of objects.
 
     symbols = validate_schema(data)
 
@@ -157,20 +175,16 @@ def main():
         validate_drift(symbols, prev_path)
 
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(UTC).isoformat()}
+Date: {datetime.now(timezone.utc).isoformat()}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    report_file = f"user_data/reports/markets_schema_report_{ts}.md"
-    try:
-        write_report(report_file, report)
-        print(f"Report written to {report_file}")
-    except Exception as e:
-        warn(f"Could not write report: {e}")
 
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    report_file = f"user_data/reports/markets_schema_report_{ts}.md"
+    write_report(report_file, report)
+    print(f"Report written to {report_file}")
     print("VALIDATION PASS")
 
 

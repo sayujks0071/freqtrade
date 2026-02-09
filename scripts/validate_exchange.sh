@@ -1,53 +1,64 @@
 #!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$DIR/common.sh"
+set -e
 
-REPORT_FILE="user_data/reports/markets_$(date +%s).json"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# source "$DIR/common.sh" # if we had one
+
+# Load environment
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
+REPORT_FILE="user_data/reports/markets_check_$(date +%s).json"
 CONFIG_FILE="/freqtrade/user_data/configs/config.delta.dryrun.json"
 
-echo "Fetching markets from Delta ($DELTA_ENV)..."
+echo "Checking connectivity to Delta ($DELTA_ENV)..."
 
 # Run list-markets
-# We expect JSON output (list of pair strings)
 docker compose run --rm freqtrade list-markets \
     --config "$CONFIG_FILE" \
     --exchange delta \
     --trading-mode futures \
     --print-json > "${REPORT_FILE}.tmp"
 
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE"
-
-if [ ! -s "$REPORT_FILE" ]; then
-    echo "Error: Failed to fetch markets or parse output."
-    echo "Raw Output:"
-    cat "${REPORT_FILE}.tmp"
-    rm -f "$REPORT_FILE" "${REPORT_FILE}.tmp"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to connect or fetch markets."
+    rm "${REPORT_FILE}.tmp"
     exit 1
 fi
-rm "${REPORT_FILE}.tmp"
 
-echo "Markets list saved to $REPORT_FILE"
+# Extract JSON array
+# Assuming clean output for now or simple grep
+# Since we just want to validate connectivity, if list-markets succeeded, we are good.
+# But let's check content.
+mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
 
-echo "Validating Whitelist..."
+echo "Connectivity OK. Markets saved to $REPORT_FILE"
 
-# Python script to check whitelist
+echo "Validating Current Whitelist..."
+WHITELIST_FILE="user_data/pairlists/whitelist.delta.json"
+
+if [ ! -f "$WHITELIST_FILE" ]; then
+    echo "WARN: Whitelist file not found at $WHITELIST_FILE. Please run update_markets_and_whitelist.sh first."
+    exit 0
+fi
+
+# Python script to check whitelist validity against fetched markets
 python3 -c "
 import json
 import sys
-import os
 
 try:
     with open('$REPORT_FILE', 'r') as f:
-        markets = json.load(f) # List of strings
+        data = json.load(f)
+        if isinstance(data, dict) and 'markets' in data:
+            markets = set(m['symbol'] for m in data['markets'])
+        else:
+            markets = set(m['symbol'] for m in data if 'symbol' in m)
 
-    # Load config to get whitelist
-    # We need to read the local file, not the container path
-    config_file = 'user_data/configs/config.delta.dryrun.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
+    with open('$WHITELIST_FILE', 'r') as f:
+        wl_data = json.load(f)
+        whitelist = wl_data.get('exchange', {}).get('pair_whitelist', [])
 
     missing = []
     for pair in whitelist:
@@ -55,7 +66,7 @@ try:
             missing.append(pair)
 
     if missing:
-        print(f'ERROR: The following whitelist pairs are NOT active or missing on Delta ({os.environ.get("DELTA_ENV")}):')
+        print(f'ERROR: The following whitelist pairs are MISSING from current market dump:')
         for m in missing:
             print(f' - {m}')
         sys.exit(1)
@@ -69,29 +80,9 @@ except Exception as e:
 
 if [ $? -eq 0 ]; then
     echo "Validation Passed."
+    rm "$REPORT_FILE"
 else
     echo "Validation Failed."
+    rm "$REPORT_FILE"
     exit 1
 fi
-set -e
-cd "$(dirname "$0")/.."
-
-echo "Validating Exchange Connection..."
-
-# 1. Confirm Delta is available and fetch markets
-# We use the update script which does fetch + validate schema
-# But we might want to just do a quick check.
-# Let's use the update script to ensure we have fresh markets
-./scripts/update_markets_and_whitelist.sh
-
-# 2. Validate current whitelist against the fetched markets
-# The update script generated a NEW whitelist.
-# If we want to validate an EXISTING whitelist, we should have done it before updating.
-# But usually we validate that the *generated* whitelist is valid (which the script does).
-
-# The prompt says "validate whitelist pairs exist".
-# If we just regenerated it from the dump, they obviously exist.
-# Maybe the intent is to validate that the pairs in `config.delta.dryrun.json` (if any) exist.
-# Since we use an external whitelist file, and we just updated it, we are good.
-
-echo "Validation Complete. Market dump and Whitelist are fresh."

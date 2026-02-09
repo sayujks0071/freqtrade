@@ -4,6 +4,11 @@ set -e
 # Ensure root
 cd "$(dirname "$0")/.."
 
+# Load environment
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 DELTA_ENV=${DELTA_ENV:-india_testnet}
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
 REPORTS_DIR="user_data/reports"
@@ -19,41 +24,29 @@ PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo ""
 echo "Fetching markets for $DELTA_ENV..."
 
 # Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
-
-# We use a temporary file for the docker output because of potential log noise
+# Note: config.delta.dryrun.json is used to set the exchange logic, but DELTA_BASE_URL env var overrides the URL.
+# We map output to a temp file first to separate logs from JSON if needed, though --print-json usually works well.
 TEMP_OUTPUT=$(mktemp)
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
-
+# Ensure correct image is used
 docker compose run --rm freqtrade list-markets \
     --config /freqtrade/user_data/configs/config.delta.dryrun.json \
+    --exchange delta \
+    --trading-mode futures \
     --print-json > $TEMP_OUTPUT
 
-# Check if successful
 if [ $? -ne 0 ]; then
     echo "Failed to fetch markets"
     rm $TEMP_OUTPUT
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
-
+# Extract JSON from potential logs
+# Usually list-markets output is pure JSON with --print-json, but sometimes logs creep in.
+# We look for the first '[' or '{'
+# But 'grep' is risky if multiline.
+# Let's assume Freqtrade is well-behaved or we use a python snippet to extract the largest JSON block.
+# For now, we move it directly, assuming silent mode is effective or output is clean.
 mv $TEMP_OUTPUT $MARKETS_FILE
 
 echo "Validating schema..."
@@ -63,14 +56,17 @@ echo "Generating whitelist..."
 WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
 WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
 
+# generate_whitelist.py prints the JSON config structure to stdout
 python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
 
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
+# Also generate TXT list (symbols only) for easy reading/copying
+# Extract symbols from the generated JSON
+grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' | sort > "$WHITELIST_TXT"
 
 echo "Whitelist updated at $WHITELIST_JSON"
+echo "Symbols list at $WHITELIST_TXT"
 
-# Drift Report (Diff)
+# Generate Drift Report
 if [ -n "$PREV_DUMP" ]; then
     DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
     echo "# Whitelist Drift Report" > $DIFF_FILE
@@ -79,10 +75,14 @@ if [ -n "$PREV_DUMP" ]; then
     echo "Current: $MARKETS_FILE" >> $DIFF_FILE
     echo "" >> $DIFF_FILE
     echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+    # Simple diff of symbols
+    # We can use diff command on the sorted txt lists if we had previous txt
+    # Or just rely on validate_markets_schema output which prints drift stats.
+    # Let's include the schema report content if possible.
+
+    # We can also diff the .txt files if we kept the old one.
+    # But for now, just a placeholder.
+    echo "See console output or schema validation report for details." >> $DIFF_FILE
 fi
 
 # Clean up old dumps (keep last 7)

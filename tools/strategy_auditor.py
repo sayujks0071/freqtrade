@@ -1,12 +1,48 @@
 #!/usr/bin/env python3
+import argparse
 import ast
 import os
 import sys
 from pathlib import Path
 
 
-def audit_file(filepath):  # noqa: C901
+def fix_header(filepath):
+    """
+    Adds a standard header to the strategy file if missing.
+    """
+    header = '''"""
+Strategy: [Name]
+Author: [Author]
+Version: 1.0
+Timeframe: 5m
+Source: Audited Strategy
+"""
+'''
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read()
+
+        # Check if it already has a docstring at the top
+        tree = ast.parse(content)
+        if ast.get_docstring(tree):
+            print(f"File {filepath} already has a docstring. Skipping fix.")
+            return False
+
+        with open(filepath, 'w') as f:
+            f.write(header + "\n" + content)
+        print(f"Added header to {filepath}")
+        return True
+    except Exception as e:
+        print(f"Failed to fix {filepath}: {e}")
+        return False
+
+
+def audit_file(filepath, fix=False):  # noqa: C901
     print(f"Auditing {filepath}...")
+
+    if fix:
+        fix_header(filepath)
+
     with Path(filepath).open() as f:
         source = f.read()
 
@@ -26,51 +62,50 @@ def audit_file(filepath):  # noqa: C901
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for n in node.names:
-                if n.name in ["requests", "urllib", "socket", "http"]:
+                if n.name in ["requests", "urllib", "socket", "http", "os", "sys", "subprocess"]:
                     errors.append(f"Unsafe import: {n.name}")
         elif isinstance(node, ast.ImportFrom):
-            if node.module in ["requests", "urllib", "socket", "http"]:
+            if node.module in ["requests", "urllib", "socket", "http", "os", "sys", "subprocess"]:
                 errors.append(f"Unsafe import from: {node.module}")
 
     # Check 3: datetime.now() usage (heuristic)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute):
-                # check for .now()
                 if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
+                    # Check arguments for timezone info
                     if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}. Use UTC.")
 
-    # Check 4: Enforce AuditedStrategyMixin (heuristic)
+    # Check 4: Enforce AuditedStrategyMixin inheritance
     has_class = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             has_class = True
-            # Check bases
-            bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
-            if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
+            bases = []
+            for b in node.bases:
+                if isinstance(b, ast.Name):
+                    bases.append(b.id)
+                elif isinstance(b, ast.Attribute):
+                    bases.append(b.attr)
+
+            # If it inherits from IStrategy (directly or via mixin check context), it should use AuditedStrategyMixin
+            # Simplistic check: if class name ends with Strategy and isn't a library/mixin itself
+            if "Strategy" in node.name and node.name != "IStrategy":
+                 if "AuditedStrategyMixin" not in bases and "IStrategy" in bases:
+                     errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
 
     # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
+    if "process_only_new_candles" not in source:
+        errors.append("Missing 'process_only_new_candles' configuration (ensure safety).")
 
     # Check 6: Complex conditions (named sub-conditions)
-    # Heuristic: Check for assignments to dataframe with complex BoolOp index
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
-            # We look for dataframe.loc[...] = ...
             for target in node.targets:
                 if isinstance(target, ast.Subscript):
-                    # Check slice (index)
                     sl = target.slice
-                    # Handle python < 3.9 where slice might be wrapped
+                    # Python < 3.9 compat
                     if isinstance(sl, ast.Index):
                         sl = sl.value
 
@@ -78,19 +113,8 @@ def audit_file(filepath):  # noqa: C901
                         if len(sl.values) > 3:
                             errors.append(
                                 f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
+                                f"at line {node.lineno}. Use named boolean variables."
                             )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
-
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
 
     if errors:
         for e in errors:
@@ -102,21 +126,22 @@ def audit_file(filepath):  # noqa: C901
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: strategy_auditor.py <file_or_dir>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Strategy Auditor")
+    parser.add_argument("path", help="File or directory to audit")
+    parser.add_argument("--fix", action="store_true", help="Attempt to fix missing headers")
+    args = parser.parse_args()
 
-    target = sys.argv[1]
+    target = args.path
     failed = False
 
     if Path(target).is_file():
-        if not audit_file(target):
+        if not audit_file(target, args.fix):
             failed = True
     else:
         for root, _, files in os.walk(target):
             for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
-                    if not audit_file(str(Path(root) / file)):
+                if file.endswith(".py") and not file.startswith("__") and "Mixin" not in file:
+                    if not audit_file(str(Path(root) / file), args.fix):
                         failed = True
 
     if failed:

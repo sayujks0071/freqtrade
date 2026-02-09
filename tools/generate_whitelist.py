@@ -16,7 +16,9 @@ def filter_markets(markets):
     regex = re.compile(ALLOWLIST_REGEX)
 
     for m in markets:
-        symbol = m["symbol"]
+        symbol = m.get("symbol", "")
+        if not symbol:
+            continue
 
         # Basic active check
         if not m.get("active", True):
@@ -25,18 +27,19 @@ def filter_markets(markets):
         # Filter logic
         if FILTER_MODE == "perps_usdt":
             # Check if quote is USDT and it's a perp
-            # In ccxt/freqtrade, futures usually have 'linear' type or swap
-            # We rely on symbol string mostly for Freqtrade
-            if "/USDT:USDT" in symbol:
+            # In Delta, symbols are usually BASE/USDT:USDT for perps
+            if symbol.endswith("/USDT:USDT"):
                 whitelist.append(symbol)
         elif FILTER_MODE == "all_futures":
-            whitelist.append(symbol)
+             # All futures usually have a settle currency
+            if ":" in symbol:
+                whitelist.append(symbol)
         elif FILTER_MODE == "allowlist_regex":
             if regex.match(symbol):
                 whitelist.append(symbol)
         else:
             # Default to perps_usdt
-            if "/USDT:USDT" in symbol:
+            if symbol.endswith("/USDT:USDT"):
                 whitelist.append(symbol)
 
     return sorted(list(set(whitelist)))
@@ -47,17 +50,23 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    try:
+        with Path(sys.argv[1]).open() as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error reading input: {e}")
+        sys.exit(1)
 
+    # Normalize input
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
+    elif isinstance(data, list):
+        pass # OK
+    else:
+        print("Invalid input format")
+        sys.exit(1)
 
     whitelist = filter_markets(data)
-
-    # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
 
     # JSON format for Freqtrade inclusion
     output_obj = {"exchange": {"pair_whitelist": whitelist}}
