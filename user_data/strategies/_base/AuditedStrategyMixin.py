@@ -5,7 +5,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -45,8 +45,7 @@ class AuditedStrategyMixin:
 
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | SNAPSHOT
         msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {snapshot_str}"
+            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot_str}"
         )
         logger.info(msg)
 
@@ -60,11 +59,11 @@ class AuditedStrategyMixin:
         """
         normalized = pair.upper()
         if not self.PAIR_FORMAT_REGEX.match(normalized):
-             # Log error but maybe raise?
-             # The requirement says "fails fast if pair format mismatches"
-             # So we raise ValueError.
-             logger.error(f"AUDIT_ERROR | Invalid pair format: {pair}")
-             raise ValueError(f"Invalid pair format: {pair}. Expected BASE/QUOTE:SETTLE")
+            # Log error but maybe raise?
+            # The requirement says "fails fast if pair format mismatches"
+            # So we raise ValueError.
+            logger.error(f"AUDIT_ERROR | Invalid pair format: {pair}")
+            raise ValueError(f"Invalid pair format: {pair}. Expected BASE/QUOTE:SETTLE")
         return normalized
 
     def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:

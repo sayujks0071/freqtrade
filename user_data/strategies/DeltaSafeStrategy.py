@@ -3,7 +3,8 @@ Strategy: DeltaSafeStrategy
 Author: Google Jules
 Version: 1.2
 Timeframes: 1h
-Pair format: Delta contract symbols (e.g. BTCUSDT) vs Freqtrade/CCXT futures pair format (base/quote:settle like BTC/USDT:USDT)
+Pair format: Delta contract symbols (e.g. BTCUSDT) vs Freqtrade/CCXT futures pair format
+             (base/quote:settle like BTC/USDT:USDT)
 Timezone: UTC ISO-8601
 Entry: Long entry conditions
 Exit: Long exit conditions
@@ -11,8 +12,8 @@ No repainting: Only act on closed candles (no incomplete candle usage)
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -139,7 +140,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time: datetime,
         **kwargs,
     ) -> bool:
@@ -157,5 +158,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             "volume": last_candle.get("volume"),
         }
 
-        self.log_signal(pair, "exit", f"Signal Confirmed (Exit: {sell_reason})", current_time, snapshot)
+        self.log_signal(
+            pair, "exit", f"Signal Confirmed (Exit: {exit_reason})", current_time, snapshot
+        )
         return True
