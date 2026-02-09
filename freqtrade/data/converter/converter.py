@@ -3,6 +3,7 @@ Functions to convert data from one format to another
 """
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -111,13 +112,10 @@ def ohlcv_fill_up_missing_data(dataframe: DataFrame, timeframe: str, pair: str) 
     # Forwardfill close for missing columns
     df["close"] = df["close"].ffill()
     # Use close for "open, high, low"
-    df.loc[:, ["open", "high", "low"]] = df[["open", "high", "low"]].fillna(
-        value={
-            "open": df["close"],
-            "high": df["close"],
-            "low": df["close"],
-        }
-    )
+    df["open"] = df["open"].fillna(df["close"])
+    df["high"] = df["high"].fillna(df["close"])
+    df["low"] = df["low"].fillna(df["close"])
+
     df.reset_index(inplace=True)
     len_before = len(dataframe)
     len_after = len(df)
@@ -286,15 +284,18 @@ def reduce_dataframe_footprint(df: DataFrame) -> DataFrame:
 
     logger.debug(f"Memory usage of dataframe is {df.memory_usage().sum() / 1024**2:.2f} MB")
 
-    df_dtypes = df.dtypes
-    for column, dtype in df_dtypes.items():
-        if column in ["open", "high", "low", "close", "volume"]:
+    new_dtypes: dict[str, Any] = {}
+    exclude_columns = {"open", "high", "low", "close", "volume"}
+
+    for column, dtype in df.dtypes.items():
+        if column in exclude_columns:
             continue
         if dtype == np.float64:
-            df_dtypes[column] = np.float32
+            new_dtypes[column] = np.float32
         elif dtype == np.int64:
-            df_dtypes[column] = np.int32
-    df = df.astype(df_dtypes)
+            new_dtypes[column] = np.int32
+    if new_dtypes:
+        df = df.astype(new_dtypes)
 
     logger.debug(f"Memory usage after optimization is: {df.memory_usage().sum() / 1024**2:.2f} MB")
 
