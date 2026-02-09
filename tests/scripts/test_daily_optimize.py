@@ -5,7 +5,9 @@ from pathlib import Path
 
 # Add scripts to path
 sys.path.append(str(Path(__file__).parent.parent.parent / "scripts"))
-import daily_optimize  # noqa: E402; isort: skip
+# isort: off
+import daily_optimize  # noqa: E402
+# isort: on
 
 
 class TestDailyOptimize(unittest.TestCase):

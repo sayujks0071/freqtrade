@@ -149,6 +149,13 @@ async def test_exchangews_ohlcv(mocker, time_machine, caplog):
             ("ETH/BTC", "1m", CandleType.SPOT),
         }
 
+        # Trigger unwatch by removing from watching
+        exchange_ws._klines_watching.clear()
+        # Wait for log message to ensure unwatch was called and exception logged
+        await wait_for_condition(
+            lambda: log_has_re("Exception in _unwatch_ohlcv", caplog), timeout_=2.0
+        )
+
     finally:
         # Cleanup
         exchange_ws.cleanup()
