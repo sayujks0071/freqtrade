@@ -521,7 +521,10 @@ def test_api_run_updates_weak_jwt_key(default_conf, mocker, caplog):
 
     apiserver.start_api()
 
-    assert log_has("SECURITY WARNING - `jwt_secret_key` is default. Generated a random key for this session.", caplog)
+    assert log_has(
+        "SECURITY WARNING - `jwt_secret_key` is default. Generated a random key for this session.",
+        caplog,
+    )
     assert apiserver._config["api_server"]["jwt_secret_key"] != "super-secret"
     assert len(apiserver._config["api_server"]["jwt_secret_key"]) == 64
 
@@ -552,7 +555,10 @@ def test_api_run_keeps_custom_key(default_conf, mocker, caplog):
 
     apiserver.start_api()
 
-    assert not log_has("SECURITY WARNING - `jwt_secret_key` is default. Generated a random key for this session.", caplog)
+    assert not log_has(
+        "SECURITY WARNING - `jwt_secret_key` is default. Generated a random key for this session.",
+        caplog,
+    )
     assert apiserver._config["api_server"]["jwt_secret_key"] == "super"
 
     apiserver.cleanup()
