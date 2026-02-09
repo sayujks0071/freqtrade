@@ -83,9 +83,7 @@ def get_stoploss_value(node: ast.Assign) -> float | None:
     return None
 
 
-def process_stoploss_node(
-    node: ast.Assign, lines: list[str], filepath: Path
-) -> bool:
+def process_stoploss_node(node: ast.Assign, lines: list[str], filepath: Path) -> bool:
     """Check if node is a stoploss assignment and fix if needed."""
     # Check targets
     is_stoploss = False
@@ -104,9 +102,7 @@ def process_stoploss_node(
         # e.g. -0.05 is OK (-0.05 >= -0.10)
         # -0.20 is Violation (-0.20 < -0.10)
         if val < STOPLOSS_LIMIT:
-            print(
-                f"Violation in {filepath} line {node.lineno}: stoploss={val} < {STOPLOSS_LIMIT}"
-            )
+            print(f"Violation in {filepath} line {node.lineno}: stoploss={val} < {STOPLOSS_LIMIT}")
 
             # Fix it
             # We use line number to replace the line.
@@ -127,8 +123,7 @@ def process_stoploss_node(
             if "#" in original_line:
                 comment = original_line.split("#", 1)[1]
                 new_line = (
-                    f"{indent_str}stoploss = {STOPLOSS_LIMIT}  "
-                    f"# {comment.strip()} (Fixed by Audit)"
+                    f"{indent_str}stoploss = {STOPLOSS_LIMIT}  # {comment.strip()} (Fixed by Audit)"
                 )
             else:
                 new_line = f"{indent_str}stoploss = {STOPLOSS_LIMIT}"
@@ -191,9 +186,7 @@ def main():
     modified_count = 0
 
     # 1. Check configs
-    config_files = list(root.glob("config.json")) + list(
-        root.glob("user_data/configs/*.json")
-    )
+    config_files = list(root.glob("config.json")) + list(root.glob("user_data/configs/*.json"))
     for cf in config_files:
         if check_and_fix_config(cf):
             modified_count += 1
