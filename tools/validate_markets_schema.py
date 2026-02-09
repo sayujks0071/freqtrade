@@ -3,6 +3,7 @@
 Validates the markets dump from Freqtrade against schema and sanity checks.
 Ensures critical data integrity before allowing whitelist updates.
 """
+
 import argparse
 import json
 import os
@@ -30,7 +31,9 @@ def parse_args():
     parser.add_argument("--markets", required=True, help="Path to markets JSON file")
     parser.add_argument("--env", default=DELTA_ENV, help="Expected DELTA_ENV (e.g., india_prod)")
     parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON for drift check")
-    parser.add_argument("--out-report", help="Path to write Markdown report", default="validation_report.md")
+    parser.add_argument(
+        "--out-report", help="Path to write Markdown report", default="validation_report.md"
+    )
     return parser.parse_args()
 
 
@@ -77,9 +80,9 @@ def validate_market_structure(i, m, errors):
     )
 
     if not is_contract and m.get("type") != "spot":
-         # If not explicitly spot or contract, warn or fail?
-         # For Delta, we mostly care about perps/futures.
-         pass
+        # If not explicitly spot or contract, warn or fail?
+        # For Delta, we mostly care about perps/futures.
+        pass
 
     return symbol
 
@@ -108,17 +111,17 @@ def validate_volume(m, symbol, errors):
     # Freqtrade dump often puts volume in 'info' or top level if standardized.
     # We check 'volume' key if present.
 
-    vol = m.get("volume") # 24h volume
+    vol = m.get("volume")  # 24h volume
     if vol is not None:
         if not isinstance(vol, (int, float)):
-             errors.append(f"Symbol '{symbol}' volume is not numeric: {vol}")
+            errors.append(f"Symbol '{symbol}' volume is not numeric: {vol}")
         elif vol < 0:
-             errors.append(f"Symbol '{symbol}' has negative volume: {vol}")
-        elif STRICT_VOLUME and vol < 1000: # Arbitrary threshold for "liquid"
-             # Just a warning unless STRICT_VOLUME is enforced elsewhere or here?
-             # The prompt says: "allow STRICT_VOLUME=true to fail if too many are illiquid"
-             # For now, we'll just log it as an error if strict.
-             errors.append(f"Low volume for {symbol}: {vol}")
+            errors.append(f"Symbol '{symbol}' has negative volume: {vol}")
+        elif STRICT_VOLUME and vol < 1000:  # Arbitrary threshold for "liquid"
+            # Just a warning unless STRICT_VOLUME is enforced elsewhere or here?
+            # The prompt says: "allow STRICT_VOLUME=true to fail if too many are illiquid"
+            # For now, we'll just log it as an error if strict.
+            errors.append(f"Low volume for {symbol}: {vol}")
 
 
 def check_environment_sanity(data, expected_env, errors):
@@ -135,14 +138,18 @@ def check_environment_sanity(data, expected_env, errors):
     for m in data:
         sym = m.get("symbol", "")
         if "TEST" in sym:
-             test_symbols_found += 1
+            test_symbols_found += 1
 
     if not is_testnet and test_symbols_found > 0:
-         warn(f"Found {test_symbols_found} 'TEST' symbols in PROD env {expected_env}. This might be normal for some delisted pairs, but implies caution.")
-         # We don't fail here because sometimes TEST tokens exist in prod (e.g. mock trading contests)
-         # But if ALL are TEST, that's bad.
-         if test_symbols_found == len(data):
-             errors.append(f"All symbols appear to be TEST symbols in PROD env {expected_env}")
+        warn(
+            f"Found {test_symbols_found} 'TEST' symbols in PROD env {expected_env}. "
+            "This might be normal for some delisted pairs, but implies caution."
+        )
+        # We don't fail here because sometimes TEST tokens exist in prod
+        # (e.g. mock trading contests)
+        # But if ALL are TEST, that's bad.
+        if test_symbols_found == len(data):
+            errors.append(f"All symbols appear to be TEST symbols in PROD env {expected_env}")
 
 
 def generate_whitelist_candidates(markets):
@@ -167,7 +174,7 @@ def generate_whitelist_candidates(markets):
                 whitelist.append(symbol)
         elif FILTER_MODE == "all_futures":
             # Assuming all in dump are relevant or just check for futures structure
-             whitelist.append(symbol)
+            whitelist.append(symbol)
         elif FILTER_MODE == "allowlist_regex":
             if regex.match(symbol):
                 whitelist.append(symbol)
@@ -193,22 +200,31 @@ def validate_drift(current_markets, prev_whitelist_path, report_lines):
         return True, []
 
     # 2. Load previous whitelist
+    prev_whitelist = []
+    error_msg = None
     try:
         with Path(prev_whitelist_path).open() as f:
             prev_data = json.load(f)
 
         # Standard freqtrade whitelist format: {"exchange": {"pair_whitelist": [...]}}
         # Or simple list if custom
-        if isinstance(prev_data, dict) and "exchange" in prev_data and "pair_whitelist" in prev_data["exchange"]:
+        if (
+            isinstance(prev_data, dict)
+            and "exchange" in prev_data
+            and "pair_whitelist" in prev_data["exchange"]
+        ):
             prev_whitelist = prev_data["exchange"]["pair_whitelist"]
         elif isinstance(prev_data, list):
-             prev_whitelist = prev_data
+            prev_whitelist = prev_data
         else:
-             warn("Previous whitelist format unrecognized. Skipping drift check.")
-             return True, []
+            warn("Previous whitelist format unrecognized. Skipping drift check.")
+            return True, []
 
-    except Exception as e:
-        warn(f"Failed to read previous whitelist: {e}")
+    except Exception as exc:
+        error_msg = f"Failed to read previous whitelist: {exc}"
+
+    if error_msg:
+        warn(error_msg)
         return True, []
 
     # 3. Compare
@@ -223,7 +239,7 @@ def validate_drift(current_markets, prev_whitelist_path, report_lines):
 
     removal_ratio = removal_count / prev_count if prev_count > 0 else 0.0
 
-    report_lines.append(f"Drift Stats:")
+    report_lines.append("Drift Stats:")
     report_lines.append(f"- Previous: {prev_count}")
     report_lines.append(f"- Current: {len(curr_set)}")
     report_lines.append(f"- Added: {len(added)}")
@@ -232,7 +248,10 @@ def validate_drift(current_markets, prev_whitelist_path, report_lines):
 
     errors = []
     if removal_ratio > MAX_REMOVAL_RATIO:
-        errors.append(f"Large delist drift: {removal_ratio:.2%} > {MAX_REMOVAL_RATIO:.0%} (Limit: {MAX_REMOVAL_RATIO})")
+        errors.append(
+            f"Large delist drift: {removal_ratio:.2%} > {MAX_REMOVAL_RATIO:.0%} "
+            f"(Limit: {MAX_REMOVAL_RATIO})"
+        )
         report_lines.append("**DRIFT CHECK FAILED**")
 
     # Check for pair format changes (Heuristic: if high removal but high addition, might be rename)
@@ -252,7 +271,12 @@ def validate_schema(data, args):
     report_lines.append(f"Total markets found: {market_count}")
 
     if market_count < MIN_MARKETS:
-        return False, [f"Market count {market_count} < MIN_MARKETS ({MIN_MARKETS})"], report_lines, set()
+        return (
+            False,
+            [f"Market count {market_count} < MIN_MARKETS ({MIN_MARKETS})"],
+            report_lines,
+            set(),
+        )
 
     symbols = set()
     errors = []
@@ -293,7 +317,7 @@ def main():
         data = data["markets"]
 
     # 2. Validate Schema
-    success_schema, schema_errors, report_lines, symbols = validate_schema(data, args)
+    success_schema, schema_errors, report_lines, _symbols = validate_schema(data, args)
 
     drift_errors = []
     if success_schema:
@@ -310,7 +334,7 @@ def main():
 Date: {datetime.now(UTC).isoformat()}
 File: {args.markets}
 Environment: {args.env}
-Status: {'PASS' if success else 'FAIL'}
+Status: {"PASS" if success else "FAIL"}
 """
 
     full_report = report_header + "\n".join(report_lines) + "\n\n"
@@ -318,8 +342,8 @@ Status: {'PASS' if success else 'FAIL'}
     all_errors = schema_errors + drift_errors
     if all_errors:
         full_report += "## Errors\n"
-        for e in all_errors:
-            full_report += f"- {e}\n"
+        for err in all_errors:
+            full_report += f"- {err}\n"
 
     write_report(args.out_report, full_report)
 
@@ -329,6 +353,7 @@ Status: {'PASS' if success else 'FAIL'}
 
     print("Validation PASSED.")
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

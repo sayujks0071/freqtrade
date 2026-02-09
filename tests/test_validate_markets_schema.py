@@ -4,11 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+
 # Add tools to path
 tools_path = Path(__file__).parents[1] / "tools"
 sys.path.append(str(tools_path))
 
-import validate_markets_schema
+import validate_markets_schema  # noqa: E402
 
 
 @pytest.fixture
@@ -76,17 +77,19 @@ def test_validate_schema_valid(mock_args):
     # Let's fix data to be unique
     data = []
     for i in range(20):
-        data.append({
-            "symbol": f"BTC{i}/USDT:USDT",
-            "base": f"BTC{i}",
-            "quote": "USDT",
-            "active": True,
-            "contract": True,
-            "volume": 1000,
-        })
+        data.append(
+            {
+                "symbol": f"BTC{i}/USDT:USDT",
+                "base": f"BTC{i}",
+                "quote": "USDT",
+                "active": True,
+                "contract": True,
+                "volume": 1000,
+            }
+        )
 
     with patch("validate_markets_schema.check_environment_sanity"):
-        success, errors, report, symbols = validate_markets_schema.validate_schema(data, mock_args)
+        success, errors, _report, symbols = validate_markets_schema.validate_schema(data, mock_args)
 
     assert success
     assert not errors
@@ -99,7 +102,9 @@ def test_validate_drift_no_prev(mock_args):
 
     # Mock Path.exists to False
     with patch("pathlib.Path.exists", return_value=False):
-        success, errors = validate_markets_schema.validate_drift(current_markets, "prev.json", report_lines)
+        success, errors = validate_markets_schema.validate_drift(
+            current_markets, "prev.json", report_lines
+        )
 
     assert success
     assert not errors
@@ -114,14 +119,17 @@ def test_validate_drift_fail(mock_args):
 
     report_lines = []
 
-    with patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.open", new_callable=MagicMock) as mock_open, \
-         patch("json.load", return_value={"exchange": {"pair_whitelist": prev_whitelist}}):
-
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.open", new_callable=MagicMock) as mock_open,
+        patch("json.load", return_value={"exchange": {"pair_whitelist": prev_whitelist}}),
+    ):
         # Mock context manager for open
         mock_open.return_value.__enter__.return_value = MagicMock()
 
-        success, errors = validate_markets_schema.validate_drift(current_markets, "prev.json", report_lines)
+        success, errors = validate_markets_schema.validate_drift(
+            current_markets, "prev.json", report_lines
+        )
 
     assert not success
     assert len(errors) > 0
