@@ -1,0 +1,50 @@
+[
+  {
+    "symbol": "BTC/USDT:USDT",
+    "base": "BTC",
+    "quote": "USDT",
+    "settle": "USDT",
+    "spot": false,
+    "margin": false,
+    "futures": true,
+    "contract": true,
+    "type": "swap",
+    "active": true,
+    "info": {
+      "symbol": "BTCUSDT",
+      "contract_type": "perpetual_future"
+    }
+  },
+  {
+    "symbol": "ETH/USDT:USDT",
+    "base": "ETH",
+    "quote": "USDT",
+    "settle": "USDT",
+    "spot": false,
+    "margin": false,
+    "futures": true,
+    "contract": true,
+    "type": "swap",
+    "active": true,
+    "info": {
+      "symbol": "ETHUSDT",
+      "contract_type": "perpetual_future"
+    }
+  },
+  {
+    "symbol": "SOL/USDT:USDT",
+    "base": "SOL",
+    "quote": "USDT",
+    "settle": "USDT",
+    "spot": false,
+    "margin": false,
+    "futures": true,
+    "contract": true,
+    "type": "swap",
+    "active": true,
+    "info": {
+      "symbol": "SOLUSDT",
+      "contract_type": "perpetual_future"
+    }
+  }
+]

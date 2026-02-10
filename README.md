@@ -140,6 +140,43 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
 
+## How to choose pairs on Delta
+
+**Always verify pairs against the official market list.** Do not guess symbols.
+
+1.  Run the market update script:
+    ```bash
+    ./scripts/update_markets_and_whitelist.sh
+    ```
+2.  Check the generated report at `user_data/reports/symbol_mapping_<DATE>.md` or `user_data/reports/markets_*.json`.
+3.  Select pairs with `futures: true` and `contract: true` (e.g., `BTC/USDT:USDT`).
+4.  Add selected pairs to `user_data/pairlists/whitelist.delta.json`.
+
+**Note:** Delta Futures symbols typically follow the format `BASE/QUOTE:SETTLE` (e.g., `BTC/USDT:USDT` for BTC-USDT Perpetual).
+
+## How to interpret logs
+
+All strategy decisions are audited and logged with the `AUDIT_SIGNAL` prefix.
+
+**Log Location:** `user_data/logs/freqtrade.log` (or via `docker compose logs`)
+
+**Format:**
+```text
+AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE_DATE | INDICATORS_SNAPSHOT
+```
+
+**Example:**
+```text
+AUDIT_SIGNAL | 2023-10-27T10:00:00+00:00 | BTC/USDT:USDT | long | rsi_oversold | 2023-10-27T09:00:00+00:00 | {'rsi': 25.5, 'volume': 1500}
+```
+
+-   **TIMESTAMP**: When the signal was logged (UTC).
+-   **PAIR**: The trading pair.
+-   **DIRECTION**: `long`, `short`, or `exit`.
+-   **REASON**: The specific condition that triggered the signal (e.g., `rsi_oversold`).
+-   **CANDLE_DATE**: The timestamp of the candle that generated the signal.
+-   **INDICATORS_SNAPSHOT**: Key indicator values at the time of the signal for verification.
+
 ## Documentation
 
 -   [Risk Profile](user_data/reports/risk_profile.md)

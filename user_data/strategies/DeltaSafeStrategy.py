@@ -1,9 +1,21 @@
 """
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+
+--------------------
+Author: (Unknown)
+Version: 1.0
+Timeframes: 1h
+Pair Format: Delta (BTCUSDT)
+Timezone: UTC ISO-8601
+Entry: Describe entry conditions
+Exit: Describe exit conditions
+No repainting: Logic runs on closed candles
+
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -58,18 +70,40 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Entry Strategy:
+        - Long if RSI < 30 (Oversold)
+        - Volume > 0 (Liquidity check)
+        """
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        # Named boolean conditions (Auditor compliance)
+        is_oversold = dataframe["rsi"] < 30
+        has_volume = dataframe["volume"] > 0
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        enter_long_cond = is_oversold & has_volume
+
+        dataframe.loc[enter_long_cond, "enter_long"] = 1
+        dataframe.loc[enter_long_cond, "enter_tag"] = "rsi_oversold"
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        """
+        Exit Strategy:
+        - Long exit if RSI > 70 (Overbought)
+        - Volume > 0
+        """
+        # Named boolean conditions
+        is_overbought = dataframe["rsi"] > 70
+        has_volume = dataframe["volume"] > 0
+
+        exit_long_cond = is_overbought & has_volume
+
+        dataframe.loc[exit_long_cond, "exit_long"] = 1
+        dataframe.loc[exit_long_cond, "exit_tag"] = "rsi_overbought"
+
         return dataframe
 
     def confirm_trade_entry(
@@ -79,13 +113,73 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str,
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        indicators = {}
+        if self.dp:
+            try:
+                dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+                if not dataframe.empty:
+                    last_row = dataframe.iloc[-1]
+                    indicators = {
+                        "rsi": last_row.get("rsi"),
+                        "volume": last_row.get("volume"),
+                        "close": last_row.get("close")
+                    }
+            except Exception:
+                indicators = {"error": "could not fetch dataframe"}
+
+        self.log_signal(
+            pair=pair,
+            timeframe=self.timeframe,
+            direction=side,
+            reason=entry_tag if entry_tag else "signal",
+            candle_date=current_time,
+            indicators_snapshot=indicators
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        sell_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+        """
+        Called right before placing an exit order.
+        """
+        indicators = {}
+        if self.dp:
+            try:
+                dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+                if not dataframe.empty:
+                    last_row = dataframe.iloc[-1]
+                    indicators = {
+                        "rsi": last_row.get("rsi"),
+                        "volume": last_row.get("volume"),
+                        "close": last_row.get("close")
+                    }
+            except Exception:
+                indicators = {"error": "could not fetch dataframe"}
+
+        self.log_signal(
+            pair=pair,
+            timeframe=self.timeframe,
+            direction="exit",
+            reason=sell_reason,
+            candle_date=current_time,
+            indicators_snapshot=indicators
+        )
         return True
