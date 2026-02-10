@@ -400,9 +400,10 @@ Examples:
 
     # Determine outcome
     outcome = "SUCCESS" if (sharpe_improved and drawdown_improved) else "FAILURE"
-    roi_diff = new_stats.get("profit_total_pct", 0.0) * 100 - current_stats.get(
-        "profit_total_pct", 0.0
-    ) * 100
+    roi_diff = (
+        new_stats.get("profit_total_pct", 0.0) * 100
+        - current_stats.get("profit_total_pct", 0.0) * 100
+    )
 
     log_optimization_result(
         worst_strategy,
