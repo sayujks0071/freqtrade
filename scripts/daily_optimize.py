@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+LOG_FILE = Path("optimization_log.txt")
 
 # Optimization Parameters
 EPOCHS = 200
@@ -210,6 +211,30 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def log_optimization_result(
+    strategy, outcome, sharpe_old, sharpe_new, dd_old, dd_new, roi_improvement
+):
+    """
+    Appends the optimization result to the log file.
+    Format: Date | Strategy | Outcome | Old Sharpe | New Sharpe | Old DD | New DD | ROI Change
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = (
+        f"{timestamp} | "
+        f"Strategy: {strategy} | "
+        f"Outcome: {outcome} | "
+        f"Old Sharpe: {sharpe_old:.4f} | "
+        f"New Sharpe: {sharpe_new:.4f} | "
+        f"Old DD: {dd_old:.4f} | "
+        f"New DD: {dd_new:.4f} | "
+        f"ROI Change: {roi_improvement:.2f}%"
+    )
+
+    print(f"Logging result: {entry}")
+    with LOG_FILE.open("a") as f:
+        f.write(entry + "\n")
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -376,13 +401,32 @@ Examples:
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
+    # Determine outcome
+    outcome = "SUCCESS" if (sharpe_improved and drawdown_improved) else "FAILURE"
+    roi_diff = new_stats.get("profit_total_pct", 0.0) * 100 - current_stats.get(
+        "profit_total_pct", 0.0
+    ) * 100
+
+    log_optimization_result(
+        worst_strategy,
+        outcome,
+        current_sharpe,
+        new_sharpe,
+        current_drawdown,
+        new_drawdown,
+        roi_diff,
+    )
+
+    target_branch = args.branch if args.branch else "main"
+
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
-        msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
+        msg = f"perf: optimized {worst_strategy} ({roi_diff:+.2f}% ROI improvement)"
 
         if args.dry_run:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
             print(f"  File: {strategy_json}")
+            print(f"  Log File: {LOG_FILE}")
             print(f"  Message: {msg}")
             if args.branch:
                 print(f"  Branch: {args.branch}")
@@ -390,11 +434,9 @@ Examples:
                 print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
-            # Determine target branch
-            target_branch = args.branch if args.branch else "main"
-
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", str(LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -438,6 +480,25 @@ Examples:
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        # Commit only the log file for failure tracking
+        msg = f"chore: update optimization log (failed attempt for {worst_strategy})"
+        if args.dry_run:
+            print("\n[DRY-RUN MODE] Would have committed failure log:")
+            print(f"  Log File: {LOG_FILE}")
+            print(f"  Message: {msg}")
+        else:
+            run_command(["git", "add", str(LOG_FILE)])
+            run_command(["git", "commit", "-m", msg])
+
+            # Push the log update
+            print(f"\nPushing failure log to {target_branch}...")
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
 
 
 if __name__ == "__main__":
