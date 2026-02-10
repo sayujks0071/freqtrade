@@ -169,7 +169,7 @@ class Sentinel:
                 "timeframe": "1h",
                 "timerange": f"{datetime.now().strftime('%Y%m%d')}-",
                 "strategy": strategy,
-                "live_mode": True
+                "live_mode": True,
             }
 
             data = self._request("POST", "/pair_history", data=payload)
@@ -259,6 +259,11 @@ class Sentinel:
         except Exception as e:
             logger.error(f"Failed to liquidate: {e}")
 
+    def send_alert(self, message: str):
+        logger.info(f"Sending Alert: {message}")
+        # Placeholder for OpenClaw integration
+        # TODO: Implement OpenClaw alert sending here
+
     def run(self):
         logger.info(f"Starting Sentinel (Dry Run: {self.dry_run})")
         logger.info(
@@ -295,8 +300,9 @@ class Sentinel:
                     reason = "Drawdown" if drawdown_alert else "BTC Drop"
                     logger.critical(f"EMERGENCY TRIGGERED: {reason}")
 
-                    self.emergency_stop()
+                    self.send_alert(f"CRITICAL ALERT: {reason} triggered. Stopping bot.")
                     self.emergency_liquidate()
+                    self.emergency_stop()
 
                     logger.info("Sentinel Actions Complete. Exiting.")
                     break
