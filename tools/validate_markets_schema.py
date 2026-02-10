@@ -227,9 +227,7 @@ def validate_drift(candidate_whitelist, prev_whitelist_path, errors, report_line
 def run_schema_validation(data, args, report_lines):
     if len(data) < MIN_MARKETS:
         fail(
-            f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})",
-            args.out_report,
-            report_lines
+            f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})", args.out_report, report_lines
         )
 
     symbols = set()
