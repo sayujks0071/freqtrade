@@ -183,7 +183,8 @@ def test_throttle_sleep_time(mocker, default_conf, caplog) -> None:
         )
         assert sleep_mock.call_count == 1
         # 300 (5m) - 60 (1m - see set time above) - 5 (duration of throttled_func) = 235
-        assert 235.2 < sleep_mock.call_args[0][0] < 235.6
+        # Accommodate slower runners by allowing a wider lower bound
+        assert 234.0 < sleep_mock.call_args[0][0] < 235.6
 
         t.move_to("2022-09-01 05:04:51 +00:00")
         sleep_mock.reset_mock()

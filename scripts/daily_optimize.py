@@ -39,6 +39,25 @@ def get_timerange():
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
 
+def download_data(timerange):
+    print(f"Downloading data for {timerange}...")
+    cmd = [
+        sys.executable,
+        "-m",
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--timerange",
+        timerange,
+        "--timeframe",
+        "1h",
+        "-t",
+        "spot",
+    ]
+    run_command(cmd, capture=False)
+
+
 def get_latest_backtest_file():
     if not BACKTEST_RESULTS_DIR.exists():
         return None
@@ -118,6 +137,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -185,28 +206,37 @@ def get_current_branch():
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
-    Finds the last JSON object in the output which typically contains the best parameters.
+    Uses brace counting to find the last valid JSON block in the output.
     """
     lines = output.splitlines()
     json_str = ""
+    brace_count = 0
     started = False
 
     # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
     for line in reversed(lines):
-        if line.strip() == "}":
-            started = True
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Basic check to start collecting lines when we see a closing brace
+        if stripped.endswith("}"):
+            if not started:
+                started = True
+
         if started:
             json_str = line + "\n" + json_str
-            if line.strip() == "{":
+            brace_count += line.count("}") - line.count("{")
+
+            # If braces are balanced and we have content, try to parse
+            if brace_count == 0:
                 try:
                     params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
+                    # Verify it has expected keys to be the hyperopt result
                     if "params" in params or "minimal_roi" in params:
                         return params
                 except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                    continue
     return {}
 
 
@@ -250,7 +280,11 @@ Examples:
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
-    # 1. Establish Baseline
+    # 1. Ensure Data Exists
+    timerange = get_timerange()
+    download_data(timerange)
+
+    # 2. Establish Baseline
     latest_file = get_latest_backtest_file()
 
     backtest_data = None
@@ -281,7 +315,7 @@ Examples:
     print(f"Current Sharpe: {current_sharpe}")
     print(f"Current Drawdown: {current_drawdown}")
 
-    # 2. Hyperopt Execution
+    # 3. Hyperopt Execution
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
     backup_json = strategy_json.with_suffix(".json.bak")
     created_new = False
@@ -294,6 +328,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -309,7 +345,7 @@ Examples:
         "--min-trades",
         "1",
         "--timerange",
-        get_timerange(),
+        timerange,
         "--no-color",
         "--print-json",
         "-j",
@@ -346,7 +382,7 @@ Examples:
             strategy_json.unlink()
         sys.exit(1)
 
-    # 3. Evaluation (Verification Backtest)
+    # 4. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
 

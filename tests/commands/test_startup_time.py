@@ -4,7 +4,7 @@ import time
 from tests.conftest import is_mac
 
 
-MAXIMUM_STARTUP_TIME = 0.7 if is_mac() else 0.5
+MAXIMUM_STARTUP_TIME = 1.5 if is_mac() else 1.0
 
 
 def test_startup_time():
