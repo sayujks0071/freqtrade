@@ -4,7 +4,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from freqtrade.persistence import Trade
@@ -46,7 +46,9 @@ class AuditedStrategyMixin:
         """
         if self.config.get("exchange", {}).get("pair_whitelist"):
             if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
+                logger.warning(
+                    f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
+                )
                 return False
         return True
 
@@ -63,19 +65,26 @@ class AuditedStrategyMixin:
         """
         try:
             # Calculate start of day (UTC)
-            today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+            today_start = datetime.now(UTC).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
 
             # Query closed trades for today
-            trades = Trade.get_trades([Trade.is_open.is_(False), Trade.close_date >= today_start]).all()
+            trades = Trade.get_trades(
+                [Trade.is_open.is_(False), Trade.close_date >= today_start]
+            ).all()
 
-            daily_profit_abs = sum(t.close_profit_abs for t in trades)
+            # Mypy strict: handle optional float
+            daily_profit_abs = sum((t.close_profit_abs or 0.0) for t in trades)
 
             # Get total balance
             # self.wallets is available in IStrategy
             total_balance = self.wallets.get_total_stake_amount()
 
             if total_balance == 0:
-                logger.warning("AUDIT_RISK | Total balance is 0, cannot calculate daily loss ratio.")
+                logger.warning(
+                    "AUDIT_RISK | Total balance is 0, cannot calculate daily loss ratio."
+                )
                 return True
 
             current_loss_ratio = daily_profit_abs / total_balance
@@ -84,7 +93,8 @@ class AuditedStrategyMixin:
             if current_loss_ratio < -max_daily_loss:
                 logger.warning(
                     f"AUDIT_RISK | Daily Loss Limit Hit! "
-                    f"PnL: {current_loss_ratio:.2%} ({daily_profit_abs:.2f}) < -{max_daily_loss:.2%}"
+                    f"PnL: {current_loss_ratio:.2%} "
+                    f"({daily_profit_abs:.2f}) < -{max_daily_loss:.2%}"
                 )
                 return False
 
@@ -95,4 +105,4 @@ class AuditedStrategyMixin:
             # Fail safe: if we can't check, we should probably continue but log error,
             # or stop to be safe?
             # "Safe" means don't trade if uncertain.
-            return True  # Proceeding to avoid blocking on DB errors, assuming Freqtrade's built-in protections handle it too.
+            return True

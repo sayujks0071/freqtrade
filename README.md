@@ -62,7 +62,7 @@ Check logs: `docker compose logs -f`
 **NEVER** hand-type pairs blindly into the config. The stack uses an automated process to generate safe whitelists.
 
 ### Daily Market Refresh
-The GitHub Workflow `.github/workflows/delta-markets-refresh.yml` runs daily at 06:30 IST.
+The GitHub Workflow `.github/workflows/delta-markets-refresh.yml` runs daily at 06:30 Indian Standard Time.
 1. Fetches latest markets from Delta.
 2. Validates schema (detects drift, format changes).
 3. Generates `user_data/pairlists/whitelist.delta.json`.

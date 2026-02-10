@@ -76,10 +76,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Exit if RSI > 70
         dataframe.loc[
-            (
-                (dataframe["rsi"] > 70)
-                & (dataframe["volume"] > 0)
-            ),
+            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)),
             "exit_long",
         ] = 1
 
@@ -92,7 +89,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         current_rate: float,
         proposed_leverage: float,
         max_leverage: float,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> float:
@@ -109,7 +106,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
