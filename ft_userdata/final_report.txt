@@ -1,0 +1,27 @@
+
+==================================================
+🏆 ELITE TRADING PERFORMANCE REPORT: MomentumVolumeTrend
+==================================================
+
+📈 PROFITABILITY
+  • Total Return:      -63.36%
+  • Profit Factor:     0.34
+  • Win Rate:          19.85%
+  • Expectancy:        -0.23% per trade
+
+⚠️ RISK MANAGEMENT
+  • Max Drawdown:      63.51%
+  • Drawdown Count:    2025-01-02 08:20:00 to 2026-01-30 23:45:00
+  • Avg Trade Time:    29 minutes
+
+📊 TRADE STATS
+  • Total Trades:      1310
+  • Winners:           260
+  • Losers:            1050
+  • Break-even:        0
+
+--------------------------------------------------
+🔍 STRATEGY RATING: ❌ REQUIRES OPTIMIZATION
+  • Sharpe Ratio:      -25.31
+  • Sortino Ratio:     -44.09
+==================================================
