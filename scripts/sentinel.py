@@ -14,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 
@@ -46,7 +47,7 @@ class Sentinel:
 
     def _load_config(self) -> dict[str, Any]:
         try:
-            with open(self.config_path) as f:
+            with Path(self.config_path).open("r") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to load config file: {e}")
@@ -59,7 +60,7 @@ class Sentinel:
             sys.exit(1)
 
         ip = api_config.get("listen_ip_address", "127.0.0.1")
-        if ip == "0.0.0.0":
+        if ip == "0.0.0.0":  # noqa: S104
             ip = "127.0.0.1"
         port = api_config.get("listen_port", 8080)
         return f"http://{ip}:{port}/api/v1"
@@ -89,11 +90,13 @@ class Sentinel:
             if data:
                 json_data = json.dumps(data).encode("utf-8")
                 headers["Content-Type"] = "application/json"
-                req = urllib.request.Request(
+                req = urllib.request.Request(  # noqa: S310
                     url, data=json_data, headers=headers, method=method
-                )  # noqa: S310
+                )
             else:
-                req = urllib.request.Request(url, headers=headers, method=method)  # noqa: S310
+                req = urllib.request.Request(  # noqa: S310
+                    url, headers=headers, method=method
+                )
 
             with urllib.request.urlopen(req) as response:  # noqa: S310
                 return json.loads(response.read().decode("utf-8"))
@@ -105,8 +108,8 @@ class Sentinel:
             logger.error(f"HTTP Error {e.code}: {e.reason}")
             try:
                 logger.error(e.read().decode())
-            except Exception:
-                pass
+            except Exception as e1:
+                logger.debug(f"Could not read error response: {e1}")
             raise
         except Exception as e:
             logger.error(f"Request failed: {e}")
@@ -142,8 +145,8 @@ class Sentinel:
             data = self._request("GET", f"/pair_candles?{query}")
             if data and "data" in data and len(data["data"]) > 0:
                 return float(data["data"][-1][4])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to fetch from /pair_candles: {e}")
 
         # Try /pair_history with live_mode=True
         try:
@@ -154,8 +157,8 @@ class Sentinel:
                 try:
                     config_resp = self._request("GET", "/show_config")
                     strategy = config_resp.get("strategy")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to fetch config: {e}")
 
             if not strategy:
                 logger.warning("Strategy not found for pair_history call.")
@@ -303,6 +306,7 @@ class Sentinel:
 
             logger.info(f"Sleeping for {self.monitor_interval} seconds...")
             time.sleep(self.monitor_interval)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sentinel Circuit Breaker for Freqtrade")
