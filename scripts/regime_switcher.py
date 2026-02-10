@@ -2,6 +2,7 @@
 """
 Regime Switcher Script
 """
+
 import json
 import subprocess
 import sys
