@@ -46,7 +46,8 @@ class StrategyVisitor(ast.NodeVisitor):
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'IStrategy':
                 self.is_strategy = True
-            elif isinstance(base, ast.Attribute) and base.attr == 'IStrategy':  # e.g. freqtrade.strategy.IStrategy
+            elif (isinstance(base, ast.Attribute) and
+                  base.attr == 'IStrategy'):  # e.g. freqtrade.strategy.IStrategy
                 self.is_strategy = True
 
         self.docstring = ast.get_docstring(node)
@@ -63,40 +64,49 @@ class StrategyVisitor(ast.NodeVisitor):
 
     def _check_assignment(self, name, value):
         if name == 'stoploss':
-            if isinstance(value, ast.Constant):  # python 3.8+
-                self.stoploss = value.value
-                self.has_risk_management = True
-            elif isinstance(value, ast.Num):  # python < 3.8
-                self.stoploss = value.n
-                self.has_risk_management = True
-            elif isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.USub):
-                # Handle negative numbers
-                if isinstance(value.operand, (ast.Constant, ast.Num)):
-                    val = value.operand.value if isinstance(value.operand, ast.Constant) else value.operand.n
-                    self.stoploss = -val
-                    self.has_risk_management = True
-
+            self._handle_stoploss(value)
         elif name == 'minimal_roi':
             self.roi = "Present"
             self.has_risk_management = True
-
         elif name == 'timeframe':
-            if isinstance(value, ast.Constant):
-                self.timeframe = value.value
-            elif isinstance(value, ast.Str):
-                self.timeframe = value.s
-
+            self._handle_timeframe(value)
         elif name == 'can_short':
-            if isinstance(value, ast.Constant):
-                self.can_short = value.value
-            elif isinstance(value, ast.NameConstant):  # True/False in older python
-                self.can_short = value.value
-
+            self._handle_can_short(value)
         elif name == 'process_only_new_candles':
-            if isinstance(value, ast.Constant):
-                self.process_only_new_candles = value.value
-            elif isinstance(value, ast.NameConstant):
-                self.process_only_new_candles = value.value
+            self._handle_process_only_new_candles(value)
+
+    def _handle_stoploss(self, value):
+        if isinstance(value, ast.Constant):  # python 3.8+
+            self.stoploss = value.value
+            self.has_risk_management = True
+        elif isinstance(value, ast.Num):  # python < 3.8
+            self.stoploss = value.n
+            self.has_risk_management = True
+        elif isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.USub):
+            # Handle negative numbers
+            if isinstance(value.operand, (ast.Constant, ast.Num)):
+                val = (value.operand.value if isinstance(value.operand, ast.Constant)
+                       else value.operand.n)
+                self.stoploss = -val
+                self.has_risk_management = True
+
+    def _handle_timeframe(self, value):
+        if isinstance(value, ast.Constant):
+            self.timeframe = value.value
+        elif isinstance(value, ast.Str):
+            self.timeframe = value.s
+
+    def _handle_can_short(self, value):
+        if isinstance(value, ast.Constant):
+            self.can_short = value.value
+        elif isinstance(value, ast.NameConstant):  # True/False in older python
+            self.can_short = value.value
+
+    def _handle_process_only_new_candles(self, value):
+        if isinstance(value, ast.Constant):
+            self.process_only_new_candles = value.value
+        elif isinstance(value, ast.NameConstant):
+            self.process_only_new_candles = value.value
 
     def visit_Call(self, node):
         # Detect indicator usage via ta-lib or similar calls
@@ -267,6 +277,38 @@ class StrategyScout:
                 pass
         return strategies, found_path
 
+    def _apply_ast_heuristics(self, content, repo):
+        """Applies AST-based heuristics to the strategy content."""
+        try:
+            tree = ast.parse(content)
+            visitor = StrategyVisitor()
+            visitor.visit(tree)
+
+            if visitor.is_strategy:
+                repo["scout_score"] += 5
+                repo["scout_notes"].append("Valid Strategy Class")
+
+            if visitor.docstring:
+                repo["scout_score"] += 2
+                repo["scout_notes"].append("Has Docstring")
+
+            if visitor.has_risk_management:
+                repo["scout_score"] += 3
+                repo["scout_notes"].append("Risk Mgmt Present")
+
+            if visitor.can_short:
+                repo["scout_notes"].append("Supports Shorts")
+
+            if visitor.indicators:
+                repo["indicators"] = visitor.indicators
+                repo["scout_score"] += 1
+
+            if visitor.timeframe:
+                repo["timeframe"] = visitor.timeframe
+
+        except SyntaxError:
+            repo["scout_notes"].append("Syntax Error in Strategy")
+
     def _analyze_strategy_content(self, strat_file, repo):
         """Helper to download and analyze strategy content."""
         try:
@@ -276,36 +318,7 @@ class StrategyScout:
                 if content_resp.status_code == 200:
                     content = content_resp.text
 
-                    # Parse with AST
-                    try:
-                        tree = ast.parse(content)
-                        visitor = StrategyVisitor()
-                        visitor.visit(tree)
-
-                        if visitor.is_strategy:
-                            repo["scout_score"] += 5
-                            repo["scout_notes"].append("Valid Strategy Class")
-
-                        if visitor.docstring:
-                            repo["scout_score"] += 2
-                            repo["scout_notes"].append("Has Docstring")
-
-                        if visitor.has_risk_management:
-                            repo["scout_score"] += 3
-                            repo["scout_notes"].append("Risk Mgmt Present")
-
-                        if visitor.can_short:
-                            repo["scout_notes"].append("Supports Shorts")
-
-                        if visitor.indicators:
-                            repo["indicators"] = visitor.indicators
-                            repo["scout_score"] += 1
-
-                        if visitor.timeframe:
-                            repo["timeframe"] = visitor.timeframe
-
-                    except SyntaxError:
-                        repo["scout_notes"].append("Syntax Error in Strategy")
+                    self._apply_ast_heuristics(content, repo)
 
                     # Fallback string checks for simple heuristics
                     if "martingale" in content.lower():
@@ -377,7 +390,7 @@ class StrategyScout:
                     f.write(f"- **Description:** {desc}\n")
 
                 if repo.get("timeframe"):
-                     f.write(f"- **Timeframe:** {repo['timeframe']}\n")
+                    f.write(f"- **Timeframe:** {repo['timeframe']}\n")
 
                 if repo.get("scout_notes"):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
@@ -390,9 +403,9 @@ class StrategyScout:
                     adoption.append("Check for `can_short` if trading futures.")
 
                 if "Risk Mgmt Present" in repo.get("scout_notes", []):
-                     adoption.append("Risk management detected.")
+                    adoption.append("Risk management detected.")
                 else:
-                     adoption.append("Verify `stoploss` and `leverage` settings.")
+                    adoption.append("Verify `stoploss` and `leverage` settings.")
 
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
