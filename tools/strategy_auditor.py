@@ -100,8 +100,7 @@ def fix_header(filepath):
         tree.body
         and isinstance(tree.body[0], ast.Expr)
         and (
-            isinstance(tree.body[0].value, ast.Constant)
-            or isinstance(tree.body[0].value, ast.Str)
+            isinstance(tree.body[0].value, ast.Constant) or isinstance(tree.body[0].value, ast.Str)
         )
     ):
         doc_node = tree.body[0]
@@ -260,9 +259,7 @@ def audit_file(filepath, fix=False):  # noqa: C901
 def main():
     parser = argparse.ArgumentParser(description="Audit strategies for Freqtrade/Delta compliance.")
     parser.add_argument("path", help="File or directory to audit")
-    parser.add_argument(
-        "--fix", action="store_true", help="Auto-fix missing headers"
-    )
+    parser.add_argument("--fix", action="store_true", help="Auto-fix missing headers")
     args = parser.parse_args()
 
     target = args.path
