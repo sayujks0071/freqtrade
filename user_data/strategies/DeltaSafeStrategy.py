@@ -65,8 +65,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         # Simple RSI strategy: Long if RSI < 30
         dataframe.loc[
             (
-                (dataframe["rsi"] < 30)
-                & (dataframe["volume"] > 0)  # Volume filter
+                (dataframe["rsi"] < 30) & (dataframe["volume"] > 0)  # Volume filter
             ),
             "enter_long",
         ] = 1
