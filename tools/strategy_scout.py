@@ -5,6 +5,7 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 """
 
 import argparse
+import ast
 import datetime
 import os
 from pathlib import Path
@@ -26,6 +27,87 @@ REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
 TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
+
+
+class StrategyVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.is_strategy = False
+        self.stoploss = None
+        self.roi = None
+        self.timeframe = None
+        self.can_short = False
+        self.indicators = []
+        self.docstring = None
+        self.has_risk_management = False
+        self.process_only_new_candles = False
+
+    def visit_ClassDef(self, node):
+        # Check inheritance
+        for base in node.bases:
+            if isinstance(base, ast.Name) and base.id == 'IStrategy':
+                self.is_strategy = True
+            elif isinstance(base, ast.Attribute) and base.attr == 'IStrategy':  # e.g. freqtrade.strategy.IStrategy
+                self.is_strategy = True
+
+        self.docstring = ast.get_docstring(node)
+        self.generic_visit(node)
+
+    def visit_Assign(self, node):
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                self._check_assignment(target.id, node.value)
+
+    def visit_AnnAssign(self, node):
+        if isinstance(node.target, ast.Name):
+            self._check_assignment(node.target.id, node.value)
+
+    def _check_assignment(self, name, value):
+        if name == 'stoploss':
+            if isinstance(value, ast.Constant):  # python 3.8+
+                self.stoploss = value.value
+                self.has_risk_management = True
+            elif isinstance(value, ast.Num):  # python < 3.8
+                self.stoploss = value.n
+                self.has_risk_management = True
+            elif isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.USub):
+                # Handle negative numbers
+                if isinstance(value.operand, (ast.Constant, ast.Num)):
+                    val = value.operand.value if isinstance(value.operand, ast.Constant) else value.operand.n
+                    self.stoploss = -val
+                    self.has_risk_management = True
+
+        elif name == 'minimal_roi':
+            self.roi = "Present"
+            self.has_risk_management = True
+
+        elif name == 'timeframe':
+            if isinstance(value, ast.Constant):
+                self.timeframe = value.value
+            elif isinstance(value, ast.Str):
+                self.timeframe = value.s
+
+        elif name == 'can_short':
+            if isinstance(value, ast.Constant):
+                self.can_short = value.value
+            elif isinstance(value, ast.NameConstant):  # True/False in older python
+                self.can_short = value.value
+
+        elif name == 'process_only_new_candles':
+            if isinstance(value, ast.Constant):
+                self.process_only_new_candles = value.value
+            elif isinstance(value, ast.NameConstant):
+                self.process_only_new_candles = value.value
+
+    def visit_Call(self, node):
+        # Detect indicator usage via ta-lib or similar calls
+        if isinstance(node.func, ast.Attribute):
+            # heuristic: if attribute is like 'ta.RSI' or 'qtpylib.bollinger_bands'
+            if isinstance(node.func.value, ast.Name):
+                if node.func.value.id in ['ta', 'qtpylib', 'talib']:
+                    func_name = node.func.attr
+                    if func_name not in self.indicators:
+                        self.indicators.append(f"{node.func.value.id}.{func_name}")
+        self.generic_visit(node)
 
 
 class StrategyScout:
@@ -194,22 +276,42 @@ class StrategyScout:
                 if content_resp.status_code == 200:
                     content = content_resp.text
 
-                    # Check heuristics
-                    if "stoploss" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has stoploss")
-                    if "minimal_roi" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-                    if "populate_indicators" in content:
-                        repo["scout_score"] += 2
-                    if "can_short" in content:
-                        repo["scout_notes"].append("Futures/Shorts mentioned")
+                    # Parse with AST
+                    try:
+                        tree = ast.parse(content)
+                        visitor = StrategyVisitor()
+                        visitor.visit(tree)
 
-                    # Negative heuristics
+                        if visitor.is_strategy:
+                            repo["scout_score"] += 5
+                            repo["scout_notes"].append("Valid Strategy Class")
+
+                        if visitor.docstring:
+                            repo["scout_score"] += 2
+                            repo["scout_notes"].append("Has Docstring")
+
+                        if visitor.has_risk_management:
+                            repo["scout_score"] += 3
+                            repo["scout_notes"].append("Risk Mgmt Present")
+
+                        if visitor.can_short:
+                            repo["scout_notes"].append("Supports Shorts")
+
+                        if visitor.indicators:
+                            repo["indicators"] = visitor.indicators
+                            repo["scout_score"] += 1
+
+                        if visitor.timeframe:
+                            repo["timeframe"] = visitor.timeframe
+
+                    except SyntaxError:
+                        repo["scout_notes"].append("Syntax Error in Strategy")
+
+                    # Fallback string checks for simple heuristics
                     if "martingale" in content.lower():
                         repo["scout_score"] -= 10
                         repo["scout_notes"].append("Martingale detected (Risk!)")
+
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
@@ -274,16 +376,24 @@ class StrategyScout:
                 if desc:
                     f.write(f"- **Description:** {desc}\n")
 
+                if repo.get("timeframe"):
+                     f.write(f"- **Timeframe:** {repo['timeframe']}\n")
+
                 if repo.get("scout_notes"):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
 
                 f.write("- **Adoption Notes:** ")
                 adoption = []
-                if "Futures/Shorts mentioned" in repo.get("scout_notes", []):
-                    adoption.append("Seems to support futures.")
+                if "Supports Shorts" in repo.get("scout_notes", []):
+                    adoption.append("Seems to support futures (`can_short=True`).")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
+
+                if "Risk Mgmt Present" in repo.get("scout_notes", []):
+                     adoption.append("Risk management detected.")
+                else:
+                     adoption.append("Verify `stoploss` and `leverage` settings.")
+
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
