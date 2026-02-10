@@ -287,6 +287,8 @@ def reduce_dataframe_footprint(df: DataFrame) -> DataFrame:
 
     logger.debug(f"Memory usage of dataframe is {df.memory_usage().sum() / 1024**2:.2f} MB")
 
+    # Use dict[Any, Any] to avoid Mypy homogeneous type inference issues
+    # when mixing int32 and float32 assignments.
     new_dtypes: dict[Any, Any] = {}
     for column, dtype in df.dtypes.items():
         if column in ["open", "high", "low", "close", "volume"]:
