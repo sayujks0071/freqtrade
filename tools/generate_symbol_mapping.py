@@ -1,16 +1,18 @@
 import json
-import os
 from datetime import datetime
+from pathlib import Path
+
 
 MARKETS_FILE = "tests/testdata/delta_markets_mock.json"
 REPORT_FILE = f"user_data/reports/symbol_mapping_{datetime.now().strftime('%Y%m%d')}.md"
 
+
 def main():
-    if not os.path.exists(MARKETS_FILE):
+    if not Path(MARKETS_FILE).exists():
         print(f"Markets file {MARKETS_FILE} not found.")
         return
 
-    with open(MARKETS_FILE, "r") as f:
+    with Path(MARKETS_FILE).open() as f:
         markets = json.load(f)
 
     # If it's a dict with "markets" key
@@ -38,10 +40,11 @@ This report maps Delta Exchange contract symbols to Freqtrade futures pair forma
     report += "- Use 'Freqtrade Pair' in your `whitelist.delta.json`.\n"
     report += "- Use 'Delta Symbol' when searching on Delta Exchange website.\n"
 
-    with open(REPORT_FILE, "w") as f:
+    with Path(REPORT_FILE).open("w") as f:
         f.write(report)
 
     print(f"Report written to {REPORT_FILE}")
+
 
 if __name__ == "__main__":
     main()

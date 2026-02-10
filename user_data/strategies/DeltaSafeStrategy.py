@@ -114,7 +114,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -130,7 +130,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                     indicators = {
                         "rsi": last_row.get("rsi"),
                         "volume": last_row.get("volume"),
-                        "close": last_row.get("close")
+                        "close": last_row.get("close"),
                     }
             except Exception:
                 indicators = {"error": "could not fetch dataframe"}
@@ -141,7 +141,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             direction=side,
             reason=entry_tag if entry_tag else "signal",
             candle_date=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True
 
@@ -153,7 +153,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time: datetime,
         **kwargs,
     ) -> bool:
@@ -169,7 +169,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                     indicators = {
                         "rsi": last_row.get("rsi"),
                         "volume": last_row.get("volume"),
-                        "close": last_row.get("close")
+                        "close": last_row.get("close"),
                     }
             except Exception:
                 indicators = {"error": "could not fetch dataframe"}
@@ -178,8 +178,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             pair=pair,
             timeframe=self.timeframe,
             direction="exit",
-            reason=sell_reason,
+            reason=exit_reason,
             candle_date=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True

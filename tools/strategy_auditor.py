@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
+import argparse
 import ast
 import os
 import sys
-import argparse
 from pathlib import Path
 
 
 REQUIRED_HEADER_SECTIONS = [
-    "Strategy", "Author", "Version", "Timeframes",
-    "Pair Format", "Timezone", "Entry", "Exit", "No repainting"
+    "Strategy",
+    "Author",
+    "Version",
+    "Timeframes",
+    "Pair Format",
+    "Timezone",
+    "Entry",
+    "Exit",
+    "No repainting",
 ]
 
 
@@ -30,11 +37,12 @@ def validate_condition(node, lineno, errors):
         for val in node.values:
             if not is_named_variable(val):
                 errors.append(
-                    f"Complex condition in dataframe.loc at line {lineno}. Use named boolean variables (e.g., `long_cond = ...`)."
+                    f"Complex condition in dataframe.loc at line {lineno}. "
+                    f"Use named boolean variables (e.g., `long_cond = ...`)."
                 )
                 return
     else:
-        # Any other type (Compare, Call, etc.) is considered "unreadable one-liner" for this strict rule
+        # Any other type (Compare, Call, etc.) is considered "unreadable one-liner"
         errors.append(
             f"Inline condition in dataframe.loc at line {lineno}. Use named boolean variables."
         )
@@ -55,7 +63,10 @@ def check_trend_method(node, errors):
                     is_df_loc = False
                     # target.value -> Attribute(value=Name(id='dataframe'), attr='loc')
                     if isinstance(target.value, ast.Attribute) and target.value.attr == "loc":
-                        if isinstance(target.value.value, ast.Name) and target.value.value.id == "dataframe":
+                        if (
+                            isinstance(target.value.value, ast.Name)
+                            and target.value.value.id == "dataframe"
+                        ):
                             is_df_loc = True
 
                     if is_df_loc:
@@ -75,7 +86,7 @@ def check_trend_method(node, errors):
 
 
 def fix_header(filepath):
-    with open(filepath, 'r') as f:
+    with Path(filepath).open("r") as f:
         source = f.read()
 
     try:
@@ -85,8 +96,14 @@ def fix_header(filepath):
         return
 
     doc_node = None
-    if tree.body and isinstance(tree.body[0], ast.Expr) and \
-       (isinstance(tree.body[0].value, ast.Constant) or isinstance(tree.body[0].value, ast.Str)):
+    if (
+        tree.body
+        and isinstance(tree.body[0], ast.Expr)
+        and (
+            isinstance(tree.body[0].value, ast.Constant)
+            or isinstance(tree.body[0].value, ast.Str)
+        )
+    ):
         doc_node = tree.body[0]
 
     required = {
@@ -98,7 +115,7 @@ def fix_header(filepath):
         "Timezone": "UTC ISO-8601",
         "Entry": "Describe entry conditions",
         "Exit": "Describe exit conditions",
-        "No repainting": "Logic runs on closed candles"
+        "No repainting": "Logic runs on closed candles",
     }
 
     if doc_node:
@@ -131,14 +148,14 @@ def fix_header(filepath):
         # Note: If the docstring is on one line but we expand it, it's fine.
         lines[start_line:end_line] = [new_doc_block + "\n"]
 
-        with open(filepath, 'w') as f:
+        with Path(filepath).open("w") as f:
             f.writelines(lines)
 
     else:
         print(f"Fixing header in {filepath} (creating new)...")
         content = "\n".join([f"{k}: {v}" for k, v in required.items()])
         new_doc_block = f'"""\n{content}\n"""\n'
-        with open(filepath, 'w') as f:
+        with Path(filepath).open("w") as f:
             f.write(new_doc_block + source)
 
 
@@ -196,7 +213,7 @@ def audit_file(filepath, fix=False):  # noqa: C901
             # Inheritance check
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                 if filepath.endswith("DeltaSafeStrategy.py"):
+                if filepath.endswith("DeltaSafeStrategy.py"):
                     errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
 
             # Attribute check: process_only_new_candles
@@ -206,8 +223,12 @@ def audit_file(filepath, fix=False):  # noqa: C901
                     for t in item.targets:
                         if isinstance(t, ast.Name) and t.id == "process_only_new_candles":
                             # Check if True
-                            if (isinstance(item.value, ast.Constant) and item.value.value is True) or \
-                               (isinstance(item.value, ast.NameConstant) and item.value.value is True):
+                            if (
+                                isinstance(item.value, ast.Constant) and item.value.value is True
+                            ) or (
+                                isinstance(item.value, ast.NameConstant)
+                                and item.value.value is True
+                            ):
                                 has_proc_candles = True
             if not has_proc_candles:
                 errors.append("Strategy must set process_only_new_candles = True")
@@ -215,7 +236,12 @@ def audit_file(filepath, fix=False):  # noqa: C901
             # Method checks
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
-                    if item.name in ["populate_entry_trend", "populate_exit_trend", "populate_entry_trend_short", "populate_exit_trend_short"]:
+                    if item.name in [
+                        "populate_entry_trend",
+                        "populate_exit_trend",
+                        "populate_entry_trend_short",
+                        "populate_exit_trend_short",
+                    ]:
                         check_trend_method(item, errors)
 
     if not has_class:
@@ -234,7 +260,9 @@ def audit_file(filepath, fix=False):  # noqa: C901
 def main():
     parser = argparse.ArgumentParser(description="Audit strategies for Freqtrade/Delta compliance.")
     parser.add_argument("path", help="File or directory to audit")
-    parser.add_argument("--fix", action="store_true", help="Auto-fix missing headers")
+    parser.add_argument(
+        "--fix", action="store_true", help="Auto-fix missing headers"
+    )
     args = parser.parse_args()
 
     target = args.path

@@ -59,7 +59,7 @@ class AuditedStrategyMixin:
         Assert pair is in the provided whitelist.
         """
         if pair not in whitelist:
-             raise ValueError(f"Pair {pair} is not in the allowed whitelist!")
+            raise ValueError(f"Pair {pair} is not in the allowed whitelist!")
 
     def normalize_pair(self, pair: str) -> str:
         """
@@ -68,5 +68,5 @@ class AuditedStrategyMixin:
         p = pair.upper()
         # Basic check for whitespace
         if " " in p:
-             raise ValueError(f"Invalid pair format (whitespace): {p}")
+            raise ValueError(f"Invalid pair format (whitespace): {p}")
         return p
