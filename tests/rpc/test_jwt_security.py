@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import MagicMock
+
 from freqtrade.rpc.api_server.webserver import ApiServer
 from freqtrade.rpc.rpc import RPC
 from tests.conftest import get_patched_freqtradebot, log_has_re
+
 
 def test_jwt_secret_warning_logic(default_conf, mocker, caplog):
     # Add api_server section to config
@@ -12,7 +13,7 @@ def test_jwt_secret_warning_logic(default_conf, mocker, caplog):
         "listen_port": 8080,
         "username": "test",
         "password": "test",
-        "jwt_secret_key": "super-secret"
+        "jwt_secret_key": "super-secret",
     }
 
     # Setup mocks
@@ -37,7 +38,8 @@ def test_jwt_secret_warning_logic(default_conf, mocker, caplog):
     caplog.clear()
     ApiServer.shutdown()
 
-    # Test case 3: 'super' (substring of default, short) should NOT warn about default, but about length
+    # Test case 3: 'super' (substring of default, short) should NOT warn about default,
+    # but about length
     default_conf["api_server"]["jwt_secret_key"] = "super"
     apiserver = ApiServer(default_conf)
     apiserver.add_rpc_handler(RPC(get_patched_freqtradebot(mocker, default_conf)))
