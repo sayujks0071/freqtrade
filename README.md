@@ -35,6 +35,15 @@ nano .env
   - `india_testnet` for Testnet
 - Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
 
+### Validation Settings (Optional)
+
+You can tune the market validation strictness in `.env`:
+- `MIN_MARKETS`: Minimum number of markets required (default: 20).
+- `MAX_REMOVAL_RATIO`: Max fraction of whitelist removal allowed before failure (default: 0.25).
+- `STRICT_VOLUME`: If `true`, fails validation for markets with low volume (default: `false`).
+- `FILTER_MODE`: Strategy for selecting pairs (`perps_usdt`, `all_futures`, `allowlist_regex`).
+- `ALLOWLIST_REGEX`: Regex pattern if `FILTER_MODE` is set to `allowlist_regex`.
+
 ### 3. Validate Exchange Connection
 
 Before starting, verify your credentials and market data availability:

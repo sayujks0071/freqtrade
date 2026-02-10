@@ -50,6 +50,7 @@ jobs:
           ./scripts/update_markets_and_whitelist.sh
 
       - name: Upload Artifacts
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
         with:
           name: markets-reports
