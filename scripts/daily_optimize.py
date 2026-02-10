@@ -389,9 +389,6 @@ Examples:
         new_sharpe = -float("inf")
     new_drawdown = new_stats.get("max_drawdown_account", 1.0)
 
-    # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
-
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 

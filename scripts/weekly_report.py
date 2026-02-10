@@ -9,6 +9,7 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOG_FILE = REPO_ROOT / "optimization_log.txt"
@@ -20,17 +21,12 @@ def get_git_log_since(days=7):
     Get git log messages since N days ago.
     Returns a list of commit messages.
     """
-    # Use git log to get commits. We use --since="7 days ago" which is more robust than manual date calculation
-    # but specific date format is fine too.
-    # Note: running in CI might have shallow clone. Checkout step usually handles this with fetch-depth: 0.
+    # Use git log to get commits. We use --since="7 days ago" which is more robust than
+    # manual date calculation but specific date format is fine too.
+    # Note: running in CI might have shallow clone.
+    # Checkout step usually handles this with fetch-depth: 0.
 
-    cmd = [
-        "git",
-        "log",
-        f"--since={days} days ago",
-        "--pretty=format:%s",
-        "--no-merges"
-    ]
+    cmd = ["git", "log", f"--since={days} days ago", "--pretty=format:%s", "--no-merges"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error running git log: {result.stderr}")
@@ -56,10 +52,7 @@ def parse_updated_strategies(commit_messages):
             strategy = match.group(1)
             try:
                 roi_change = float(match.group(2))
-                updates.append({
-                    "strategy": strategy,
-                    "roi_change": roi_change
-                })
+                updates.append({"strategy": strategy, "roi_change": roi_change})
             except ValueError:
                 continue
     return updates
@@ -140,7 +133,9 @@ def generate_report(updates, stuck_strategies):
     lines.append("")
 
     lines.append("## Section 3: Stuck Strategies")
-    lines.append("Strategies that failed to improve despite optimization attempts (candidates for deletion):")
+    lines.append(
+        "Strategies that failed to improve despite optimization attempts (candidates for deletion):"
+    )
     if stuck_strategies:
         for s in sorted(stuck_strategies):
             lines.append(f"- {s}")
