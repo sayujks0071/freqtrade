@@ -6,32 +6,29 @@ import sys
 from pathlib import Path
 
 
-# Env
-FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
-ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
-
-
-def filter_markets(markets):
+def filter_markets(markets, filter_mode="perps_usdt", allowlist_regex=".*"):
     whitelist = []
-    regex = re.compile(ALLOWLIST_REGEX)
+    regex = re.compile(allowlist_regex)
 
     for m in markets:
-        symbol = m["symbol"]
+        symbol = m.get("symbol", "")
+        if not symbol:
+            continue
 
         # Basic active check
         if not m.get("active", True):
             continue
 
         # Filter logic
-        if FILTER_MODE == "perps_usdt":
+        if filter_mode == "perps_usdt":
             # Check if quote is USDT and it's a perp
             # In ccxt/freqtrade, futures usually have 'linear' type or swap
             # We rely on symbol string mostly for Freqtrade
             if "/USDT:USDT" in symbol:
                 whitelist.append(symbol)
-        elif FILTER_MODE == "all_futures":
+        elif filter_mode == "all_futures":
             whitelist.append(symbol)
-        elif FILTER_MODE == "allowlist_regex":
+        elif filter_mode == "allowlist_regex":
             if regex.match(symbol):
                 whitelist.append(symbol)
         else:
@@ -47,18 +44,19 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
+    # Env
+    filter_mode = os.environ.get("FILTER_MODE", "perps_usdt")
+    allowlist_regex = os.environ.get("ALLOWLIST_REGEX", ".*")
+
     with Path(sys.argv[1]).open() as f:
         data = json.load(f)
 
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
 
-    whitelist = filter_markets(data)
+    whitelist = filter_markets(data, filter_mode=filter_mode, allowlist_regex=allowlist_regex)
 
     # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
-
     # JSON format for Freqtrade inclusion
     output_obj = {"exchange": {"pair_whitelist": whitelist}}
 
