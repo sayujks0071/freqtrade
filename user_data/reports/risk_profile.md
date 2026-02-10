@@ -1,36 +1,49 @@
 # Risk Profile & Guardrails
 
-## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+This document outlines the risk management configuration for the Delta Exchange Freqtrade stack.
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+## Hard Limits (Config)
 
-## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
+These limits are enforced by the bot engine and cannot be overridden by strategies easily.
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+| Parameter | Value | Description |
+|---|---|---|
+| **Max Open Trades** | `5` | Maximum number of concurrent positions. |
+| **Stake Amount** | `20 USDT` | Fixed stake per trade. |
+| **Tradable Balance**| `0.99` | 99% of wallet balance is available for trading. |
+| **Margin Mode** | `isolated` | Isolated margin to prevent cross-contamination. |
+| **Trading Mode** | `futures` | Derivatives trading. |
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+## Strategy Protections (Config)
 
-## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+These protections stop trading or manage exits based on risk metrics.
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+| Protection | Setting | Description |
+|---|---|---|
+| **Daily Loss Limit** | `5%` | Stops entering new trades if daily realized loss exceeds 5% of balance. |
+| **Max Drawdown** | `20%` | Stops trading for 12 candles if drawdown hits 20% (lookback 48 candles). |
+| **Cooldown** | `5 candles` | Waits 5 candles after a trade exit before re-entering the same pair. |
+
+## Strategy-Level Guardrails (Code)
+
+These are enforced by `AuditedStrategyMixin` and `DeltaSafeStrategy`.
+
+- **Leverage Cap**: Default `2x` (Must be implemented in strategy `leverage` method).
+- **Audit Logging**: Every signal is logged with timestamp and reason.
+- **Whitelist Check**: Strategies only trade pairs in the authorized whitelist.
+- **Daily Loss Check (Redundant)**: Strategy explicitly checks daily PnL before confirming entry, adding a second layer of safety.
+
+## How to Tune Safely
+
+1. **Edit Config**: Modify `user_data/configs/config.delta.live.json` to change hard limits.
+   - *Warning*: Increasing `max_open_trades` or `stake_amount` increases risk exposure.
+2. **Edit Strategy**: Modify `DeltaSafeStrategy.py` to change `stoploss` or `leverage`.
+   - *Warning*: Leverage > 3x is high risk for crypto.
+3. **Environment**:
+   - `MAX_REMOVAL_RATIO`: Controls how much the market structure can change before halting updates. Default `0.25`.
+   - `STRICT_VOLUME`: Enable to reject low-volume pairs.
+
+## Emergency Procedures
+
+- **Stop Bot**: `docker compose down`
+- **Force Exit**: `docker compose run --rm freqtrade forceexit --config user_data/configs/config.delta.live.json`

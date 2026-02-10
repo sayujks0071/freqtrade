@@ -4,6 +4,7 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -61,16 +62,44 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Simple RSI strategy: Long if RSI < 30
+        dataframe.loc[
+            (
+                (dataframe["rsi"] < 30)
+                & (dataframe["volume"] > 0)  # Volume filter
+            ),
+            "enter_long",
+        ] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        # Exit if RSI > 70
+        dataframe.loc[
+            (
+                (dataframe["rsi"] > 70)
+                & (dataframe["volume"] > 0)
+            ),
+            "exit_long",
+        ] = 1
+
         return dataframe
+
+    def leverage(
+        self,
+        pair: str,
+        current_time: datetime,
+        current_rate: float,
+        proposed_leverage: float,
+        max_leverage: float,
+        entry_tag: str,
+        side: str,
+        **kwargs,
+    ) -> float:
+        """
+        Customize leverage for each new trade.
+        """
+        return 2.0
 
     def confirm_trade_entry(
         self,
@@ -79,13 +108,17 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str,
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
+        # Daily Loss Check (5% limit)
+        if not self.check_daily_loss_limit(0.05):
+            return False
+
         self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
         return True
