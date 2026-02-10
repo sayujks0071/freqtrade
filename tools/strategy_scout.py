@@ -44,10 +44,11 @@ class StrategyVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node):
         # Check inheritance
         for base in node.bases:
-            if isinstance(base, ast.Name) and base.id == 'IStrategy':
+            if isinstance(base, ast.Name) and base.id == "IStrategy":
                 self.is_strategy = True
-            elif (isinstance(base, ast.Attribute) and
-                  base.attr == 'IStrategy'):  # e.g. freqtrade.strategy.IStrategy
+            elif (
+                isinstance(base, ast.Attribute) and base.attr == "IStrategy"
+            ):  # e.g. freqtrade.strategy.IStrategy
                 self.is_strategy = True
 
         self.docstring = ast.get_docstring(node)
@@ -63,16 +64,16 @@ class StrategyVisitor(ast.NodeVisitor):
             self._check_assignment(node.target.id, node.value)
 
     def _check_assignment(self, name, value):
-        if name == 'stoploss':
+        if name == "stoploss":
             self._handle_stoploss(value)
-        elif name == 'minimal_roi':
+        elif name == "minimal_roi":
             self.roi = "Present"
             self.has_risk_management = True
-        elif name == 'timeframe':
+        elif name == "timeframe":
             self._handle_timeframe(value)
-        elif name == 'can_short':
+        elif name == "can_short":
             self._handle_can_short(value)
-        elif name == 'process_only_new_candles':
+        elif name == "process_only_new_candles":
             self._handle_process_only_new_candles(value)
 
     def _handle_stoploss(self, value):
@@ -85,8 +86,11 @@ class StrategyVisitor(ast.NodeVisitor):
         elif isinstance(value, ast.UnaryOp) and isinstance(value.op, ast.USub):
             # Handle negative numbers
             if isinstance(value.operand, (ast.Constant, ast.Num)):
-                val = (value.operand.value if isinstance(value.operand, ast.Constant)
-                       else value.operand.n)
+                val = (
+                    value.operand.value
+                    if isinstance(value.operand, ast.Constant)
+                    else value.operand.n
+                )
                 self.stoploss = -val
                 self.has_risk_management = True
 
@@ -113,7 +117,7 @@ class StrategyVisitor(ast.NodeVisitor):
         if isinstance(node.func, ast.Attribute):
             # heuristic: if attribute is like 'ta.RSI' or 'qtpylib.bollinger_bands'
             if isinstance(node.func.value, ast.Name):
-                if node.func.value.id in ['ta', 'qtpylib', 'talib']:
+                if node.func.value.id in ["ta", "qtpylib", "talib"]:
                     func_name = node.func.attr
                     if func_name not in self.indicators:
                         self.indicators.append(f"{node.func.value.id}.{func_name}")
