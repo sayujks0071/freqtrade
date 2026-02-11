@@ -72,8 +72,7 @@ def analyze_regime(df):
     adx = last["adx"]
 
     logger.info(
-        f"Analysis - Date: {last['date']}, Price: {price:.2f}, "
-        f"EMA200: {ema200:.2f}, ADX: {adx:.2f}"
+        f"Analysis - Date: {last['date']}, Price: {price:.2f}, EMA200: {ema200:.2f}, ADX: {adx:.2f}"
     )
 
     # Determine Regime
@@ -148,17 +147,10 @@ def git_commit(changed_files, message):
     Commit changes to git.
     """
     try:
+        subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
         subprocess.run(
-            ["git", "config", "user.name", "github-actions[bot]"], check=False
-        )
-        subprocess.run(
-            [
-                "git",
-                "config",
-                "user.email",
-                "github-actions[bot]@users.noreply.github.com"
-            ],
-            check=False
+            ["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"],
+            check=False,
         )
 
         for file in changed_files:
@@ -199,10 +191,7 @@ def main():
         # Only commit if config changed?
         # Or always commit log?
         # Let's commit log and config if updated.
-        git_commit(
-            [CONFIG_PATH, LOG_FILE],
-            f"chore(regime): switched to {strategy} ({regime})"
-        )
+        git_commit([CONFIG_PATH, LOG_FILE], f"chore(regime): switched to {strategy} ({regime})")
     else:
         # Even if config didn't change, we might want to log the check?
         # Maybe skip commit if no change to avoid noise.
