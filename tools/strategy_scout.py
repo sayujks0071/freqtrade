@@ -6,6 +6,7 @@ Strategy Scout: Discover and shortlist Freqtrade strategies from GitHub.
 import argparse
 import ast
 import base64
+import contextlib
 import datetime
 import logging
 import time
@@ -14,13 +15,14 @@ from typing import Any
 
 import requests
 
+
 logger = logging.getLogger(__name__)
 
 
 class StrategyVisitor(ast.NodeVisitor):
     def __init__(self):
         self.is_strategy = False
-        self.metadata = {
+        self.metadata: dict[str, Any] = {
             "stoploss": None,
             "minimal_roi": None,
             "timeframe": None,
@@ -54,7 +56,7 @@ class StrategyVisitor(ast.NodeVisitor):
             if isinstance(target, ast.Name):
                 key = target.id
                 if key in self.metadata:
-                    try:
+                    with contextlib.suppress(Exception):
                         # Extract value if it's a simple literal
                         if isinstance(node.value, ast.Constant):
                             self.metadata[key] = node.value.value
@@ -62,12 +64,14 @@ class StrategyVisitor(ast.NodeVisitor):
                             self.metadata[key] = "Dict" # Placeholder
                             if key == "minimal_roi":
                                 self.metadata["risk_controls"] = True
-                        elif isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub):
-                            if isinstance(node.value.operand, ast.Constant): # Handle negative numbers
+                        elif isinstance(node.value, ast.UnaryOp) and isinstance(
+                            node.value.op, ast.USub
+                        ):
+                            # Handle negative numbers
+                            if isinstance(node.value.operand, ast.Constant):
                                 val = node.value.operand.value
-                                self.metadata[key] = -val
-                    except Exception:
-                        pass
+                                if isinstance(val, (int, float)):
+                                    self.metadata[key] = -val
 
                 if key == "stoploss":
                     self.metadata["risk_controls"] = True
@@ -110,14 +114,14 @@ class StrategyScout:
         """
         Search GitHub for repositories matching the queries.
         """
-        unique_repos = {}
+        unique_repos: dict[int, dict[str, Any]] = {}
 
         for query in queries:
             page = 1
             while len(unique_repos) < self.limit:
                 logger.info(f"Searching for '{query}' (page {page})...")
                 url = f"{self.base_url}/search/repositories"
-                params = {
+                params: dict[str, str | int] = {
                     "q": query,
                     "sort": "updated",
                     "order": "desc",
@@ -126,7 +130,7 @@ class StrategyScout:
                 }
 
                 try:
-                    resp = self.session.get(url, params=params)
+                    resp = self.session.get(url, params=params, timeout=10)
                     self._check_rate_limit(resp)
                     resp.raise_for_status()
                     data = resp.json()
@@ -162,7 +166,7 @@ class StrategyScout:
     def get_repo_contents(self, owner: str, repo: str, path: str = "") -> list[dict]:
         url = f"{self.base_url}/repos/{owner}/{repo}/contents/{path}"
         try:
-            resp = self.session.get(url)
+            resp = self.session.get(url, timeout=10)
             self._check_rate_limit(resp)
             if resp.status_code == 404:
                 return []
@@ -177,7 +181,7 @@ class StrategyScout:
 
     def get_file_content(self, url: str) -> str | None:
         try:
-            resp = self.session.get(url)
+            resp = self.session.get(url, timeout=10)
             self._check_rate_limit(resp)
             resp.raise_for_status()
             data = resp.json()
@@ -255,7 +259,9 @@ class StrategyScout:
                                     "stars": repo["stargazers_count"],
                                     "forks": repo["forks_count"],
                                     "updated_at": repo["updated_at"],
-                                    "license": repo.get("license", {}).get("name") if repo.get("license") else "None"
+                                    "license": repo.get("license", {}).get("name")
+                                    if repo.get("license")
+                                    else "None",
                                 }
                             })
                             # Stop after finding a few strategies per repo to save API calls
@@ -297,7 +303,7 @@ class StrategyScout:
         if analysis.get("docstring"):
             score += 5
         if analysis.get("has_indicators"):
-             score += 2
+            score += 2
         if analysis.get("has_entry") and analysis.get("has_exit"):
             score += 5
 
@@ -314,7 +320,7 @@ class StrategyScout:
         timestamp = datetime.datetime.now().strftime("%Y%m%d")
         report_file = report_dir / f"strategy_shortlist_{timestamp}.md"
 
-        with open(report_file, "w") as f:
+        with report_file.open("w") as f:
             f.write(f"# Freqtrade Strategy Shortlist - {timestamp}\n\n")
             f.write(f"Generated by Strategy Scout. Found {len(strategies)} strategies.\n\n")
 
@@ -326,14 +332,19 @@ class StrategyScout:
                 stats = strategy["stats"]
                 metadata = strategy["analysis"]["metadata"]
                 risk = []
-                if metadata.get("stoploss"): risk.append("SL")
-                if metadata.get("minimal_roi"): risk.append("ROI")
+                if metadata.get("stoploss"):
+                    risk.append("SL")
+                if metadata.get("minimal_roi"):
+                    risk.append("ROI")
                 risk_str = ", ".join(risk) if risk else "None"
 
                 name = Path(strategy["file_path"]).stem
                 repo_link = f"[{strategy['repo_name']}]({strategy['repo_url']})"
 
-                f.write(f"| {i+1} | {name} | {repo_link} | {stats['stars']} | {stats['updated_at'].split('T')[0]} | {strategy['score']} | {risk_str} |\n")
+                f.write(
+                    f"| {i + 1} | {name} | {repo_link} | {stats['stars']} | "
+                    f"{stats['updated_at'].split('T')[0]} | {strategy['score']} | {risk_str} |\n"
+                )
 
             if len(strategies) > 10:
                 f.write("\n## Runners Up\n\n")
@@ -344,14 +355,20 @@ class StrategyScout:
                     stats = strategy["stats"]
                     metadata = strategy["analysis"]["metadata"]
                     risk = []
-                    if metadata.get("stoploss"): risk.append("SL")
-                    if metadata.get("minimal_roi"): risk.append("ROI")
+                    if metadata.get("stoploss"):
+                        risk.append("SL")
+                    if metadata.get("minimal_roi"):
+                        risk.append("ROI")
                     risk_str = ", ".join(risk) if risk else "None"
 
                     name = Path(strategy["file_path"]).stem
                     repo_link = f"[{strategy['repo_name']}]({strategy['repo_url']})"
 
-                    f.write(f"| {11+i} | {name} | {repo_link} | {stats['stars']} | {stats['updated_at'].split('T')[0]} | {strategy['score']} | {risk_str} |\n")
+                    f.write(
+                        f"| {11 + i} | {name} | {repo_link} | {stats['stars']} | "
+                    f"{stats['updated_at'].split('T')[0]} | {strategy['score']} | "
+                    f"{risk_str} |\n"
+                    )
 
             f.write("\n## Strategy Details\n\n")
             for i, strategy in enumerate(strategies[:10]):
@@ -359,14 +376,17 @@ class StrategyScout:
                 analysis = strategy["analysis"]
                 metadata = analysis["metadata"]
 
-                f.write(f"### {i+1}. {name}\n")
+                f.write(f"### {i + 1}. {name}\n")
                 f.write(f"- **Repository**: {strategy['repo_url']}\n")
                 f.write(f"- **File**: `{strategy['file_path']}`\n")
                 f.write(f"- **License**: {strategy['stats']['license']}\n")
                 f.write(f"- **Score**: {strategy['score']}\n")
                 f.write(f"- **Timeframe**: {metadata.get('timeframe')}\n")
                 f.write(f"- **Can Short**: {metadata.get('can_short')}\n")
-                f.write(f"- **Risk Controls**: Stoploss: {metadata.get('stoploss')}, ROI: {metadata.get('minimal_roi')}\n")
+                f.write(
+                    f"- **Risk Controls**: Stoploss: {metadata.get('stoploss')}, "
+                    f"ROI: {metadata.get('minimal_roi')}\n"
+                )
 
                 if analysis.get("docstring"):
                     f.write(f"\n**Description**:\n```\n{analysis['docstring']}\n```\n")
@@ -391,25 +411,26 @@ class StrategyScout:
 
             content = None
             try:
-                resp = requests.get(strategy["download_url"])
+                resp = requests.get(strategy["download_url"], timeout=10)
                 if resp.status_code == 200:
                     content = resp.text
             except Exception as e:
                 logger.error(f"Failed to download {strategy['file_path']}: {e}")
 
             if content:
-                with open(target_file, "w") as f:
+                with target_file.open("w") as f:
                     f.write(content)
 
                 # Add LICENSE_NOTE.md
                 license_note = (
                     f"# License Note\n\n"
-                    f"This strategy was vendored from [{strategy['repo_name']}]({strategy['repo_url']}).\n"
+                    f"This strategy was vendored from [{strategy['repo_name']}]"
+                    f"({strategy['repo_url']}).\n"
                     f"Original file: `{strategy['file_path']}`\n"
                     f"License: {strategy['stats']['license']}\n\n"
                     f"Please respect the original license terms.\n"
                 )
-                with open(target_dir / "LICENSE_NOTE.md", "w") as f:
+                with (target_dir / "LICENSE_NOTE.md").open("w") as f:
                     f.write(license_note)
 
                 logger.info(f"Vendored {file_name} to {target_dir}")
@@ -429,7 +450,7 @@ class StrategyScout:
         if not found_official:
             try:
                 logger.info(f"Explicitly fetching {official_repo_name}...")
-                resp = self.session.get(f"{self.base_url}/repos/{official_repo_name}")
+                resp = self.session.get(f"{self.base_url}/repos/{official_repo_name}", timeout=10)
                 if resp.status_code == 200:
                     official_repo = resp.json()
                     repos.insert(0, official_repo)
@@ -445,8 +466,8 @@ class StrategyScout:
             # User constraint: "Only use public repos with clear licenses ... Reject 'no license'"
             license_info = repo.get("license")
             if not license_info or not license_info.get("key"):
-                 logger.info(f"Skipping {repo['full_name']} (no license)")
-                 continue
+                logger.info(f"Skipping {repo['full_name']} (no license)")
+                continue
 
             repo_strategies = self.scan_repository(repo)
             all_strategies.extend(repo_strategies)
