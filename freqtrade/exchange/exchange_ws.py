@@ -29,6 +29,7 @@ class ExchangeWS:
         self._klines_scheduled: set[PairWithTimeframe] = set()
         self.klines_last_refresh: dict[PairWithTimeframe, float] = {}
         self.klines_last_request: dict[PairWithTimeframe, float] = {}
+        self._unwatch_tasks: set[asyncio.Task] = set()
         self._thread = Thread(name="ccxt_ws", target=self._start_forever)
         self._thread.start()
         self.__cleanup_called = False
@@ -41,20 +42,47 @@ class ExchangeWS:
             if self._loop.is_running():
                 self._loop.stop()
 
+    async def _shutdown_async(self):
+        self._klines_watching.clear()
+
+        # Cancel all background watching tasks
+        tasks = list(self._background_tasks)
+        for task in tasks:
+            task.cancel()
+
+        # Wait for them to finish (and trigger callbacks)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Wait for any unwatch tasks that were spawned by callbacks
+        if self._unwatch_tasks:
+            await asyncio.gather(*self._unwatch_tasks, return_exceptions=True)
+
+        # Close connection
+        await self._cleanup_async()
+
     def cleanup(self) -> None:
         logger.debug("Cleanup called - stopping")
-        self._klines_watching.clear()
-        for task in self._background_tasks:
-            task.cancel()
+
         if hasattr(self, "_loop") and not self._loop.is_closed():
-            self.reset_connections()
+            # Run shutdown sequence
+            try:
+                asyncio.run_coroutine_threadsafe(self._shutdown_async(), self._loop).result(
+                    timeout=5
+                )
+            except Exception:
+                logger.exception("Error in cleanup")
 
             self._loop.call_soon_threadsafe(self._loop.stop)
-            time.sleep(0.1)
-            if not self._loop.is_closed():
-                self._loop.close()
+            # Wait for loop to stop
+            for _ in range(10):
+                if not self._loop.is_running():
+                    break
+                time.sleep(0.1)
 
         self._thread.join()
+        if hasattr(self, "_loop") and not self._loop.is_closed():
+            self._loop.close()
         logger.debug("Stopped")
 
     def reset_connections(self) -> None:
@@ -160,9 +188,10 @@ class ExchangeWS:
                 result = str(result1)
 
         logger.info(f"{pair}, {timeframe}, {candle_type} - Task finished - {result}")
-        asyncio.run_coroutine_threadsafe(
-            self._unwatch_ohlcv(pair, timeframe, candle_type), loop=self._loop
-        )
+        # Spawn unwatch task on the loop (we are already in the loop context)
+        unwatch_task = asyncio.create_task(self._unwatch_ohlcv(pair, timeframe, candle_type))
+        self._unwatch_tasks.add(unwatch_task)
+        unwatch_task.add_done_callback(self._unwatch_tasks.discard)
 
         self._klines_scheduled.discard((pair, timeframe, candle_type))
         self._pop_history((pair, timeframe, candle_type))
