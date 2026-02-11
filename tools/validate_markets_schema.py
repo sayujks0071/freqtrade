@@ -53,13 +53,16 @@ def validate_volume(m, symbol, errors):
     # Volume check (if strict)
     # Assuming volume might be in 'info' or direct fields depending on exchange
     # Freqtrade dump usually standardizes some fields.
-    if "volume" in m:
-        vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
-            errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
+    vol = m.get("volume")
+    # Sometimes volume is in 'info' dict from CCXT
+    if vol is None and "info" in m and isinstance(m["info"], dict):
+        # Delta specific: 'volume_24h' or similar?
+        # CCXT usually maps it to 'quoteVolume' or 'baseVolume' in top level
         pass
+
+    if vol is not None and isinstance(vol, (int, float)):
+        if vol < 1000 and STRICT_VOLUME:
+            errors.append(f"Low volume for {symbol}: {vol}")
 
 
 def validate_schema(data):
@@ -87,10 +90,11 @@ def validate_schema(data):
         validate_volume(m, symbol, errors)
 
     if errors:
+        # Show first 20 errors
         fail(
             "Schema errors:\n"
-            + "\n".join(errors[:10])
-            + (f"\n...and {len(errors) - 10} more" if len(errors) > 10 else "")
+            + "\n".join(errors[:20])
+            + (f"\n...and {len(errors) - 20} more" if len(errors) > 20 else "")
         )
 
     return symbols
@@ -106,6 +110,9 @@ def validate_drift(current_symbols, previous_path):
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
             # Handle if previous dump is also list of dicts
+            if isinstance(prev_data, dict) and "markets" in prev_data:
+                prev_data = prev_data["markets"]
+
             prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
@@ -121,7 +128,7 @@ def validate_drift(current_symbols, previous_path):
     if removal_ratio > MAX_REMOVAL_RATIO:
         fail(
             f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO "
-            f"({MAX_REMOVAL_RATIO}). Unsafe drift!"
+            f"({MAX_REMOVAL_RATIO}). Unsafe drift! Check removed pairs."
         )
 
 

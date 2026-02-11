@@ -4,6 +4,7 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import talib.abstract as ta
@@ -58,13 +59,11 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        # Security check: whitelist
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
         dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
 
         return dataframe
 
@@ -79,13 +78,21 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
+        # 1. Check Daily Loss Limit
+        # Limit daily loss to 5% of balance (configurable via max_loss_ratio arg, here hardcoded or from config)
+        max_loss = self.config.get("max_daily_loss", 0.05)
+        if not self.check_daily_loss_limit(max_loss):
+            self.log_signal(pair, self.timeframe, side, "Daily Loss Limit Hit - Entry Denied", current_time)
+            return False
+
+        # 2. Audit Log
         self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
         return True

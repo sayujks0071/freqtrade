@@ -11,8 +11,8 @@
     "unidirectional_only": true,
     "exchange": {
         "name": "delta",
-        "key": "",
-        "secret": "",
+        "key": "${DELTA_API_KEY}",
+        "secret": "${DELTA_API_SECRET}",
         "ccxt_config": {
             "enableRateLimit": true
         },
@@ -25,7 +25,9 @@
     },
     "pairlists": [
         {
-            "method": "StaticPairList"
+            "method": "JSONPairList",
+            "filename": "user_data/pairlists/whitelist.delta.${DELTA_ENV}.json",
+            "recursive": true
         }
     ],
     "telegram": {
@@ -37,7 +39,7 @@
         "enabled": true,
         "listen_ip_address": "0.0.0.0",
         "listen_port": 8080,
-        "verbosity": "error",
+        "verbosity": "info",
         "jwt_secret_key": "somethingrandom",
         "CORS_origins": [],
         "username": "freqtrader",
@@ -56,8 +58,11 @@
             "max_allowed_drawdown": 0.2
         },
         {
-            "method": "DailyLossLimit",
-            "max_daily_loss": 0.05
+            "method": "LowProfitPairs",
+            "lookback_period_candles": 6,
+            "trade_limit": 2,
+            "stop_duration_candles": 60,
+            "required_profit": 0.02
         }
     ],
     "bot_name": "freqtrade",
