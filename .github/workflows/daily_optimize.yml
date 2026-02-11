@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
         with:
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Install TA-Lib
         run: |
@@ -38,8 +38,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r requirements-hyperopt.txt
           # Re-install ta-lib python wrapper to ensure it links against the installed C lib
           pip install --force-reinstall --no-cache-dir ta-lib
+          # Install the package in editable mode to ensure sys.executable -m freqtrade works
+          pip install -e .
 
       - name: Configure Git
         run: |

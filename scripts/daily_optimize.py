@@ -25,11 +25,31 @@ SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
+def download_data():
+    """Downloads historical data for the pairs in config_daily_opt.json."""
+    print("Downloading historical data...")
+    cmd = [
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--days",
+        "60",
+        "--timeframe",
+        "1h",
+    ]
+    # We don't capture output here so user can see progress
+    run_command(cmd, capture=False)
+
+
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
-        print(f"Error running command: {result.stderr}")
+        if capture:
+            print(f"Error running command: {result.stderr}")
+        else:
+            print("Error running command (check output above).")
     return result
 
 
@@ -249,6 +269,9 @@ Examples:
             print("\nPlease commit or stash your changes before running this script.")
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
+
+    # 0. Ensure Data Exists
+    download_data()
 
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
