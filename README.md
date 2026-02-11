@@ -48,6 +48,15 @@ This script will:
 
 If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
 
+### Validation Configuration
+
+The market refresh script (`scripts/update_markets_and_whitelist.sh`) uses `tools/validate_markets_schema.py` to enforce safety checks. You can configure these in `.env`:
+
+- `MIN_MARKETS`: Minimum number of markets required (default 20).
+- `MAX_REMOVAL_RATIO`: Maximum ratio of removed pairs allowed (default 0.25). A value > 0.25 triggers a failure to prevent large drift.
+- `STRICT_VOLUME`: Fail if volume data is missing or too low (default false).
+- `FILTER_MODE`: How to filter the whitelist (`perps_usdt`, `all_futures`, `allowlist_regex`).
+
 ### 4. Start Dry-Run
 
 Start the bot in Dry-Run mode (simulated trading with live data):
