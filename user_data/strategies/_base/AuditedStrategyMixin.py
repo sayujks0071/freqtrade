@@ -5,7 +5,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         candle_date: datetime,
-        indicators_snapshot: Optional[Dict[str, Any]] = None,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -45,7 +45,7 @@ class AuditedStrategyMixin:
         """
         return pair.upper()
 
-    def assert_pair_in_whitelist(self, pair: str, whitelist: Optional[List[str]] = None) -> bool:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str] | None = None) -> bool:
         """
         Assert pair is in current whitelist.
         Returns True if in whitelist, False otherwise (and logs warning).

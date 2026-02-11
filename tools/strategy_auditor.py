@@ -92,7 +92,12 @@ No Repainting Note:
         fixed_source = source
 
         # Check 1: Docstring (Header block)
-        docstring_errors, new_source = self.check_docstring(tree, source, filepath)
+        # Cast to Module to satisfy MyPy (ast.parse returns AST but specifically Module)
+        if isinstance(tree, ast.Module):
+            docstring_errors, new_source = self.check_docstring(tree, source, filepath)
+        else:
+            docstring_errors, new_source = [], None
+
         if docstring_errors:
             errors.extend(docstring_errors)
             if self.fix and new_source:

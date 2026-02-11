@@ -24,14 +24,15 @@ No Repainting Note:
 """
 
 import sys
-from pathlib import Path
+from contextlib import suppress
 from datetime import datetime
+from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy
 from freqtrade.persistence import Trade
+from freqtrade.strategy import IStrategy
 
 
 # Add _base to path to allow import
@@ -99,10 +100,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         has_volume = dataframe["volume"] > 0
 
         # Market Thesis: Enter long when oversold and liquid
-        dataframe.loc[
-            (is_oversold & has_volume),
-            "enter_long"
-        ] = 1
+        dataframe.loc[(is_oversold & has_volume), "enter_long"] = 1
 
         return dataframe
 
@@ -114,10 +112,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         has_volume = dataframe["volume"] > 0
 
         # Market Thesis: Exit long when overbought and liquid
-        dataframe.loc[
-            (is_overbought & has_volume),
-            "exit_long"
-        ] = 1
+        dataframe.loc[(is_overbought & has_volume), "exit_long"] = 1
 
         return dataframe
 
@@ -147,7 +142,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             indicators = {
                 "rsi": last_candle.get("rsi"),
                 "volume": last_candle.get("volume"),
-                "close": last_candle.get("close")
+                "close": last_candle.get("close"),
             }
         except Exception as e:
             # Fallback if DP not available or error
@@ -158,7 +153,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason="Signal Confirmed (RSI/Vol)",
             candle_date=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True
 
@@ -176,22 +171,20 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     ) -> bool:
         # Fetch indicators snapshot
         indicators = {}
-        try:
+        with suppress(Exception):
             dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
             last_candle = dataframe.iloc[-1]
             indicators = {
                 "rsi": last_candle.get("rsi"),
                 "volume": last_candle.get("volume"),
-                "close": last_candle.get("close")
+                "close": last_candle.get("close"),
             }
-        except Exception:
-            pass
 
         self.log_signal(
             pair=pair,
             side="short" if trade.is_short else "long",
             reason=f"Exit Confirmed: {exit_reason}",
             candle_date=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True
