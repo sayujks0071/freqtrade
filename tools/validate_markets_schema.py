@@ -5,8 +5,9 @@ import math
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
 
 # Add repo root to sys.path to allow imports if running from tools/ or root
 try:
@@ -82,12 +83,15 @@ def validate_numeric_sanity(m, symbol, strict_volume, errors):
                             errors.append(f"Symbol '{symbol}' has invalid limit {k}.{bound}: {val}")
 
     # Volume check (if present top-level)
-    if strict_volume and "volume" in m:
+    if "volume" in m:
         vol = m.get("volume")
-        if (
-            isinstance(vol, (int, float)) and vol < 1000
-        ):  # Arbitrary low threshold? Prompt says "warn by default; allow STRICT_VOLUME=true to fail"
-            errors.append(f"Symbol '{symbol}' has low volume: {vol}")
+        # Arbitrary low threshold
+        if isinstance(vol, (int, float)) and vol < 1000:
+            msg = f"Symbol '{symbol}' has low volume: {vol}"
+            if strict_volume:
+                errors.append(msg)
+            else:
+                print(f"WARN: {msg}")
 
 
 def validate_schema(data, min_markets, strict_volume):
@@ -215,7 +219,7 @@ def validate_drift(current_whitelist_symbols, prev_whitelist_path, max_removal_r
 
 def write_report(path, status, markets_count, whitelist_count, errors, drift_info, args):
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(UTC).isoformat()}
+Date: {datetime.now(timezone.utc).isoformat()}
 Status: {status}
 File: {args.markets}
 Environment: {args.env}
@@ -274,12 +278,8 @@ def main():
     )
 
     # Filter mode for whitelist generation
-    parser.add_argument(
-        "--filter-mode", default=os.environ.get("FILTER_MODE", "perps_usdt")
-    )
-    parser.add_argument(
-        "--allowlist-regex", default=os.environ.get("ALLOWLIST_REGEX", ".*")
-    )
+    parser.add_argument("--filter-mode", default=os.environ.get("FILTER_MODE", "perps_usdt"))
+    parser.add_argument("--allowlist-regex", default=os.environ.get("ALLOWLIST_REGEX", ".*"))
 
     args = parser.parse_args()
 
@@ -310,9 +310,7 @@ def main():
     all_errors = []
 
     # 1. Validate Schema
-    _, schema_errors = validate_schema(
-        markets_list, args.min_markets, args.strict_volume
-    )
+    _, schema_errors = validate_schema(markets_list, args.min_markets, args.strict_volume)
     all_errors.extend(schema_errors)
 
     # 2. Environment Sanity (Optional/Info)
