@@ -25,13 +25,27 @@ def load_markets(data):
     return []
 
 
+def get_filter_strategy():
+    """
+    Returns a filter function based on the configuration.
+    """
+    if FILTER_MODE == "all_futures":
+        return lambda s: ":" in s
+    elif FILTER_MODE == "allowlist_regex":
+        try:
+            regex = re.compile(ALLOWLIST_REGEX)
+            return lambda s: regex.match(s) is not None
+        except re.error as e:
+            print(f"Invalid regex '{ALLOWLIST_REGEX}': {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Default: perps_usdt
+        return lambda s: "/USDT:USDT" in s
+
+
 def filter_markets(markets):
     whitelist = []
-    try:
-        regex = re.compile(ALLOWLIST_REGEX)
-    except re.error as e:
-        print(f"Invalid regex '{ALLOWLIST_REGEX}': {e}", file=sys.stderr)
-        sys.exit(1)
+    should_include = get_filter_strategy()
 
     for m in markets:
         if not isinstance(m, dict):
@@ -45,23 +59,8 @@ def filter_markets(markets):
         if not m.get("active", True):
             continue
 
-        # Filter logic
-        if FILTER_MODE == "perps_usdt":
-            # Check if quote is USDT and it's a perp
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
-        elif FILTER_MODE == "all_futures":
-            # Assume all in dump are futures if generated via --trading-mode futures
-            # But check if it has ":" to be safe
-            if ":" in symbol:
-                whitelist.append(symbol)
-        elif FILTER_MODE == "allowlist_regex":
-            if regex.match(symbol):
-                whitelist.append(symbol)
-        else:
-            # Default to perps_usdt
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
+        if should_include(symbol):
+            whitelist.append(symbol)
 
     return sorted(list(set(whitelist)))
 

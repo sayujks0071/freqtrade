@@ -3,7 +3,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -123,8 +123,8 @@ def validate_drift(current_symbols, previous_path):
 
         prev_markets = load_markets(prev_data)
         if not prev_markets:
-             warn("Previous dump contained no markets or invalid format.")
-             return
+            warn("Previous dump contained no markets or invalid format.")
+            return
 
         prev_symbols = {m["symbol"] for m in prev_markets if isinstance(m, dict) and "symbol" in m}
 
@@ -173,12 +173,12 @@ def main():
         validate_drift(symbols, prev_path)
 
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {datetime.now(UTC).isoformat()}
 Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
         write_report(report_file, report)
