@@ -64,7 +64,14 @@ class Hyperliquid(Exchange):
 
     def validate_config(self, config: dict) -> None:
         """Validate HIP-3 configuration at bot startup."""
-        super().validate_config(config)
+        try:
+            super().validate_config(config)
+        except OperationalException as e:
+            if "Could not load markets" in str(e):
+                logger.warning(f"Could not load markets, skipping validation: {e}")
+                return
+            raise e
+
         configured = self._get_configured_hip3_dexes()
         if not configured or not self.markets:
             return
