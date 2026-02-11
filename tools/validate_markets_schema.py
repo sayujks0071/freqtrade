@@ -5,7 +5,7 @@ import math
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -219,7 +219,7 @@ def validate_drift(current_whitelist_symbols, prev_whitelist_path, max_removal_r
 
 def write_report(path, status, markets_count, whitelist_count, errors, drift_info, args):
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {datetime.now(UTC).isoformat()}
 Status: {status}
 File: {args.markets}
 Environment: {args.env}
