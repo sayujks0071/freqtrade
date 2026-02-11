@@ -87,7 +87,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         Called right before placing a trade.
         """
         # 1. Check Daily Loss Limit
-        # Limit daily loss to 5% of balance (configurable via max_loss_ratio arg, here hardcoded or from config)
+        # Limit daily loss to 5% of balance (configurable via max_loss_ratio arg,
+        # here hardcoded or from config)
         max_loss = self.config.get("max_daily_loss", 0.05)
         if not self.check_daily_loss_limit(max_loss):
             self.log_signal(

@@ -126,8 +126,8 @@ def audit_file(filepath, fix=False):  # noqa: C901
 
     if visitor.errors:
         print("Errors found:")
-        for e in visitor.errors:
-            print(f"  - {e}")
+        for err in visitor.errors:
+            print(f"  - {err}")
 
         if fix:
             print("Attempting fixes...")

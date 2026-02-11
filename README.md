@@ -47,7 +47,7 @@ See [Risk Profile](user_data/reports/risk_profile.md) for full details on limits
 ## 🔄 Daily Markets Refresh
 
 Automated via GitHub Actions (`.github/workflows/delta-markets-refresh.yml`).
-*   Runs daily at 06:30 IST.
+*   Runs daily at 06:30 Asia/Kolkata.
 *   Fetches latest markets from Delta.
 *   Validates schema & drift.
 *   Generates new whitelist `user_data/pairlists/whitelist.delta.<env>.json`.
