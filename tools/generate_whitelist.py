@@ -11,12 +11,35 @@ FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
 ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
 
+def load_markets(data):
+    """
+    Robustly extract markets list from data which might be:
+    - a list of market dicts
+    - a dict with 'markets' key (list of dicts)
+    """
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        if "markets" in data and isinstance(data["markets"], list):
+            return data["markets"]
+    return []
+
+
 def filter_markets(markets):
     whitelist = []
-    regex = re.compile(ALLOWLIST_REGEX)
+    try:
+        regex = re.compile(ALLOWLIST_REGEX)
+    except re.error as e:
+        print(f"Invalid regex '{ALLOWLIST_REGEX}': {e}", file=sys.stderr)
+        sys.exit(1)
 
     for m in markets:
-        symbol = m["symbol"]
+        if not isinstance(m, dict):
+            continue
+
+        symbol = m.get("symbol")
+        if not symbol:
+            continue
 
         # Basic active check
         if not m.get("active", True):
@@ -25,12 +48,13 @@ def filter_markets(markets):
         # Filter logic
         if FILTER_MODE == "perps_usdt":
             # Check if quote is USDT and it's a perp
-            # In ccxt/freqtrade, futures usually have 'linear' type or swap
-            # We rely on symbol string mostly for Freqtrade
             if "/USDT:USDT" in symbol:
                 whitelist.append(symbol)
         elif FILTER_MODE == "all_futures":
-            whitelist.append(symbol)
+            # Assume all in dump are futures if generated via --trading-mode futures
+            # But check if it has ":" to be safe
+            if ":" in symbol:
+                whitelist.append(symbol)
         elif FILTER_MODE == "allowlist_regex":
             if regex.match(symbol):
                 whitelist.append(symbol)
@@ -47,17 +71,21 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    try:
+        with Path(sys.argv[1]).open() as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error loading markets file: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
+    markets = load_markets(data)
+    if not markets:
+        print("No markets found in input file.", file=sys.stderr)
+        # Output empty whitelist
+        print(json.dumps({"exchange": {"pair_whitelist": []}}, indent=4))
+        return
 
-    whitelist = filter_markets(data)
-
-    # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
+    whitelist = filter_markets(markets)
 
     # JSON format for Freqtrade inclusion
     output_obj = {"exchange": {"pair_whitelist": whitelist}}

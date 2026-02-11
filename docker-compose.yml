@@ -15,7 +15,6 @@ services:
       - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public
       - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private
       - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www
-    # Default command used when running `docker compose up`
       - DELTA_ENV=${DELTA_ENV:-india_testnet}
       - DELTA_API_KEY=${DELTA_API_KEY}
       - DELTA_API_SECRET=${DELTA_API_SECRET}
@@ -30,11 +29,5 @@ services:
       --logfile /freqtrade/user_data/logs/freqtrade.log
       --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
       --config /freqtrade/user_data/configs/${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/ping || exit 1"]
-      interval: 1m
-      timeout: 10s
-      retries: 3
-      --config /freqtrade/user_data/config.json
       --config /freqtrade/user_data/pairlists/whitelist.delta.json
       --strategy SampleStrategy
