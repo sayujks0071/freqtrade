@@ -224,6 +224,27 @@ def log_optimization_result(strategy, outcome, details):
         print(f"Error writing to log file: {e}")
 
 
+def push_changes(target_branch, msg):
+    """Pushes committed changes to the remote repository."""
+    print(f"\nPushing to {target_branch}...")
+
+    push_cmd = ["git", "push", "origin"]
+    # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
+    if target_branch == "main":
+        push_cmd.append("HEAD:main")
+    else:
+        push_cmd.append(target_branch)
+
+    result = run_command(push_cmd, capture=True)
+
+    if result.returncode == 0:
+        print(f"\n✓ Successfully pushed changes to branch: {target_branch}")
+    else:
+        print(f"\nFailed to push to {target_branch}")
+        print(result.stderr)
+        print("Changes are committed locally. You can manually push later.")
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -389,6 +410,8 @@ Examples:
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
+    target_branch = args.branch if args.branch else "main"
+
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
 
@@ -411,13 +434,8 @@ Examples:
                 print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
-            # Determine target branch
-            target_branch = args.branch if args.branch else "main"
-
             # Use -f to force add in case user_data is gitignored
-            run_command(
-                ["git", "add", "-f", str(strategy_json), str(OPTIMIZATION_LOG_FILE)]
-            )
+            run_command(["git", "add", "-f", str(strategy_json), str(OPTIMIZATION_LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -433,25 +451,7 @@ Examples:
                         backup_json.unlink()
                     return
 
-            print(f"\nPushing to {target_branch}...")
-
-            push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
-            if target_branch == "main":
-                push_cmd.append("HEAD:main")
-            else:
-                push_cmd.append(target_branch)
-
-            result = run_command(push_cmd, capture=True)
-
-            if result.returncode == 0:
-                print(
-                    f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
-                )
-            else:
-                print(f"\nFailed to push to {target_branch}")
-                print(result.stderr)
-                print("Changes are committed locally. You can manually push later.")
+            push_changes(target_branch, msg)
 
         if backup_json.exists():
             backup_json.unlink()
@@ -469,15 +469,29 @@ Examples:
                 f"Drawdown worsened ({new_drawdown:.4f} vs {current_drawdown:.4f})"
             )
 
-        log_optimization_result(
-            worst_strategy, "FAILURE", f"Reason: {', '.join(failure_reasons)}"
-        )
+        log_optimization_result(worst_strategy, "FAILURE", f"Reason: {', '.join(failure_reasons)}")
 
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        if not args.dry_run:
+            # Commit the failure log
+            msg = f"ci: log failed optimization for {worst_strategy} [skip ci]"
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
+            run_command(["git", "commit", "-m", msg])
+
+            # Confirm before pushing
+            if not args.yes:
+                print(f"\nReady to push failure log to branch '{target_branch}'")
+                response = input("\nProceed with push? [y/N]: ").strip().lower()
+                if response not in ["y", "yes"]:
+                    print("Push cancelled. Changes are committed locally.")
+                    return
+
+            push_changes(target_branch, msg)
 
 
 if __name__ == "__main__":

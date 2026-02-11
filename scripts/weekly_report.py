@@ -52,12 +52,14 @@ def parse_optimization_log(days=7):
                 if "Outcome:" in outcome:
                     outcome = outcome.split("Outcome:", 1)[1].strip()
 
-                entries.append({
-                    "date": entry_date,
-                    "strategy": strategy,
-                    "outcome": outcome,
-                    "details": parts[3] if len(parts) > 3 else ""
-                })
+                entries.append(
+                    {
+                        "date": entry_date,
+                        "strategy": strategy,
+                        "outcome": outcome,
+                        "details": parts[3] if len(parts) > 3 else "",
+                    }
+                )
     return entries
 
 
@@ -94,9 +96,7 @@ def main():
     total_roi_improvement = 0.0
 
     # Regex to match "perf: optimized {strategy} ({roi_diff:+.2f}% ROI improvement)"
-    roi_pattern = re.compile(
-        r"perf: optimized\s+(\w+)\s+\(([+\-]?\d+\.\d+)%\s+ROI improvement\)"
-    )
+    roi_pattern = re.compile(r"perf: optimized\s+(\w+)\s+\(([+\-]?\d+\.\d+)%\s+ROI improvement\)")
 
     for log in logs:
         match = roi_pattern.search(log)
