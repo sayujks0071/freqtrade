@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+OPTIMIZATION_LOG_FILE = Path("optimization_log.txt")
 
 # Optimization Parameters
 EPOCHS = 200
@@ -210,6 +211,19 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def log_optimization_result(strategy, outcome, details):
+    """Logs the optimization result to a file."""
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{date_str} | Strategy: {strategy} | Outcome: {outcome} | {details}\n"
+
+    try:
+        with OPTIMIZATION_LOG_FILE.open("a") as f:
+            f.write(log_entry)
+        print(f"Logged: {log_entry.strip()}")
+    except Exception as e:
+        print(f"Error writing to log file: {e}")
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -276,6 +290,7 @@ Examples:
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+    current_profit_pct = current_stats.get("profit_total_pct", 0.0) * 100
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -363,9 +378,7 @@ Examples:
     if new_sharpe is None:
         new_sharpe = -float("inf")
     new_drawdown = new_stats.get("max_drawdown_account", 1.0)
-
-    # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+    new_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
@@ -378,7 +391,15 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
-        msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
+
+        roi_diff = new_profit_pct - current_profit_pct
+        msg = f"perf: optimized {worst_strategy} ({roi_diff:+.2f}% ROI improvement)"
+
+        log_optimization_result(
+            worst_strategy,
+            "SUCCESS",
+            f"ROI Improvement: {roi_diff:+.2f}% | New Sharpe: {new_sharpe:.4f}",
+        )
 
         if args.dry_run:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
@@ -394,7 +415,9 @@ Examples:
             target_branch = args.branch if args.branch else "main"
 
             # Use -f to force add in case user_data is gitignored
-            run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(
+                ["git", "add", "-f", str(strategy_json), str(OPTIMIZATION_LOG_FILE)]
+            )
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -422,7 +445,9 @@ Examples:
             result = run_command(push_cmd, capture=True)
 
             if result.returncode == 0:
-                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
+                print(
+                    f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}"
+                )
             else:
                 print(f"\nFailed to push to {target_branch}")
                 print(result.stderr)
@@ -433,6 +458,21 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+
+        failure_reasons = []
+        if not sharpe_improved:
+            failure_reasons.append(
+                f"Sharpe not improved ({new_sharpe:.4f} vs {current_sharpe:.4f})"
+            )
+        if not drawdown_improved:
+            failure_reasons.append(
+                f"Drawdown worsened ({new_drawdown:.4f} vs {current_drawdown:.4f})"
+            )
+
+        log_optimization_result(
+            worst_strategy, "FAILURE", f"Reason: {', '.join(failure_reasons)}"
+        )
+
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
