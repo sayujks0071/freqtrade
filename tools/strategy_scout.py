@@ -61,7 +61,7 @@ class StrategyVisitor(ast.NodeVisitor):
                         if isinstance(node.value, ast.Constant):
                             self.metadata[key] = node.value.value
                         elif isinstance(node.value, ast.Dict):
-                            self.metadata[key] = "Dict" # Placeholder
+                            self.metadata[key] = "Dict"  # Placeholder
                             if key == "minimal_roi":
                                 self.metadata["risk_controls"] = True
                         elif isinstance(node.value, ast.UnaryOp) and isinstance(
@@ -145,7 +145,7 @@ class StrategyScout:
                             unique_repos[repo_id] = item
 
                     if len(items) < 30:
-                        break # End of results
+                        break  # End of results
 
                     page += 1
                     # Simple safety sleep
@@ -157,11 +157,9 @@ class StrategyScout:
 
         # Sort by updated_at desc
         sorted_repos = sorted(
-            unique_repos.values(),
-            key=lambda x: x.get("updated_at", ""),
-            reverse=True
+            unique_repos.values(), key=lambda x: x.get("updated_at", ""), reverse=True
         )
-        return sorted_repos[:self.limit]
+        return sorted_repos[: self.limit]
 
     def get_repo_contents(self, owner: str, repo: str, path: str = "") -> list[dict]:
         url = f"{self.base_url}/repos/{owner}/{repo}/contents/{path}"
@@ -213,7 +211,7 @@ class StrategyScout:
                     "has_entry": visitor.has_entry,
                     "has_exit": visitor.has_exit,
                     "docstring": visitor.docstring,
-                    "is_suspicious": is_suspicious
+                    "is_suspicious": is_suspicious,
                 }
         except Exception as e:
             logger.debug(f"Failed to parse code: {e}")
@@ -248,22 +246,24 @@ class StrategyScout:
                     if code:
                         analysis = self.analyze_strategy_code(code)
                         if analysis:
-                            strategies.append({
-                                "repo_url": repo["html_url"],
-                                "repo_name": full_name,
-                                "file_path": item["path"],
-                                "file_url": item["html_url"],
-                                "download_url": item["download_url"],
-                                "analysis": analysis,
-                                "stats": {
-                                    "stars": repo["stargazers_count"],
-                                    "forks": repo["forks_count"],
-                                    "updated_at": repo["updated_at"],
-                                    "license": repo.get("license", {}).get("name")
-                                    if repo.get("license")
-                                    else "None",
+                            strategies.append(
+                                {
+                                    "repo_url": repo["html_url"],
+                                    "repo_name": full_name,
+                                    "file_path": item["path"],
+                                    "file_url": item["html_url"],
+                                    "download_url": item["download_url"],
+                                    "analysis": analysis,
+                                    "stats": {
+                                        "stars": repo["stargazers_count"],
+                                        "forks": repo["forks_count"],
+                                        "updated_at": repo["updated_at"],
+                                        "license": repo.get("license", {}).get("name")
+                                        if repo.get("license")
+                                        else "None",
+                                    },
                                 }
-                            })
+                            )
                             # Stop after finding a few strategies per repo to save API calls
                             if len(strategies) >= 3:
                                 break
@@ -366,8 +366,8 @@ class StrategyScout:
 
                     f.write(
                         f"| {11 + i} | {name} | {repo_link} | {stats['stars']} | "
-                    f"{stats['updated_at'].split('T')[0]} | {strategy['score']} | "
-                    f"{risk_str} |\n"
+                        f"{stats['updated_at'].split('T')[0]} | {strategy['score']} | "
+                        f"{risk_str} |\n"
                     )
 
             f.write("\n## Strategy Details\n\n")

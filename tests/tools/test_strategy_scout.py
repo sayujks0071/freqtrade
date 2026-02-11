@@ -160,7 +160,6 @@ def test_vendor_strategies():
         patch("requests.get") as mock_get,
         patch("tools.strategy_scout.Path") as mock_path,
     ):
-
         mock_get.return_value.status_code = 200
         mock_get.return_value.text = "content"
 
