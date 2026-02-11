@@ -2,32 +2,58 @@ name: Strategy CI
 
 on:
   pull_request:
-    branches: [ main, master ]
     paths:
       - 'user_data/strategies/**'
-      - 'tools/strategy_auditor.py'
-
-permissions:
-  contents: read
+  workflow_dispatch:
 
 jobs:
-  audit_strategies:
+  audit-strategies:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
-          python-version: '3.12'
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Compile Check
         run: |
-          python3 -m compileall user_data/strategies/
+          python -m compileall user_data/strategies/
+          if [ $? -ne 0 ]; then
+            echo "::error::Python compilation failed."
+            exit 1
+          fi
 
       - name: Run Strategy Auditor
         run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+          python tools/strategy_auditor.py user_data/strategies/
+          if [ $? -ne 0 ]; then
+            echo "::error::Strategy Audit Failed. Please fix errors or run with --fix locally."
+            exit 1
+          fi
+
+      - name: Safety Heuristics (Grep)
+        run: |
+          # Additional simple grep checks
+          if grep -r "requests\." user_data/strategies/ --include="*.py" | grep -v "tools/"; then
+             echo "::error::Found usage of 'requests' in strategies. Forbidden."
+             exit 1
+          fi
+          if grep -r "import os" user_data/strategies/ --include="*.py" | grep -v "_base"; then
+             echo "::warning::Found usage of 'import os'. Please ensure it's safe."
+          fi
+
+      - name: Post Summary
+        if: failure()
+        run: |
+          echo "### Strategy CI Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Please review the audit logs above." >> $GITHUB_STEP_SUMMARY

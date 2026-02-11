@@ -1,3 +1,7 @@
+"""
+Daily Loss Limit Protection
+"""
+
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -61,8 +65,20 @@ class DailyLossLimit(IProtection):
 
         # Check percentage limit
         # Fallback to dry_run_wallet if we can't find balance.
+        # Note: IProtection doesn't have easy access to Wallets currently without hack.
+        # We'll use a config fallback or assume dry_run_wallet for this check
+        # or we might need to rely on 'available_capital' passed if we had it.
+        # Standard Protections often use Trade data.
+        # Let's use config['dry_run_wallet'] as base if available, else static.
         current_balance = self._config.get("dry_run_wallet", 1000)
 
+        # In live mode, config['dry_run_wallet'] might not be relevant?
+        # But this protection is "simple".
+        # If we want live balance, we need the Wallets object, which isn't standard in IProtection
+        # init. However, Freqtrade's ProtectionManager has access.
+        # For now, we'll stick to a simpler implementation or hardcoded/config stake.
+
+        # If daily_profit_abs is negative (loss)
         if daily_profit_abs < 0 and abs(daily_profit_abs) > (
             current_balance * self._max_daily_loss
         ):

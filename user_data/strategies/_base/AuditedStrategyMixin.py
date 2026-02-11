@@ -30,8 +30,6 @@ class AuditedStrategyMixin:
         """
         Log entry/exit signals to audit log.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
         msg = (
             f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "

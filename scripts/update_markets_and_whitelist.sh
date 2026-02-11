@@ -1,91 +1,80 @@
 #!/bin/bash
 set -e
 
-# Ensure root
-cd "$(dirname "$0")/.."
-
-DELTA_ENV=${DELTA_ENV:-india_testnet}
-TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
-REPORTS_DIR="user_data/reports"
-PAIRLISTS_DIR="user_data/pairlists"
-MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
-
-mkdir -p $REPORTS_DIR
-mkdir -p $PAIRLISTS_DIR
-
-# Find latest previous dump
-PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
-
-echo "Fetching markets for $DELTA_ENV..."
-
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
+# Load .env variables
 if [ -f .env ]; then
-    export $(cat .env | xargs)
+    export $(grep -v '^#' .env | xargs)
 fi
 
-# We use a temporary file for the docker output because of potential log noise
-TEMP_OUTPUT=$(mktemp)
+# Defaults
+DELTA_ENV=${DELTA_ENV:-india_prod}
+FILTER_MODE=${FILTER_MODE:-perps_usdt}
+TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
+REPORTS_DIR="user_data/reports"
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
+mkdir -p "$REPORTS_DIR"
 
-docker compose run --rm freqtrade list-markets \
-    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
-    --print-json > $TEMP_OUTPUT
+echo "Running Market Refresh for ENV: $DELTA_ENV (Filter: $FILTER_MODE)"
 
-# Check if successful
-if [ $? -ne 0 ]; then
-    echo "Failed to fetch markets"
-    rm $TEMP_OUTPUT
+# 1. Fetch Markets
+# We use docker run to ensure we use the same ccxt version/env as the bot
+# But running docker inside a script might be tricky if we are already in docker (not the case usually for CI or host scripts)
+# Assuming this runs on host where docker is available.
+# Or if run inside docker, we just call freqtrade directly.
+
+MARKETS_FILE="$REPORTS_DIR/markets_schema_report_${TIMESTAMP}.json"
+
+# Check if we are inside docker container
+if [ -f /.dockerenv ]; then
+    CMD="freqtrade"
+else
+    CMD="docker compose run --rm freqtrade"
+fi
+
+echo "Fetching markets..."
+$CMD list-markets \
+    --exchange delta \
+    --trading-mode futures \
+    --print-json \
+    > "$MARKETS_FILE" 2>/dev/null
+
+if [ ! -s "$MARKETS_FILE" ]; then
+    echo "FAIL: Market dump empty or failed."
+    rm -f "$MARKETS_FILE"
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
+# 2. Find Previous Dump for Drift Check
+# Sort by name (timestamp) and take the last one before current
+PREV_DUMP=$(ls -1 "$REPORTS_DIR"/markets_schema_report_*.json 2>/dev/null | grep -v "$TIMESTAMP" | sort | tail -n 1)
 
-mv $TEMP_OUTPUT $MARKETS_FILE
-
-echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
-
-echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
-WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
-
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
-
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
-
-echo "Whitelist updated at $WHITELIST_JSON"
-
-# Drift Report (Diff)
 if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+    echo "Previous dump found: $PREV_DUMP"
+else
+    echo "No previous dump found for drift check."
 fi
 
-# Clean up old dumps (keep last 7)
-ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+# 3. Validate Schema & Drift
+echo "Validating schema..."
+# We run python script locally
+if ! python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"; then
+    echo "FAIL: Schema validation failed."
+    # We might want to keep the bad file for debugging, but fail the script
+    exit 1
+fi
 
-echo "Done."
+# 4. Generate Whitelist
+echo "Generating whitelist..."
+# Set env var for generate_whitelist
+export FILTER_MODE
+export DELTA_ENV
+python3 tools/generate_whitelist.py "$MARKETS_FILE"
+
+# 5. Cleanup / Rotate
+# Keep last 7 json dumps
+echo "Cleaning up old dumps..."
+ls -1t "$REPORTS_DIR"/markets_schema_report_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+# Keep last 7 reports (md)
+ls -1t "$REPORTS_DIR"/markets_schema_report_*.md | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+
+echo "Market refresh complete."

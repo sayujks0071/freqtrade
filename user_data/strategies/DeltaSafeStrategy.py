@@ -4,6 +4,7 @@ A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -58,13 +59,11 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        # Security check: whitelist
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
         dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
-
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
 
         return dataframe
 
@@ -79,13 +78,14 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
+        # Audit Log
         self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
         return True

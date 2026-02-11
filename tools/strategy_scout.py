@@ -7,10 +7,16 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
-import requests
+
+try:
+    import requests
+except ImportError:
+    print("Error: 'requests' library not found. Please install it using 'pip install requests'.")
+    sys.exit(1)
 
 
 # Constants
