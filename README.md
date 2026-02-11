@@ -35,6 +35,15 @@ nano .env
   - `india_testnet` for Testnet
 - Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
 
+**Validation Settings**:
+- `MIN_MARKETS` (Default: 20): Minimum active markets required.
+- `MAX_REMOVAL_RATIO` (Default: 0.25): Max ratio of removed whitelist pairs allowed before failing.
+- `STRICT_VOLUME` (Default: false): Fail if volume checks fail.
+- `FILTER_MODE` (Default: `perps_usdt`): Strategy for whitelist generation.
+  - `perps_usdt`: USDT-margined Perps (symbol contains `/USDT:USDT`).
+  - `all_futures`: All futures/perps.
+  - `allowlist_regex`: Custom regex (set `ALLOWLIST_REGEX`).
+
 ### 3. Validate Exchange Connection
 
 Before starting, verify your credentials and market data availability:
