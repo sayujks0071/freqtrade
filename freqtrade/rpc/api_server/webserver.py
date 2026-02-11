@@ -301,12 +301,16 @@ class ApiServer(RPCHandler):
                 "Please make sure that this is intentional!"
             )
 
-        if self._config["api_server"].get("jwt_secret_key", "super-secret") in (
-            "super-secret, somethingrandom"
-        ):
+        jwt_secret_key = self._config["api_server"].get("jwt_secret_key", "super-secret")
+        if jwt_secret_key in ("super-secret", "somethingrandom"):
             logger.warning(
                 "SECURITY WARNING - `jwt_secret_key` seems to be default."
                 "Others may be able to log into your bot."
+            )
+
+        if len(jwt_secret_key) < 16:
+            logger.warning(
+                "SECURITY WARNING - `jwt_secret_key` is too short, please use at least 16 characters."
             )
 
         logger.info("Starting Local Rest Server.")
