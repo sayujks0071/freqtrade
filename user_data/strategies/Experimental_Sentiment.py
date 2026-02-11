@@ -5,7 +5,9 @@ to demonstrate the potential of "Twitter Volume" or "Whale Wallet Movements".
 """
 
 from pandas import DataFrame
+
 from freqtrade.strategy import IStrategy
+
 
 class Experimental_Sentiment(IStrategy):
     INTERFACE_VERSION = 3
@@ -40,7 +42,9 @@ class Experimental_Sentiment(IStrategy):
         # MOCK SIGNAL: Simulating high Twitter volume preceding a pump.
         # We use a lookahead (shift(-1)) to determine if the next candle is bullish.
         # This creates a "perfect" predictive signal for demonstration purposes.
-        dataframe['twitter_volume'] = (dataframe['close'].shift(-1) > dataframe['close']).astype(int)
+        dataframe['twitter_volume'] = (
+            dataframe['close'].shift(-1) > dataframe['close']
+        ).astype(int)
 
         return dataframe
 
