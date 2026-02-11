@@ -13,9 +13,7 @@ class Experimental_Sentiment(IStrategy):
     INTERFACE_VERSION = 3
 
     # Minimal ROI - set to very high to rely on exit signal
-    minimal_roi = {
-        "0": 100
-    }
+    minimal_roi = {"0": 100}
 
     # Stoploss
     stoploss = -0.10
@@ -42,9 +40,9 @@ class Experimental_Sentiment(IStrategy):
         # MOCK SIGNAL: Simulating high Twitter volume preceding a pump.
         # We use a lookahead (shift(-1)) to determine if the next candle is bullish.
         # This creates a "perfect" predictive signal for demonstration purposes.
-        dataframe['twitter_volume'] = (
-            dataframe['close'].shift(-1) > dataframe['close']
-        ).astype(int)
+        dataframe["twitter_volume"] = (dataframe["close"].shift(-1) > dataframe["close"]).astype(
+            int
+        )
 
         return dataframe
 
@@ -54,10 +52,11 @@ class Experimental_Sentiment(IStrategy):
         """
         dataframe.loc[
             (
-                (dataframe['twitter_volume'] == 1) &  # Next candle is up
-                (dataframe['volume'] > 0)  # Make sure there is volume
+                (dataframe["twitter_volume"] == 1)  # Next candle is up
+                & (dataframe["volume"] > 0)  # Make sure there is volume
             ),
-            'enter_long'] = 1
+            "enter_long",
+        ] = 1
 
         return dataframe
 
@@ -67,9 +66,10 @@ class Experimental_Sentiment(IStrategy):
         """
         dataframe.loc[
             (
-                (dataframe['twitter_volume'] == 0) &  # Next candle is down
-                (dataframe['volume'] > 0)
+                (dataframe["twitter_volume"] == 0)  # Next candle is down
+                & (dataframe["volume"] > 0)
             ),
-            'exit_long'] = 1
+            "exit_long",
+        ] = 1
 
         return dataframe
