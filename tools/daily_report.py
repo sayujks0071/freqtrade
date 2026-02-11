@@ -19,8 +19,8 @@ def get_db_connection():
         # Maybe it's a relative path to repo root
         db_path = Path.cwd() / DB_URL
         if not db_path.exists():
-             print(f"Database not found at {DB_URL}")
-             sys.exit(1)
+            print(f"Database not found at {DB_URL}")
+            sys.exit(1)
     return sqlite3.connect(str(db_path))
 
 
@@ -82,7 +82,7 @@ def generate_report():
             df["duration"] = df["close_date"] - df["open_date"]
             avg_duration = df["duration"].mean()
             # Format duration
-            avg_duration_str = str(avg_duration).split('.')[0] # Remove microseconds
+            avg_duration_str = str(avg_duration).split(".")[0]  # Remove microseconds
         else:
             avg_duration_str = "N/A"
 

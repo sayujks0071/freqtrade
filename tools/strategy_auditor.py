@@ -15,6 +15,7 @@ Date: {date}
 """
 '''
 
+
 class AuditVisitor(ast.NodeVisitor):
     def __init__(self, filepath):
         self.filepath = filepath
@@ -36,7 +37,7 @@ class AuditVisitor(ast.NodeVisitor):
         # Check bases
         self.bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
         if "IStrategy" in self.bases and "AuditedStrategyMixin" not in self.bases:
-             self.errors.append(f"Class {node.name} does not inherit 'AuditedStrategyMixin'")
+            self.errors.append(f"Class {node.name} does not inherit 'AuditedStrategyMixin'")
 
         # Check body for attributes
         for item in node.body:
@@ -44,7 +45,7 @@ class AuditVisitor(ast.NodeVisitor):
                 for target in item.targets:
                     if isinstance(target, ast.Name):
                         if target.id == "process_only_new_candles":
-                             self.has_process_new_candles = True
+                            self.has_process_new_candles = True
 
         self.generic_visit(node)
 
@@ -60,9 +61,11 @@ class AuditVisitor(ast.NodeVisitor):
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
             if node.func.attr == "now":
-                 # Check if it has arguments (timezone)
+                # Check if it has arguments (timezone)
                 if not node.args and not node.keywords:
-                    self.errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+                    self.errors.append(
+                        f"Potential naive datetime.now() usage at line {node.lineno}"
+                    )
         self.generic_visit(node)
 
 
@@ -85,15 +88,16 @@ class FixTransformer(ast.NodeTransformer):
                         has_proc = True
 
         if not has_proc:
-             assign = ast.Assign(
-                 targets=[ast.Name(id="process_only_new_candles", ctx=ast.Store())],
-                 value=ast.Constant(value=True),
-                 lineno=node.lineno + 1
-             )
-             node.body.insert(0, assign)
-             self.modified = True
+            assign = ast.Assign(
+                targets=[ast.Name(id="process_only_new_candles", ctx=ast.Store())],
+                value=ast.Constant(value=True),
+                lineno=node.lineno + 1,
+            )
+            node.body.insert(0, assign)
+            self.modified = True
 
         return node
+
 
 def audit_file(filepath, fix=False):  # noqa: C901
     print(f"Auditing {filepath}...")
@@ -141,7 +145,7 @@ def audit_file(filepath, fix=False):  # noqa: C901
                 if not visitor.has_docstring and visitor.class_name:
                     header = HEADER_TEMPLATE.format(
                         class_name=visitor.class_name,
-                        date=datetime.now(UTC).strftime("%Y-%m-%d")
+                        date=datetime.now(UTC).strftime("%Y-%m-%d"),
                     )
                     new_source = header + "\n" + new_source
 
@@ -161,9 +165,9 @@ def audit_file(filepath, fix=False):  # noqa: C901
                     insert_idx = 0
                     lines = new_source.splitlines()
                     for i, line in enumerate(lines):
-                         if line.startswith("import ") or line.startswith("from "):
-                             insert_idx = i
-                             break
+                        if line.startswith("import ") or line.startswith("from "):
+                            insert_idx = i
+                            break
 
                     lines.insert(insert_idx, import_block)
                     new_source = "\n".join(lines)
@@ -199,9 +203,9 @@ def main():
         for root, _, files in os.walk(path):
             for file in files:
                 if file.endswith(".py") and not file.startswith("__"):
-                     if "_base" in root or "strategies_vendor" in root:
-                         continue
-                     if not audit_file(str(Path(root) / file), args.fix):
+                    if "_base" in root or "strategies_vendor" in root:
+                        continue
+                    if not audit_file(str(Path(root) / file), args.fix):
                         failed = True
 
     if failed:
