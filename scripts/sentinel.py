@@ -32,7 +32,7 @@ class Sentinel:
         self.username = ""
         self.password = ""
         self.jwt_token = None
-        self.balance_history = []  # List of (timestamp, balance)
+        self.balance_history: list[tuple[float, float]] = []  # List of (timestamp, balance)
         self.is_dry_run = True
 
         self._load_config()
@@ -172,9 +172,7 @@ class Sentinel:
 
         # Prune old history (> 1 hour = 3600 seconds)
         one_hour_ago = now - 3600
-        self.balance_history = [
-            (t, b) for t, b in self.balance_history if t >= one_hour_ago
-        ]
+        self.balance_history = [(t, b) for t, b in self.balance_history if t >= one_hour_ago]
 
         if not self.balance_history:
             return 0.0
