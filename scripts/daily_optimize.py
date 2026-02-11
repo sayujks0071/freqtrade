@@ -224,7 +224,7 @@ def log_optimization_result(strategy, outcome, details):
         print(f"Error writing to log file: {e}")
 
 
-def push_changes(target_branch, msg):
+def push_changes(target_branch):
     """Pushes committed changes to the remote repository."""
     print(f"\nPushing to {target_branch}...")
 
@@ -451,7 +451,7 @@ Examples:
                         backup_json.unlink()
                     return
 
-            push_changes(target_branch, msg)
+            push_changes(target_branch)
 
         if backup_json.exists():
             backup_json.unlink()
@@ -491,7 +491,7 @@ Examples:
                     print("Push cancelled. Changes are committed locally.")
                     return
 
-            push_changes(target_branch, msg)
+            push_changes(target_branch)
 
 
 if __name__ == "__main__":
