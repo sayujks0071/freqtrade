@@ -24,6 +24,20 @@ def warn(message):
     print(f"WARN: {message}")
 
 
+def load_markets(data):
+    """
+    Robustly extract markets list from data which might be:
+    - a list of market dicts
+    - a dict with 'markets' key (list of dicts)
+    """
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        if "markets" in data and isinstance(data["markets"], list):
+            return data["markets"]
+    return []
+
+
 def validate_market_structure(i, m, errors):
     # Required fields
     for f in REQUIRED_FIELDS:
@@ -51,28 +65,29 @@ def validate_symbol_format(symbol, errors):
 
 def validate_volume(m, symbol, errors):
     # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
     if "volume" in m:
         vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
+        if vol is not None and isinstance(vol, (int, float)) and vol < 1000 and STRICT_VOLUME:
             errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
-        pass
 
 
 def validate_schema(data):
-    if not isinstance(data, list):
-        fail("Root must be a list of markets")
+    markets = load_markets(data)
 
-    if len(data) < MIN_MARKETS:
-        fail(f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})")
+    if not isinstance(markets, list):
+        fail("Root must be a list of markets (or contain 'markets' key)")
+
+    if len(markets) < MIN_MARKETS:
+        fail(f"Market count {len(markets)} < MIN_MARKETS ({MIN_MARKETS})")
 
     symbols = set()
     errors = []
 
-    for i, m in enumerate(data):
+    for i, m in enumerate(markets):
+        if not isinstance(m, dict):
+            errors.append(f"Item {i} is not a dict")
+            continue
+
         symbol = validate_market_structure(i, m, errors)
         if not symbol:
             continue
@@ -105,8 +120,14 @@ def validate_drift(current_symbols, previous_path):
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+
+        prev_markets = load_markets(prev_data)
+        if not prev_markets:
+            warn("Previous dump contained no markets or invalid format.")
+            return
+
+        prev_symbols = {m["symbol"] for m in prev_markets if isinstance(m, dict) and "symbol" in m}
+
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
         return
@@ -146,11 +167,6 @@ def main():
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
-
     symbols = validate_schema(data)
 
     if prev_path:
@@ -162,7 +178,6 @@ Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:

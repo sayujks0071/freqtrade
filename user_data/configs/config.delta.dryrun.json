@@ -38,29 +38,12 @@
         "enabled": true,
         "listen_ip_address": "0.0.0.0",
         "listen_port": 8080,
-        "verbosity": "error",
+        "verbosity": "info",
         "jwt_secret_key": "somethingrandom",
         "CORS_origins": [],
         "username": "freqtrader",
         "password": "SuperSecurePassword123!"
     },
-    "protections": [
-        {
-            "method": "CooldownPeriod",
-            "stop_duration_candles": 5
-        },
-        {
-            "method": "MaxDrawdown",
-            "lookback_period_candles": 48,
-            "trade_limit": 20,
-            "stop_duration_candles": 12,
-            "max_allowed_drawdown": 0.2
-        },
-        {
-            "method": "DailyLossLimit",
-            "max_daily_loss": 0.05
-        }
-    ],
     "bot_name": "freqtrade",
     "initial_state": "running",
     "forcebuy_enable": false,
@@ -90,5 +73,22 @@
         "force_entry": "market",
         "stoploss": "market",
         "stoploss_on_exchange": false
-    }
+    },
+    "protections": [
+        {
+            "method": "CooldownPeriod",
+            "stop_duration_candles": 5
+        },
+        {
+            "method": "MaxDrawdown",
+            "lookback_period_candles": 48,
+            "trade_limit": 20,
+            "stop_duration_candles": 12,
+            "max_allowed_drawdown": 0.2
+        },
+        {
+            "method": "DailyLossLimit",
+            "max_daily_loss": 0.05
+        }
+    ]
 }

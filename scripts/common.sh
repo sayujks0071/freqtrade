@@ -7,7 +7,9 @@ if [ -f .env ]; then
     . .env
     set +a
 else
-    echo "No .env file found. Proceeding with environment variables..."
+    if [ -z "$DELTA_ENV" ]; then
+        echo "No .env file found and DELTA_ENV not set."
+    fi
 fi
 
 if [ -z "$DELTA_ENV" ]; then
@@ -28,7 +30,6 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
         echo "Unknown DELTA_ENV: $DELTA_ENV"
