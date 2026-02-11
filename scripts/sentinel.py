@@ -109,7 +109,12 @@ class Sentinel:
             json_data = json.dumps(data).encode("utf-8")
 
         try:
-            req = urllib.request.Request(url, data=json_data, headers=headers, method=method)  # noqa: S310
+            req = urllib.request.Request(  # noqa: S310
+                url,
+                data=json_data,
+                headers=headers,
+                method=method,
+            )
             with urllib.request.urlopen(req) as response:  # noqa: S310
                 return json.loads(response.read().decode())
         except urllib.error.HTTPError as e:
