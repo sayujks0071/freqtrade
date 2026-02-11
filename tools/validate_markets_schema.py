@@ -5,7 +5,7 @@ import math
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Add repo root to sys.path to allow imports if running from tools/ or root
@@ -64,7 +64,7 @@ def validate_symbol_format(symbol, errors):
 
     parts = symbol.split("/")
     if len(parts) != 2:
-         errors.append(f"Symbol '{symbol}' invalid structure (missing /)")
+        errors.append(f"Symbol '{symbol}' invalid structure (missing /)")
 
 
 def validate_numeric_sanity(m, symbol, strict_volume, errors):
@@ -79,13 +79,15 @@ def validate_numeric_sanity(m, symbol, strict_volume, errors):
                         if not isinstance(val, (int, float)):
                             continue
                         if math.isnan(val) or math.isinf(val) or val < 0:
-                             errors.append(f"Symbol '{symbol}' has invalid limit {k}.{bound}: {val}")
+                            errors.append(f"Symbol '{symbol}' has invalid limit {k}.{bound}: {val}")
 
     # Volume check (if present top-level)
     if strict_volume and "volume" in m:
         vol = m.get("volume")
-        if isinstance(vol, (int, float)) and vol < 1000: # Arbitrary low threshold? Prompt says "warn by default; allow STRICT_VOLUME=true to fail"
-             errors.append(f"Symbol '{symbol}' has low volume: {vol}")
+        if (
+            isinstance(vol, (int, float)) and vol < 1000
+        ):  # Arbitrary low threshold? Prompt says "warn by default; allow STRICT_VOLUME=true to fail"
+            errors.append(f"Symbol '{symbol}' has low volume: {vol}")
 
 
 def validate_schema(data, min_markets, strict_volume):
@@ -109,8 +111,8 @@ def validate_schema(data, min_markets, strict_volume):
         # Requirement: "For each market that will be eligible for whitelist: Required fields..."
         # So inactive markets can be skipped for strict checks?
         if m.get("active", True):
-             validate_symbol_format(symbol, errors)
-             validate_numeric_sanity(m, symbol, strict_volume, errors)
+            validate_symbol_format(symbol, errors)
+            validate_numeric_sanity(m, symbol, strict_volume, errors)
 
         # Uniqueness
         if symbol in symbols:
@@ -140,9 +142,15 @@ def validate_environment(data, env_name, errors):
         print(f"INFO: Detected Exchange ID: {exchange_id}")
         # Heuristic check
         if "india" in env_name.lower() and "india" not in str(exchange_id).lower():
-            print(f"WARN: Environment mismatch? Expected India env ({env_name}), got exchange_id: {exchange_id}")
+            print(
+                f"WARN: Environment mismatch? Expected India env ({env_name}), "
+                f"got exchange_id: {exchange_id}"
+            )
         elif "global" in env_name.lower() and "india" in str(exchange_id).lower():
-            print(f"WARN: Environment mismatch? Expected Global env ({env_name}), got exchange_id: {exchange_id}")
+            print(
+                f"WARN: Environment mismatch? Expected Global env ({env_name}), "
+                f"got exchange_id: {exchange_id}"
+            )
     else:
         print("WARN: Environment check skipped (no recognizable exchange metadata in dump).")
 
@@ -156,13 +164,17 @@ def validate_drift(current_whitelist_symbols, prev_whitelist_path, max_removal_r
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
-            if isinstance(prev_data, dict) and "exchange" in prev_data and "pair_whitelist" in prev_data["exchange"]:
-                 prev_symbols = set(prev_data["exchange"]["pair_whitelist"])
+            if (
+                isinstance(prev_data, dict)
+                and "exchange" in prev_data
+                and "pair_whitelist" in prev_data["exchange"]
+            ):
+                prev_symbols = set(prev_data["exchange"]["pair_whitelist"])
             elif isinstance(prev_data, list):
-                 prev_symbols = set(prev_data)
+                prev_symbols = set(prev_data)
             else:
-                 errors.append("Previous whitelist format unrecognized.")
-                 return [], 0.0
+                errors.append("Previous whitelist format unrecognized.")
+                return [], 0.0
     except Exception as e:
         errors.append(f"Could not read previous whitelist: {e}")
         return [], 0.0
@@ -178,28 +190,32 @@ def validate_drift(current_whitelist_symbols, prev_whitelist_path, max_removal_r
 
     if removal_ratio > max_removal_ratio:
         errors.append(
-            f"Large delist drift: {removal_ratio:.2f} > MAX ({max_removal_ratio}). Manual review required."
+            f"Large delist drift: {removal_ratio:.2f} > MAX ({max_removal_ratio}). "
+            "Manual review required."
         )
 
     # Check for format changes
-    # Heuristic: if a symbol was removed but a very similar one was added (e.g. BTC/USDT -> BTC/USDT:USDT)
+    # Heuristic: if a symbol was removed but a very similar one was added
+    # (e.g. BTC/USDT -> BTC/USDT:USDT)
     format_changes = []
     for rem in removed:
         base_quote = rem.split(":")[0]
         # Check if any added symbol starts with this base_quote and has a semicolon (new format)
         potential_matches = [a for a in added if a.startswith(base_quote + ":")]
         if potential_matches:
-             format_changes.append(f"{rem} -> {potential_matches[0]}")
+            format_changes.append(f"{rem} -> {potential_matches[0]}")
 
     if format_changes:
-        errors.append(f"Format changed for {len(format_changes)} pairs: {', '.join(format_changes[:5])}...")
+        errors.append(
+            f"Format changed for {len(format_changes)} pairs: {', '.join(format_changes[:5])}..."
+        )
 
     return list(removed), removal_ratio
 
 
 def write_report(path, status, markets_count, whitelist_count, errors, drift_info, args):
     report = f"""# Markets Schema Validation Report
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {datetime.now(UTC).isoformat()}
 Status: {status}
 File: {args.markets}
 Environment: {args.env}
@@ -209,8 +225,8 @@ Environment: {args.env}
 - Whitelist Size: {whitelist_count}
 
 ## Drift Analysis
-- Removed Pairs: {len(drift_info.get('removed', []))}
-- Removal Ratio: {drift_info.get('ratio', 0.0):.2f}
+- Removed Pairs: {len(drift_info.get("removed", []))}
+- Removal Ratio: {drift_info.get("ratio", 0.0):.2f}
 """
 
     if errors:
@@ -218,10 +234,10 @@ Environment: {args.env}
         for e in errors:
             report += f"- {e}\n"
 
-    if drift_info.get('removed'):
+    if drift_info.get("removed"):
         report += "\n## Removed Pairs\n"
-        for p in drift_info['removed']:
-             report += f"- {p}\n"
+        for p in drift_info["removed"]:
+            report += f"- {p}\n"
 
     try:
         p = Path(path)
@@ -241,13 +257,29 @@ def main():
     parser.add_argument("--out-report", required=True, help="Path to output markdown report")
 
     # Env vars for thresholds
-    parser.add_argument("--min-markets", type=int, default=int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS)))
-    parser.add_argument("--max-removal-ratio", type=float, default=float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)))
-    parser.add_argument("--strict-volume", action="store_true", default=os.environ.get("STRICT_VOLUME", "false").lower() == "true")
+    parser.add_argument(
+        "--min-markets",
+        type=int,
+        default=int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS)),
+    )
+    parser.add_argument(
+        "--max-removal-ratio",
+        type=float,
+        default=float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)),
+    )
+    parser.add_argument(
+        "--strict-volume",
+        action="store_true",
+        default=os.environ.get("STRICT_VOLUME", "false").lower() == "true",
+    )
 
     # Filter mode for whitelist generation
-    parser.add_argument("--filter-mode", default=os.environ.get("FILTER_MODE", "perps_usdt"))
-    parser.add_argument("--allowlist-regex", default=os.environ.get("ALLOWLIST_REGEX", ".*"))
+    parser.add_argument(
+        "--filter-mode", default=os.environ.get("FILTER_MODE", "perps_usdt")
+    )
+    parser.add_argument(
+        "--allowlist-regex", default=os.environ.get("ALLOWLIST_REGEX", ".*")
+    )
 
     args = parser.parse_args()
 
@@ -278,7 +310,9 @@ def main():
     all_errors = []
 
     # 1. Validate Schema
-    market_symbols, schema_errors = validate_schema(markets_list, args.min_markets, args.strict_volume)
+    _, schema_errors = validate_schema(
+        markets_list, args.min_markets, args.strict_volume
+    )
     all_errors.extend(schema_errors)
 
     # 2. Environment Sanity (Optional/Info)
@@ -286,17 +320,32 @@ def main():
 
     # 3. Drift Safety
     # Generate candidate whitelist
-    candidate_whitelist = filter_markets(markets_list, filter_mode=args.filter_mode, allowlist_regex=args.allowlist_regex)
+    candidate_whitelist = filter_markets(
+        markets_list, filter_mode=args.filter_mode, allowlist_regex=args.allowlist_regex
+    )
 
-    drift_info = {'removed': [], 'ratio': 0.0}
+    drift_info = {"removed": [], "ratio": 0.0}
     if args.prev_whitelist:
-        removed, ratio = validate_drift(candidate_whitelist, args.prev_whitelist, args.max_removal_ratio, all_errors)
-        drift_info['removed'] = removed
-        drift_info['ratio'] = ratio
+        removed, ratio = validate_drift(
+            candidate_whitelist,
+            args.prev_whitelist,
+            args.max_removal_ratio,
+            all_errors,
+        )
+        drift_info["removed"] = removed
+        drift_info["ratio"] = ratio
 
     status = "FAIL" if all_errors else "PASS"
 
-    write_report(args.out_report, status, len(markets_list), len(candidate_whitelist), all_errors, drift_info, args)
+    write_report(
+        args.out_report,
+        status,
+        len(markets_list),
+        len(candidate_whitelist),
+        all_errors,
+        drift_info,
+        args,
+    )
 
     if status == "FAIL":
         print(f"Validation FAILED with {len(all_errors)} errors.")
