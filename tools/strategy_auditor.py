@@ -1,123 +1,285 @@
 #!/usr/bin/env python3
+import argparse
 import ast
+import logging
 import os
 import sys
 from pathlib import Path
 
 
-def audit_file(filepath):  # noqa: C901
-    print(f"Auditing {filepath}...")
-    with Path(filepath).open() as f:
-        source = f.read()
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        print(f"FAIL: Syntax Error in {filepath}: {exc}")
+
+class StrategyAuditor:
+    REQUIRED_HEADER_FIELDS = [
+        "Strategy Name",
+        "Author",
+        "Version",
+        "Supported Timeframes",
+        "Supported Pair Format Notes",
+        "Timezone Rule",
+        "Entry Definitions",
+        "Exit Definitions",
+        "No Repainting Note",
+    ]
+
+    TEMPLATE_HEADER = '''"""
+Strategy Name: {name}
+Author: {author}
+Version: {version}
+Supported Timeframes: {timeframes}
+
+Supported Pair Format Notes:
+    - Delta contract symbols (e.g. BTCUSDT)
+    - Freqtrade/CCXT futures pair format (base/quote:settle like BTC/USDT:USDT)
+
+Timezone Rule:
+    - All timestamps logged as UTC ISO-8601
+
+Entry Definitions:
+    - Long entry: (Add logic here)
+    - Short entry: (Add logic here)
+
+Exit Definitions:
+    - Long exit: (Add logic here)
+    - Short exit: (Add logic here)
+
+No Repainting Note:
+    - Only act on closed candles (no incomplete candle usage)
+"""
+'''
+
+    def __init__(self, fix: bool = False):
+        self.fix = fix
+
+    def is_strategy_file(self, tree: ast.AST) -> bool:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
+                if "IStrategy" in bases:
+                    return True
         return False
 
-    errors = []
+    def audit_file(self, filepath: str) -> bool:  # noqa: C901
+        path = Path(filepath)
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                source = f.read()
+        except Exception as e:
+            logger.error(f"FAIL: Could not read {filepath}: {e}")
+            return False
 
-    # Check 1: Docstring (Header block)
-    if not ast.get_docstring(tree):
-        errors.append("Missing module docstring (Header block)")
+        try:
+            tree = ast.parse(source)
+        except SyntaxError as exc:
+            logger.error(f"FAIL: Syntax Error in {filepath}: {exc}")
+            return False
 
-    # Check 2: Unsafe Imports
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for n in node.names:
-                if n.name in ["requests", "urllib", "socket", "http"]:
-                    errors.append(f"Unsafe import: {n.name}")
-        elif isinstance(node, ast.ImportFrom):
-            if node.module in ["requests", "urllib", "socket", "http"]:
-                errors.append(f"Unsafe import from: {node.module}")
+        # If not a strategy file, skip strategy-specific audits but check generic safety?
+        # Requirement: "Parses every strategy ... Enforces ... header ... validates populate..."
+        # So we should skip non-strategies.
+        if not self.is_strategy_file(tree):
+            # Only log if verbose? Or just silently skip?
+            # User might pass a directory with utils.
+            # logger.info(f"Skipping {filepath} (Not a strategy)")
+            return True
 
-    # Check 3: datetime.now() usage (heuristic)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute):
-                # check for .now()
-                if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
-                    if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+        logger.info(f"Auditing {filepath}...")
 
-    # Check 4: Enforce AuditedStrategyMixin (heuristic)
-    has_class = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            has_class = True
-            # Check bases
-            bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
-            if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
+        errors = []
+        fixed_source = source
 
-    # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
+        # Check 1: Docstring (Header block)
+        docstring_errors, new_source = self.check_docstring(tree, source, filepath)
+        if docstring_errors:
+            errors.extend(docstring_errors)
+            if self.fix and new_source:
+                fixed_source = new_source
+                # Re-parse tree for subsequent checks if source changed
+                try:
+                    tree = ast.parse(fixed_source)
+                except SyntaxError:
+                    pass
 
-    # Check 6: Complex conditions (named sub-conditions)
-    # Heuristic: Check for assignments to dataframe with complex BoolOp index
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            # We look for dataframe.loc[...] = ...
-            for target in node.targets:
-                if isinstance(target, ast.Subscript):
-                    # Check slice (index)
-                    sl = target.slice
-                    # Handle python < 3.9 where slice might be wrapped
-                    if isinstance(sl, ast.Index):
-                        sl = sl.value
+        # Check 2: Unsafe Imports
+        errors.extend(self.check_unsafe_imports(tree))
 
-                    if isinstance(sl, ast.BoolOp):
-                        if len(sl.values) > 3:
+        # Check 3: datetime.now() usage
+        errors.extend(self.check_datetime_now(tree))
+
+        # Check 4: Enforce AuditedStrategyMixin
+        errors.extend(self.check_mixin_inheritance(tree, filepath))
+
+        # Check 5: "closed candle only" note
+        if "closed candle" not in fixed_source.lower():
+            if not self.fix:
+                errors.append(
+                    "Missing 'closed candle' note/comment (Logic must run on closed candles)"
+                )
+
+        # Check 6: Entry/Exit Logic (named variables and comments)
+        errors.extend(self.check_entry_exit_logic(tree, source))
+
+        if errors:
+            for e in errors:
+                logger.error(f"  - {e}")
+
+            if self.fix and fixed_source != source:
+                try:
+                    with path.open("w", encoding="utf-8") as f:
+                        f.write(fixed_source)
+                    logger.info(f"  FIXED: Updated header in {filepath}")
+                    # If we fixed, return True?
+                    # Only if errors were only docstring errors.
+                    # But checking that is complex. Return False to prompt re-check.
+                except Exception as e:
+                    logger.error(f"  FAIL: Could not write fix to {filepath}: {e}")
+
+            return False
+
+        logger.info("PASS")
+        return True
+
+    def check_docstring(
+        self, tree: ast.AST, source: str, filepath: str
+    ) -> tuple[list[str], str | None]:
+        errors = []
+        docstring = ast.get_docstring(tree)
+
+        missing_fields = []
+        if not docstring:
+            missing_fields = self.REQUIRED_HEADER_FIELDS
+            errors.append("Missing module docstring (Header block)")
+        else:
+            for field in self.REQUIRED_HEADER_FIELDS:
+                if f"{field}:" not in docstring and f"{field}" not in docstring:
+                    missing_fields.append(field)
+
+            if missing_fields:
+                errors.append(f"Missing header fields: {', '.join(missing_fields)}")
+
+        new_source = None
+        if (not docstring) and self.fix:
+            name = Path(filepath).stem
+            header = self.TEMPLATE_HEADER.format(
+                name=name,
+                author="Unknown",
+                version="1.0",
+                timeframes="1h (Check strategy)",
+            )
+            new_source = header + "\n" + source
+
+        return errors, new_source
+
+    def check_unsafe_imports(self, tree: ast.AST) -> list[str]:
+        errors = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for n in node.names:
+                    if n.name in ["requests", "urllib", "socket", "http"]:
+                        errors.append(f"Unsafe import: {n.name}")
+            elif isinstance(node, ast.ImportFrom):
+                if node.module in ["requests", "urllib", "socket", "http"]:
+                    errors.append(f"Unsafe import from: {node.module}")
+        return errors
+
+    def check_datetime_now(self, tree: ast.AST) -> list[str]:
+        errors = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Attribute):
+                    if node.func.attr == "now":
+                        if not node.args and not node.keywords:
                             errors.append(
-                                f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
+                                f"Potential naive datetime.now() usage at line {node.lineno}"
                             )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
+        return errors
 
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
+    def check_mixin_inheritance(self, tree: ast.AST, filepath: str) -> list[str]:
+        errors = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
+                if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
+                    errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
+        return errors
 
-    if errors:
-        for e in errors:
-            print(f"  - {e}")
+    def check_entry_exit_logic(self, tree: ast.AST, source: str) -> list[str]:  # noqa: C901
+        errors = []
+        target_methods = ["populate_entry_trend", "populate_exit_trend"]
+        source_lines = source.splitlines()
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in target_methods:
+                # 1. Check for comments explaining thesis
+                has_comment = False
+                if ast.get_docstring(node):
+                    has_comment = True
+                else:
+                    start = node.lineno - 1
+                    end = (
+                        node.end_lineno if getattr(node, "end_lineno", None) else len(source_lines)
+                    )
+                    for i in range(start, min(end, len(source_lines))):
+                        if "#" in source_lines[i]:
+                            has_comment = True
+                            break
+
+                if not has_comment:
+                    errors.append(f"Method {node.name} missing comments explaining market thesis")
+
+                # 2. Check for named variables (no inline comparisons in .loc)
+                for stmt in node.body:
+                    if isinstance(stmt, ast.Assign):
+                        for target in stmt.targets:
+                            if isinstance(target, ast.Subscript):
+                                sl = target.slice
+                                if isinstance(sl, ast.Index):
+                                    sl = sl.value
+
+                                if self._has_inline_comparison(sl):
+                                    errors.append(
+                                        f"Inline comparison condition in {node.name} at line "
+                                        f"{stmt.lineno}. Use named boolean variables for "
+                                        "sub-conditions."
+                                    )
+        return errors
+
+    def _has_inline_comparison(self, node: ast.AST) -> bool:
+        """
+        Returns True if the node contains comparison logic (>, <, ==, etc).
+        """
+        for child in ast.walk(node):
+            if isinstance(child, ast.Compare):
+                return True
         return False
-
-    print("PASS")
-    return True
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: strategy_auditor.py <file_or_dir>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Strategy Auditor for Freqtrade")
+    parser.add_argument("path", help="File or directory to audit")
+    parser.add_argument("--fix", action="store_true", help="Auto-fix missing headers")
 
-    target = sys.argv[1]
+    args = parser.parse_args()
+
+    auditor = StrategyAuditor(fix=args.fix)
     failed = False
 
-    if Path(target).is_file():
-        if not audit_file(target):
+    target = Path(args.path)
+    if target.is_file():
+        if not auditor.audit_file(str(target)):
             failed = True
-    else:
+    elif target.is_dir():
         for root, _, files in os.walk(target):
             for file in files:
                 if file.endswith(".py") and not file.startswith("__"):
-                    if not audit_file(str(Path(root) / file)):
+                    if not auditor.audit_file(str(Path(root) / file)):
                         failed = True
+    else:
+        logger.error(f"Error: {target} is not a valid file or directory")
+        sys.exit(1)
 
     if failed:
         sys.exit(1)
