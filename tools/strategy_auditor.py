@@ -128,8 +128,8 @@ No Repainting Note:
         errors.extend(self.check_entry_exit_logic(tree, source))
 
         if errors:
-            for e in errors:
-                logger.error(f"  - {e}")
+            for error_msg in errors:
+                logger.error(f"  - {error_msg}")
 
             if self.fix and fixed_source != source:
                 try:
@@ -148,7 +148,7 @@ No Repainting Note:
         return True
 
     def check_docstring(
-        self, tree: ast.AST, source: str, filepath: str
+        self, tree: ast.Module, source: str, filepath: str
     ) -> tuple[list[str], str | None]:
         errors = []
         docstring = ast.get_docstring(tree)
@@ -211,7 +211,7 @@ No Repainting Note:
                     errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
         return errors
 
-    def check_entry_exit_logic(self, tree: ast.AST, source: str) -> list[str]:  # noqa: C901
+    def check_entry_exit_logic(self, tree: ast.AST, source: str) -> list[str]:
         errors = []
         target_methods = ["populate_entry_trend", "populate_exit_trend"]
         source_lines = source.splitlines()
@@ -224,9 +224,8 @@ No Repainting Note:
                     has_comment = True
                 else:
                     start = node.lineno - 1
-                    end = (
-                        node.end_lineno if getattr(node, "end_lineno", None) else len(source_lines)
-                    )
+                    end_lineno = getattr(node, "end_lineno", None)
+                    end = end_lineno if end_lineno is not None else len(source_lines)
                     for i in range(start, min(end, len(source_lines))):
                         if "#" in source_lines[i]:
                             has_comment = True
@@ -241,8 +240,7 @@ No Repainting Note:
                         for target in stmt.targets:
                             if isinstance(target, ast.Subscript):
                                 sl = target.slice
-                                if isinstance(sl, ast.Index):
-                                    sl = sl.value
+                                # Support for Python < 3.9 (ast.Index) removed as Freqtrade requires >= 3.11  # noqa: E501
 
                                 if self._has_inline_comparison(sl):
                                     errors.append(
