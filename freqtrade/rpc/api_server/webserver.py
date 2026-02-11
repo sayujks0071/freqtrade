@@ -310,7 +310,8 @@ class ApiServer(RPCHandler):
 
         if len(jwt_secret_key) < 16:
             logger.warning(
-                "SECURITY WARNING - `jwt_secret_key` is too short, please use at least 16 characters."
+                "SECURITY WARNING - `jwt_secret_key` is too short, "
+                "please use at least 16 characters."
             )
 
         logger.info("Starting Local Rest Server.")
