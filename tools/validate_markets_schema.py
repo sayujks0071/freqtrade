@@ -106,7 +106,8 @@ def validate_schema(data, report_lines):
 
         validate_symbol_format(symbol, errors)
 
-        # Uniqueness (case-insensitive check handled by validate_symbol_format forcing uppercase check)
+        # Uniqueness (case-insensitive check handled by validate_symbol_format
+        # forcing uppercase check)
         if symbol in seen_symbols:
             errors.append(f"Duplicate symbol '{symbol}'")
         seen_symbols.add(symbol)
@@ -221,9 +222,7 @@ def validate_drift(candidate_path, prev_path, report_lines):
     for s in candidate_symbols:
         # Re-verify format for whitelist specifically
         if ":" not in s:
-            return fail(
-                f"Candidate whitelist contains invalid symbol format: {s}", report_lines
-            )
+            return fail(f"Candidate whitelist contains invalid symbol format: {s}", report_lines)
 
     return 0
 
@@ -238,25 +237,19 @@ def write_report(path, lines):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Validate markets schema and check for drift."
-    )
+    parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
     parser.add_argument("--markets", required=True, help="Path to markets JSON dump")
     parser.add_argument(
         "--candidate-whitelist", required=False, help="Path to candidate whitelist JSON"
     )
-    parser.add_argument(
-        "--prev-whitelist", required=False, help="Path to previous whitelist JSON"
-    )
+    parser.add_argument("--prev-whitelist", required=False, help="Path to previous whitelist JSON")
     parser.add_argument(
         "--env",
         required=False,
         default="india_prod",
         help="Target environment (e.g., india_prod)",
     )
-    parser.add_argument(
-        "--out-report", required=True, help="Path to output Markdown report"
-    )
+    parser.add_argument("--out-report", required=True, help="Path to output Markdown report")
 
     args = parser.parse_args()
 
