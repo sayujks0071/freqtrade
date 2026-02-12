@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+
 # Configuration
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
@@ -19,7 +20,7 @@ TYPE_FIELDS = ["type", "contract", "future", "perp"]
 def fail(message, report_lines):
     full_msg = f"FAIL: {message}"
     print(full_msg)
-    report_lines.append(f"**STATUS: FAIL**")
+    report_lines.append("**STATUS: FAIL**")
     report_lines.append(f"Reason: {message}")
     return 2
 
@@ -69,11 +70,11 @@ def validate_numeric(m, symbol, errors):
         vol = m.get("volume")
         if vol is not None:
             if not isinstance(vol, (int, float)):
-                 errors.append(f"Volume for {symbol} is not numeric: {vol}")
+                errors.append(f"Volume for {symbol} is not numeric: {vol}")
             elif vol < 0:
-                 errors.append(f"Volume for {symbol} is negative: {vol}")
+                errors.append(f"Volume for {symbol} is negative: {vol}")
             elif STRICT_VOLUME and vol < 1000:
-                 errors.append(f"Low volume for {symbol}: {vol}")
+                errors.append(f"Low volume for {symbol}: {vol}")
 
     # Check limits if present (e.g., cost min/max)
     if "limits" in m and isinstance(m["limits"], dict):
@@ -143,17 +144,24 @@ def validate_env(data_meta, env, report_lines):
     if isinstance(api_url, dict):
         api_url = api_url.get("public", "")
 
-    report_lines.append(f"## Environment Check")
+    report_lines.append("## Environment Check")
     report_lines.append(f"- Expected: {env}")
     report_lines.append(f"- Found ID: {exchange_id}")
     report_lines.append(f"- Found API: {api_url}")
 
     # Simple checks
     if "testnet" in env and "testnet" not in api_url and "testnet" not in exchange_id:
-        warn(f"Environment mismatch? Expected {env} but URL/ID doesn't look like testnet.", report_lines)
+        warn(
+            f"Environment mismatch? Expected {env} but URL/ID doesn't look like testnet.",
+            report_lines,
+        )
     elif "india" in env and "india" not in api_url and "india" not in exchange_id:
-        # This might be valid if they share global URL but different endpoints, but usually india has specific URL
-        warn(f"Environment mismatch? Expected {env} but URL/ID doesn't look like India.", report_lines)
+        # This might be valid if they share global URL but different endpoints
+        # but usually india has specific URL
+        warn(
+            f"Environment mismatch? Expected {env} but URL/ID doesn't look like India.",
+            report_lines,
+        )
 
 
 def load_whitelist(path):
@@ -198,8 +206,9 @@ def validate_drift(candidate_path, prev_path, report_lines):
 
     if removal_ratio > MAX_REMOVAL_RATIO:
         return fail(
-            f"Large delist drift: {removal_ratio:.2f} > MAX ({MAX_REMOVAL_RATIO}). Manual review required.",
-            report_lines
+            f"Large delist drift: {removal_ratio:.2f} > MAX ({MAX_REMOVAL_RATIO}). "
+            "Manual review required.",
+            report_lines,
         )
 
     # Check format change (strict check for new symbols)
@@ -212,7 +221,9 @@ def validate_drift(candidate_path, prev_path, report_lines):
     for s in candidate_symbols:
         # Re-verify format for whitelist specifically
         if ":" not in s:
-             return fail(f"Candidate whitelist contains invalid symbol format: {s}", report_lines)
+            return fail(
+                f"Candidate whitelist contains invalid symbol format: {s}", report_lines
+            )
 
     return 0
 
@@ -227,12 +238,25 @@ def write_report(path, lines):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
+    parser = argparse.ArgumentParser(
+        description="Validate markets schema and check for drift."
+    )
     parser.add_argument("--markets", required=True, help="Path to markets JSON dump")
-    parser.add_argument("--candidate-whitelist", required=False, help="Path to candidate whitelist JSON")
-    parser.add_argument("--prev-whitelist", required=False, help="Path to previous whitelist JSON")
-    parser.add_argument("--env", required=False, default="india_prod", help="Target environment (e.g., india_prod)")
-    parser.add_argument("--out-report", required=True, help="Path to output Markdown report")
+    parser.add_argument(
+        "--candidate-whitelist", required=False, help="Path to candidate whitelist JSON"
+    )
+    parser.add_argument(
+        "--prev-whitelist", required=False, help="Path to previous whitelist JSON"
+    )
+    parser.add_argument(
+        "--env",
+        required=False,
+        default="india_prod",
+        help="Target environment (e.g., india_prod)",
+    )
+    parser.add_argument(
+        "--out-report", required=True, help="Path to output Markdown report"
+    )
 
     args = parser.parse_args()
 
@@ -241,14 +265,14 @@ def main():
         f"Date: {datetime.now(UTC).isoformat()}",
         f"Env: {args.env}",
         f"File: {args.markets}",
-        ""
+        "",
     ]
 
     try:
         with Path(args.markets).open() as f:
             data = json.load(f)
     except Exception as e:
-        report_lines.append(f"**FATAL: Invalid JSON in markets file**")
+        report_lines.append("**FATAL: Invalid JSON in markets file**")
         report_lines.append(str(e))
         write_report(args.out_report, report_lines)
         sys.exit(2)
@@ -260,8 +284,7 @@ def main():
         markets_list = data
     elif isinstance(data, dict):
         markets_list = data.get("markets", [])
-        metadata = data  # Assume top level dict is metadata if 'markets' key exists, or vice versa
-        # Actually usually freqtrade dict has 'markets' key.
+        metadata = data  # Assume top level dict is metadata if 'markets' key exists
     else:
         fail("Invalid JSON structure (neither list nor dict)", report_lines)
         write_report(args.out_report, report_lines)
