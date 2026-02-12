@@ -50,16 +50,46 @@ def audit_file(filepath):  # noqa: C901
             has_class = True
             # Check bases
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
+
+            # If it's the Mixin itself, skip
+            if node.name == "AuditedStrategyMixin":
+                continue
+
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
                 # Warn if it inherits directly from IStrategy but not Mixin
                 if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
                     errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
 
-    # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
+    # Check 5: "closed candle only" enforcement
+    # Check if process_only_new_candles is set to True
+    process_only_new_candles_found = False
+    for node in ast.walk(tree):
+        # Check inside ClassDef body for assignment (class attribute)
+        if isinstance(node, ast.ClassDef):
+            for item in node.body:
+                 if isinstance(item, ast.Assign):
+                    for target in item.targets:
+                        if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
+                             if isinstance(item.value, ast.Constant) and item.value.value is True:
+                                 process_only_new_candles_found = True
+                             elif isinstance(item.value, ast.NameConstant) and item.value.value is True:
+                                 process_only_new_candles_found = True
+
+    # Also check if it's set globally in the file (less common but possible)
+    if not process_only_new_candles_found:
+        for node in ast.walk(tree):
+             if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
+                        if isinstance(node.value, ast.Constant) and node.value.value is True:
+                            process_only_new_candles_found = True
+                        elif isinstance(node.value, ast.NameConstant) and node.value.value is True:
+                            process_only_new_candles_found = True
+
+    if not process_only_new_candles_found:
+        # Fallback to comment check
+        if "closed candle" not in source.lower():
+             errors.append("Strategy must set process_only_new_candles=True or mention 'closed candle' in logic.")
 
     # Check 6: Complex conditions (named sub-conditions)
     # Heuristic: Check for assignments to dataframe with complex BoolOp index

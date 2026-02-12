@@ -22,6 +22,7 @@ def get_db_connection():
 def generate_report():
     conn = get_db_connection()
 
+    # Query closed trades in the last 24h
     query = """
     SELECT * FROM trades
     WHERE close_date >= datetime('now', '-1 day')
@@ -29,7 +30,7 @@ def generate_report():
     """
 
     try:
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(query, conn, parse_dates=['open_date', 'close_date'])
     except Exception as e:
         print(f"Error querying DB: {e}")
         # Fallback to verify table exists
@@ -39,6 +40,9 @@ def generate_report():
 
     date_str = datetime.utcnow().strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
+
+    # Ensure reports dir exists
+    Path("user_data/reports").mkdir(parents=True, exist_ok=True)
 
     with Path(report_file).open("w") as f:
         f.write(f"# Daily Trading Report ({date_str})\n\n")
@@ -55,15 +59,29 @@ def generate_report():
         avg_return = df["close_profit"].mean() * 100
         total_profit_abs = df["close_profit_abs"].sum()
 
+        # Exposure Time
+        # Assuming open_date and close_date are parsed as datetimes
+        if 'open_date' in df.columns and 'close_date' in df.columns:
+            df['duration'] = df['close_date'] - df['open_date']
+            avg_duration = df['duration'].mean()
+            # Format timedelta
+            avg_duration_str = str(avg_duration).split('.')[0] # Remove microseconds
+        else:
+            avg_duration_str = "N/A"
+
         # Max Drawdown (Approximate from closed trades)
         # For real max drawdown we need high res data, but we can use cumulative profit min
         df["cum_profit"] = df["close_profit_abs"].cumsum()
+        # This is strictly realized drawdown from closed trades sequence
+        max_dd = df["cum_profit"].min() if not df.empty else 0.0
 
         f.write("## Summary\n")
         f.write(f"- **Total Trades**: {total_trades}\n")
         f.write(f"- **Win Rate**: {win_rate:.2f}%\n")
         f.write(f"- **Avg Return**: {avg_return:.2f}%\n")
-        f.write(f"- **Total Profit**: {total_profit_abs:.4f}\n\n")
+        f.write(f"- **Total Profit**: {total_profit_abs:.4f}\n")
+        f.write(f"- **Avg Exposure**: {avg_duration_str}\n")
+        f.write(f"- **Max Drawdown (Realized)**: {max_dd:.4f}\n\n")
 
         f.write("## Top Pairs\n")
         top_pairs = df["pair"].value_counts().head(5)

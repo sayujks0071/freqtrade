@@ -3,42 +3,42 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
 export FREQTRADE_CONFIG_FILE="config.delta.live.json"
+export FREQTRADE_STRATEGY="DeltaSafeStrategy"
 
-echo "!!! WARNING: STARTING LIVE TRADING !!!"
-echo "Are you sure? (y/N)"
+echo "!!! WARNING: STARTING LIVE TRADING ON $DELTA_ENV !!!"
+echo "REAL MONEY IS AT RISK."
+echo "Strategy: $FREQTRADE_STRATEGY"
+echo "Daily Loss Limit: ${DAILY_LOSS_LIMIT:-"Default (-5%)"}"
+
+# Verification
+if [ -z "$DELTA_API_KEY" ] || [ -z "$DELTA_API_SECRET" ]; then
+    echo "ERROR: API Credentials missing!"
+    exit 1
+fi
+
+if [[ "$DELTA_API_KEY" == *"your_api_key"* ]]; then
+     echo "ERROR: Default API Key detected. Edit .env!"
+     exit 1
+fi
+
+echo "Are you sure? (Type 'YES' to confirm)"
 read -r response
-if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
-then
+if [ "$response" != "YES" ]; then
     echo "Aborted."
     exit 1
 fi
 
-echo "Starting Freqtrade in LIVE mode..."
-docker compose up -d
-
-echo "Container started."
-echo "View logs: docker compose logs -f"
-set -e
-
-# Ensure we are in the root
+# Ensure we are in root
 cd "$(dirname "$0")/.."
 
 # Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Please run update_markets_and_whitelist.sh first or bootstrap."
-    exit 1
+if [ ! -f "user_data/pairlists/whitelist.delta.json" ]; then
+    echo "Whitelist not found. Running validation/refresh..."
+    bash "scripts/validate_exchange.sh"
 fi
 
-echo "WARNING: Switching to LIVE TRADING config..."
-read -p "Are you sure you want to trade real money? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    exit 1
-fi
+echo "Starting container in LIVE mode..."
+docker compose up -d
 
-cp user_data/configs/config.delta.live.json user_data/config.json
-
-echo "Starting Freqtrade in Docker (LIVE)..."
-docker compose up -d --remove-orphans
-docker compose logs -f
+echo "Container started (LIVE)."
+echo "Monitor logs closely: docker compose logs -f"
