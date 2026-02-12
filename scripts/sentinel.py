@@ -21,12 +21,13 @@ import requests
 try:
     from freqtrade.configuration.load_config import load_config_file
 except ImportError:
-    load_config_file = None
+    load_config_file = None  # type: ignore
     import json
     import re
 
     def _strip_comments(text: str) -> str:
-        return re.sub(r'//.*', '', text)
+        return re.sub(r"//.*", "", text)
+
 
 logger = logging.getLogger("Sentinel")
 
@@ -34,7 +35,7 @@ logger = logging.getLogger("Sentinel")
 class Sentinel:
     def __init__(self, config_path: Path, api_url: str, api_user: str, api_pass: str):
         self.config_path = config_path
-        self.api_url = api_url.rstrip('/')
+        self.api_url = api_url.rstrip("/")
         self.api_user = api_user
         self.api_pass = api_pass
         self.access_token: str | None = None
@@ -45,7 +46,7 @@ class Sentinel:
         self.balance_history: deque[tuple[datetime, float]] = deque()
 
         # Exchange for BTC price monitoring
-        self.exchange_id = 'binance'
+        self.exchange_id = "binance"
         self.exchange: ccxt.Exchange | None = None
 
         self.setup_exchange()
@@ -56,29 +57,29 @@ class Sentinel:
             # Attempt to load exchange from config if available
             config = self._load_config()
             if config:
-                self.exchange_id = config.get('exchange', {}).get('name', 'binance')
+                self.exchange_id = config.get("exchange", {}).get("name", "binance")
 
             exchange_class = getattr(ccxt, self.exchange_id)
-            self.exchange = exchange_class({'enableRateLimit': True})
+            self.exchange = exchange_class({"enableRateLimit": True})
             logger.info(f"Initialized exchange: {self.exchange_id}")
         except Exception as e:
             logger.error(f"Failed to initialize exchange {self.exchange_id}: {e}")
             # Fallback to binance if configured one fails
-            if self.exchange_id != 'binance':
+            if self.exchange_id != "binance":
                 logger.info("Falling back to binance for BTC monitoring.")
-                self.exchange_id = 'binance'
-                self.exchange = ccxt.binance({'enableRateLimit': True})
+                self.exchange_id = "binance"
+                self.exchange = ccxt.binance({"enableRateLimit": True})
 
     def _load_config(self) -> dict[str, Any]:
         """Load configuration from file."""
         if not self.config_path.exists():
             return {}
 
-        if load_config_file:
-            return load_config_file(str(self.config_path))
+        if load_config_file:  # type: ignore
+            return load_config_file(str(self.config_path))  # type: ignore
 
         try:
-            with self.config_path.open('r') as f:
+            with self.config_path.open("r") as f:
                 content = _strip_comments(f.read())
                 return json.loads(content)
         except Exception as e:
@@ -92,8 +93,8 @@ class Sentinel:
             response = requests.post(auth_url, auth=(self.api_user, self.api_pass), timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                self.access_token = data.get('access_token')
-                self.refresh_token = data.get('refresh_token')
+                self.access_token = data.get("access_token")
+                self.refresh_token = data.get("refresh_token")
                 return True
             else:
                 logger.error(f"Authentication failed: {response.text}")
@@ -123,7 +124,7 @@ class Sentinel:
                 data = response.json()
                 # 'total' field usually contains total balance in stake currency
                 # Freqtrade API /balance returns 'total' at top level
-                return float(data.get('total', 0.0))
+                return float(data.get("total", 0.0))
             else:
                 logger.error(f"Failed to get balance: {response.text}")
                 return None
@@ -141,8 +142,8 @@ class Sentinel:
 
         try:
             # Fetch OHLCV for BTC/USDT (1h candles, last 5 candles to cover 4h + current)
-            symbol = 'BTC/USDT'
-            timeframe = '1h'
+            symbol = "BTC/USDT"
+            timeframe = "1h"
             limit = 5
             ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
 
@@ -278,10 +279,8 @@ class Sentinel:
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 
@@ -289,10 +288,10 @@ def main():
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Sentinel: Freqtrade Circuit Breaker")
-    parser.add_argument('--config', type=Path, help='Path to config file')
-    parser.add_argument('--url', type=str, default='http://127.0.0.1:8080', help='API URL')
-    parser.add_argument('--user', type=str, help='API Username')
-    parser.add_argument('--password', type=str, help='API Password')
+    parser.add_argument("--config", type=Path, help="Path to config file")
+    parser.add_argument("--url", type=str, default="http://127.0.0.1:8080", help="API URL")
+    parser.add_argument("--user", type=str, help="API Username")
+    parser.add_argument("--password", type=str, help="API Password")
 
     args = parser.parse_args()
 
@@ -300,7 +299,7 @@ def main():
     config_path = args.config
     if not config_path:
         # Default config path
-        default_path = Path('user_data/configs/config.delta.live.json')
+        default_path = Path("user_data/configs/config.delta.live.json")
         if default_path.exists():
             config_path = default_path
 
@@ -311,25 +310,26 @@ def main():
     if config_path and config_path.exists():
         try:
             # Quick load to get API creds
-            if load_config_file:
-                config = load_config_file(str(config_path))
+            if load_config_file:  # type: ignore
+                config = load_config_file(str(config_path))  # type: ignore
             else:
-                with config_path.open('r') as f:
+                with config_path.open("r") as f:
                     # simplistic load
                     import json
                     import re
-                    content = re.sub(r'//.*', '', f.read())
+
+                    content = re.sub(r"//.*", "", f.read())
                     config = json.loads(content)
 
-            api_server = config.get('api_server', {})
+            api_server = config.get("api_server", {})
             if not api_user:
-                api_user = api_server.get('username')
+                api_user = api_server.get("username")
             if not api_pass:
-                api_pass = api_server.get('password')
+                api_pass = api_server.get("password")
             if (
                 not args.url
-                and api_server.get('listen_ip_address')
-                and api_server.get('listen_port')
+                and api_server.get("listen_ip_address")
+                and api_server.get("listen_port")
             ):
                 api_url = f"http://{api_server['listen_ip_address']}:{api_server['listen_port']}"
 
@@ -340,7 +340,7 @@ def main():
         logger.error("API credentials not provided and could not be loaded from config.")
         sys.exit(1)
 
-    sentinel = Sentinel(config_path or Path('config.json'), api_url, api_user, api_pass)
+    sentinel = Sentinel(config_path or Path("config.json"), api_url, api_user, api_pass)
     sentinel.run()
 
 

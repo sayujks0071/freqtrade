@@ -1,9 +1,10 @@
 import sys
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 
 # Add scripts directory to sys.path
 scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
@@ -40,7 +41,7 @@ def sentinel_instance(mock_requests, mock_ccxt):
             mock_requests.post.return_value.status_code = 200
             mock_requests.post.return_value.json.return_value = {
                 "access_token": "token",
-                "refresh_token": "refresh"
+                "refresh_token": "refresh",
             }
             sentinel.authenticate()
 
@@ -65,7 +66,7 @@ def test_get_balance(sentinel_instance, mock_requests):
     mock_requests.get.assert_called_with(
         "http://localhost:8080/api/v1/balance",
         headers={"Authorization": "Bearer token"},
-        timeout=10
+        timeout=10,
     )
 
 
@@ -114,11 +115,11 @@ def test_get_btc_price_drop(sentinel_instance):
     # OHLCV: [timestamp, open, high, low, close, volume]
     # Scenario: High was 50k, now close is 40k (20% drop)
     mock_exchange.fetch_ohlcv.return_value = [
-        [0, 48000, 50000, 48000, 49000, 10], # High 50k
+        [0, 48000, 50000, 48000, 49000, 10],  # High 50k
         [0, 49000, 49500, 48000, 48500, 10],
         [0, 48500, 49000, 47000, 47500, 10],
         [0, 47500, 48000, 46000, 46500, 10],
-        [0, 46500, 47000, 40000, 40000, 10], # Current Close 40k
+        [0, 46500, 47000, 40000, 40000, 10],  # Current Close 40k
     ]
 
     drop = sentinel_instance.get_btc_price_drop()
@@ -136,12 +137,10 @@ def test_emergency_stop(sentinel_instance, mock_requests):
         "http://localhost:8080/api/v1/forceexit",
         json={"tradeid": "all"},
         headers={"Authorization": "Bearer token"},
-        timeout=10
+        timeout=10,
     )
 
     # Verify Stop Call
     mock_requests.post.assert_any_call(
-        "http://localhost:8080/api/v1/stop",
-        headers={"Authorization": "Bearer token"},
-        timeout=10
+        "http://localhost:8080/api/v1/stop", headers={"Authorization": "Bearer token"}, timeout=10
     )
