@@ -143,7 +143,11 @@ def main():
         if not audit_file(target):
             failed = True
     else:
-        for root, _, files in os.walk(target):
+        for root, dirs, files in os.walk(target):
+            # Skip _base directories (mixins)
+            if "_base" in dirs:
+                dirs.remove("_base")
+
             for file in files:
                 if file.endswith(".py") and not file.startswith("__"):
                     if not audit_file(str(Path(root) / file)):

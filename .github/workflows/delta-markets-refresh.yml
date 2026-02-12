@@ -25,11 +25,17 @@ on:
         - all_futures
         - allowlist_regex
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   refresh-markets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Create .env
         run: |
@@ -42,7 +48,7 @@ jobs:
           echo "STRICT_VOLUME=false" >> .env
 
       - name: Setup Docker
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       - name: Pull Freqtrade Image
         run: docker compose pull freqtrade
@@ -53,7 +59,7 @@ jobs:
           ./scripts/update_markets_and_whitelist.sh
 
       - name: Upload Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         if: always()
         with:
           name: market-reports
@@ -81,7 +87,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changes == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@67ccf781d68cd99b580ae25a5c18a1cc84ffff1f # v7.0.6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update delta whitelist ${{ inputs.delta_env || 'india_prod' }}"

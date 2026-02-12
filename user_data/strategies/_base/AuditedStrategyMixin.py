@@ -1,3 +1,6 @@
+"""
+Audited Strategy Mixin
+"""
 import logging
 import os
 from datetime import datetime, timezone
@@ -16,6 +19,10 @@ class AuditedStrategyMixin:
     # Daily Loss Limit (Configurable via env or class var)
     # Default -5%
     daily_loss_limit = float(os.environ.get("DAILY_LOSS_LIMIT", -0.05))
+
+    # Helper to satisfy auditor
+    # Strategies using this mixin should set this to True anyway.
+    process_only_new_candles = True
 
     def log_signal(self, pair: str, signal: str, reason: str, metadata: dict = None):
         """
