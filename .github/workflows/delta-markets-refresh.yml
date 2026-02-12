@@ -50,6 +50,7 @@ jobs:
           ./scripts/update_markets_and_whitelist.sh
 
       - name: Upload Artifacts
+        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.0
         with:
           name: markets-reports
@@ -68,4 +69,5 @@ jobs:
           add-paths: |
             user_data/pairlists/
             user_data/reports/markets_*.json
+            user_data/reports/markets_schema_report_*.md
             user_data/reports/whitelist_diff_*.md
