@@ -1,9 +1,21 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+Strategy Name: DeltaSafeStrategy
+Author: Frequency Trade User
+Version: 1.1
+Timeframes: 1h
+Pair Format: Delta symbols (e.g. BTCUSDT) vs Freqtrade (BTC/USDT:USDT)
+Timezone: UTC ISO-8601
+Entry Conditions:
+  - Long: RSI < 30 and Volume > 0
+  - Short: None
+Exit Conditions:
+  - Long: RSI > 70 and Volume > 0
+  - Short: None
+No Repainting: Logic runs on closed candles only.
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
@@ -58,18 +70,37 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
+        # Check whitelist first
+        pair = metadata["pair"]
+        if self.config.get("exchange", {}).get("pair_whitelist"):
+            if not self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"]):
+                return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        # Named boolean conditions
+        # RSI oversold condition
+        is_oversold = dataframe["rsi"] < 30
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Volume check to ensure liquidity
+        has_volume = dataframe["volume"] > 0
+
+        # Combine conditions
+        long_condition = is_oversold & has_volume
+
+        dataframe.loc[long_condition, "enter_long"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        # RSI overbought condition
+        is_overbought = dataframe["rsi"] > 70
+
+        # Volume check
+        has_volume = dataframe["volume"] > 0
+
+        # Combine conditions
+        exit_long_condition = is_overbought & has_volume
+
+        dataframe.loc[exit_long_condition, "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -79,7 +110,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
+        current_time: datetime,
         entry_tag,
         side: str,
         **kwargs,
@@ -87,5 +118,23 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        # Snapshot indicators
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        last_candle = dataframe.iloc[-1].squeeze()
+
+        indicators_snapshot = {
+            "rsi": last_candle.get("rsi"),
+            "volume": last_candle.get("volume"),
+            "close": last_candle.get("close"),
+        }
+
+        reason = "RSI < 30 and Volume > 0" if side == "long" else "Unknown"
+
+        self.log_signal(
+            pair=pair,
+            side=side,
+            reason=reason,
+            ts_utc=current_time,
+            indicators_snapshot=indicators_snapshot,
+        )
         return True

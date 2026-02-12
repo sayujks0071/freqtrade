@@ -4,7 +4,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+import re
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -22,35 +23,49 @@ class AuditedStrategyMixin:
     def log_signal(
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators_snapshot: dict,
     ) -> None:
         """
         Log entry/exit signals to audit log.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
+        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | CANDLE_TS | INDICATORS
+        # indicators_snapshot should be a dict of key values relevant to the decision
+
+        indicators_str = ", ".join(f"{k}={v}" for k, v in indicators_snapshot.items())
+
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
+            f"AUDIT_SIGNAL | {datetime.now(timezone.utc).isoformat()} | {pair} | "
+            f"{side} | {reason} | {ts_utc} | {indicators_str}"
         )
         logger.info(msg)
-
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
-                return False
-        return True
 
     def normalize_pair(self, pair: str) -> str:
         """
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> bool:
+        """
+        Assert pair is in the provided whitelist and follows correct naming convention.
+        Format expected: BASE/QUOTE:SETTLE (e.g. BTC/USDT:USDT) for futures.
+        """
+        normalized_pair = self.normalize_pair(pair)
+
+        # Sanity check for Futures format
+        # This assumes we are trading futures on Delta as per requirements
+        if not re.match(r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$", normalized_pair):
+            logger.error(
+                f"AUDIT_ERROR | Pair {pair} does not match futures format BASE/QUOTE:SETTLE"
+            )
+            return False
+
+        if normalized_pair not in whitelist:
+            logger.warning(
+                f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
+            )
+            return False
+        return True
