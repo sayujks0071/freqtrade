@@ -40,6 +40,8 @@ jobs:
           pip install -r requirements.txt
           # Re-install ta-lib python wrapper to ensure it links against the installed C lib
           pip install --force-reinstall --no-cache-dir ta-lib
+          # Install freqtrade
+          pip install -e .
 
       - name: Configure Git
         run: |
