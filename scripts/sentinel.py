@@ -76,7 +76,7 @@ class Sentinel:
             return {}
 
         if load_config_file:  # type: ignore
-            return load_config_file(str(self.config_path))  # type: ignore
+            return load_config_file(str(self.config_path))
 
         try:
             with self.config_path.open("r") as f:
@@ -311,7 +311,7 @@ def main():
         try:
             # Quick load to get API creds
             if load_config_file:  # type: ignore
-                config = load_config_file(str(config_path))  # type: ignore
+                config = load_config_file(str(config_path))
             else:
                 with config_path.open("r") as f:
                     # simplistic load
