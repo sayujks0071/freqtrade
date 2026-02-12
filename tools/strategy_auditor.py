@@ -121,10 +121,7 @@ class StrategyAuditor(ast.NodeVisitor):
         print(f"  FIX: Adding header to {self.filepath}")
         name = self.strategy_class if self.strategy_class else "UnknownStrategy"
         new_header = HEADER_TEMPLATE.format(
-            name=name,
-            author="Unknown",
-            version="1.0",
-            timeframes="1h"
+            name=name, author="Unknown", version="1.0", timeframes="1h"
         )
 
         # Prepend to file
@@ -214,10 +211,7 @@ class StrategyAuditor(ast.NodeVisitor):
         # Allow A & B
         left = node.left
         right = node.right
-        return (
-            self.is_valid_condition_component(left) and
-            self.is_valid_condition_component(right)
-        )
+        return self.is_valid_condition_component(left) and self.is_valid_condition_component(right)
 
 
 def main():
