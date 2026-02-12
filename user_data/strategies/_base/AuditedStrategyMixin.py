@@ -1,11 +1,13 @@
 """
 Audited Strategy Mixin
 """
+
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from freqtrade.persistence import Trade
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +26,15 @@ class AuditedStrategyMixin:
     # Strategies using this mixin should set this to True anyway.
     process_only_new_candles = True
 
-    def log_signal(self, pair: str, signal: str, reason: str, metadata: dict = None):
+    def log_signal(self, pair: str, signal: str, reason: str, metadata: dict | None = None):
         """
         Audit log for signals.
         """
-        ts = datetime.now(timezone.utc).isoformat()
-        msg = f"AUDIT_SIGNAL: timestamp={ts} pair={pair} signal={signal} reason={reason} metadata={metadata}"
+        ts = datetime.now(UTC).isoformat()
+        msg = (
+            f"AUDIT_SIGNAL: timestamp={ts} pair={pair} signal={signal} "
+            f"reason={reason} metadata={metadata}"
+        )
         logger.info(msg)
 
     def check_daily_loss_limit(self, current_time: datetime) -> bool:
@@ -38,13 +43,17 @@ class AuditedStrategyMixin:
         Returns True if trading is allowed, False if locked.
         """
         # Determine start of day (UTC)
-        start_of_day = current_time.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+        start_of_day = current_time.replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=UTC
+        )
 
         # We need to filter trades closed after start_of_day
         # Note: Trade.close_date is usually naive UTC in DB, so be careful with timezone comparison
         # Freqtrade DB usually stores naive UTC.
 
-        trades = Trade.get_trades([Trade.close_date >= start_of_day.replace(tzinfo=None), Trade.is_open.is_(False)]).all()
+        trades = Trade.get_trades(
+            [Trade.close_date >= start_of_day.replace(tzinfo=None), Trade.is_open.is_(False)]
+        ).all()
 
         if not trades:
             return True
@@ -52,7 +61,10 @@ class AuditedStrategyMixin:
         daily_profit = sum(t.close_profit for t in trades)
 
         if daily_profit < self.daily_loss_limit:
-            logger.warning(f"Daily Loss Limit Hit! Profit: {daily_profit:.4f} Limit: {self.daily_loss_limit:.4f}")
+            logger.warning(
+                f"Daily Loss Limit Hit! Profit: {daily_profit:.4f} "
+                f"Limit: {self.daily_loss_limit:.4f}"
+            )
             return False
 
         return True
@@ -61,8 +73,8 @@ class AuditedStrategyMixin:
         """
         Enforce pair is in whitelist.
         """
-        if hasattr(self, 'dp') and self.dp:
-             if pair not in self.dp.current_whitelist():
-                  logger.error(f"Pair {pair} is not in whitelist!")
-                  return False
+        if hasattr(self, "dp") and self.dp:
+            if pair not in self.dp.current_whitelist():
+                logger.error(f"Pair {pair} is not in whitelist!")
+                return False
         return True

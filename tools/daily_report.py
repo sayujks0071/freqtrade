@@ -30,7 +30,7 @@ def generate_report():
     """
 
     try:
-        df = pd.read_sql_query(query, conn, parse_dates=['open_date', 'close_date'])
+        df = pd.read_sql_query(query, conn, parse_dates=["open_date", "close_date"])
     except Exception as e:
         print(f"Error querying DB: {e}")
         # Fallback to verify table exists
@@ -61,11 +61,11 @@ def generate_report():
 
         # Exposure Time
         # Assuming open_date and close_date are parsed as datetimes
-        if 'open_date' in df.columns and 'close_date' in df.columns:
-            df['duration'] = df['close_date'] - df['open_date']
-            avg_duration = df['duration'].mean()
+        if "open_date" in df.columns and "close_date" in df.columns:
+            df["duration"] = df["close_date"] - df["open_date"]
+            avg_duration = df["duration"].mean()
             # Format timedelta
-            avg_duration_str = str(avg_duration).split('.')[0] # Remove microseconds
+            avg_duration_str = str(avg_duration).split(".")[0]  # Remove microseconds
         else:
             avg_duration_str = "N/A"
 

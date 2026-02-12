@@ -67,18 +67,21 @@ def audit_file(filepath):  # noqa: C901
         # Check inside ClassDef body for assignment (class attribute)
         if isinstance(node, ast.ClassDef):
             for item in node.body:
-                 if isinstance(item, ast.Assign):
+                if isinstance(item, ast.Assign):
                     for target in item.targets:
                         if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
-                             if isinstance(item.value, ast.Constant) and item.value.value is True:
-                                 process_only_new_candles_found = True
-                             elif isinstance(item.value, ast.NameConstant) and item.value.value is True:
-                                 process_only_new_candles_found = True
+                            if isinstance(item.value, ast.Constant) and item.value.value is True:
+                                process_only_new_candles_found = True
+                            elif (
+                                isinstance(item.value, ast.NameConstant)
+                                and item.value.value is True
+                            ):
+                                process_only_new_candles_found = True
 
     # Also check if it's set globally in the file (less common but possible)
     if not process_only_new_candles_found:
         for node in ast.walk(tree):
-             if isinstance(node, ast.Assign):
+            if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
                         if isinstance(node.value, ast.Constant) and node.value.value is True:
@@ -89,7 +92,10 @@ def audit_file(filepath):  # noqa: C901
     if not process_only_new_candles_found:
         # Fallback to comment check
         if "closed candle" not in source.lower():
-             errors.append("Strategy must set process_only_new_candles=True or mention 'closed candle' in logic.")
+            errors.append(
+                "Strategy must set process_only_new_candles=True "
+                "or mention 'closed candle' in logic."
+            )
 
     # Check 6: Complex conditions (named sub-conditions)
     # Heuristic: Check for assignments to dataframe with complex BoolOp index

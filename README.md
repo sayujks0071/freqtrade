@@ -29,7 +29,7 @@ A production-ready Freqtrade setup for Delta Exchange (India + Global).
 
 ## Daily Operations
 
-- **Market Refresh**: Automatically runs daily at 06:30 IST via GitHub Actions.
+- **Market Refresh**: Automatically runs daily at 06:30 Asia/Kolkata via GitHub Actions.
   - Updates whitelist based on liquidity and filters.
   - Checks for schema drift.
   - Generates drift report.

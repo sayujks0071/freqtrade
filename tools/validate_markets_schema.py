@@ -113,10 +113,10 @@ def validate_drift(current_symbols, previous_path):
                 elif prev_data and isinstance(prev_data[0], str):
                     prev_symbols = set(prev_data)
                 else:
-                    prev_symbols = set() # Empty
+                    prev_symbols = set()  # Empty
             elif isinstance(prev_data, dict) and "markets" in prev_data:
-                 # Standard freqtrade dump
-                 prev_symbols = {m.get("symbol") for m in prev_data["markets"]}
+                # Standard freqtrade dump
+                prev_symbols = {m.get("symbol") for m in prev_data["markets"]}
             else:
                 warn("Previous dump format unrecognized. Assuming empty.")
                 prev_symbols = set()

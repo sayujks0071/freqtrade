@@ -56,12 +56,12 @@ def main():
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
     elif isinstance(data, dict):
-         data = list(data.values())
+        data = list(data.values())
 
     # Data is now expected to be a list of dicts
     if not isinstance(data, list):
-         print("Error: Input must be a list of markets", file=sys.stderr)
-         sys.exit(1)
+        print("Error: Input must be a list of markets", file=sys.stderr)
+        sys.exit(1)
 
     whitelist = filter_markets(data)
 

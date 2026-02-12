@@ -3,12 +3,16 @@ import json
 import os
 import sys
 
+
 # Try to import ccxt, handle failure if not installed (e.g. running on host without venv)
 try:
     import ccxt
 except ImportError:
-    print("ERROR: ccxt not installed. Run 'pip install ccxt' or run inside Docker.", file=sys.stderr)
+    print(
+        "ERROR: ccxt not installed. Run 'pip install ccxt' or run inside Docker.", file=sys.stderr
+    )
     sys.exit(1)
+
 
 def main():
     delta_env = os.environ.get("DELTA_ENV", "india_testnet")
@@ -25,7 +29,7 @@ def main():
         "options": {
             "defaultType": "swap",  # futures/swap
             "adjustForTimeDifference": True,
-        }
+        },
     }
 
     # URL Overrides
@@ -44,21 +48,21 @@ def main():
 
     try:
         # Initialize exchange
-        if not hasattr(ccxt, 'delta'):
-             print("ERROR: ccxt.delta not found. Update ccxt.", file=sys.stderr)
-             sys.exit(1)
+        if not hasattr(ccxt, "delta"):
+            print("ERROR: ccxt.delta not found. Update ccxt.", file=sys.stderr)
+            sys.exit(1)
 
         exchange = ccxt.delta(config)
 
         # Load markets
         # params={'type': 'swap'} ensures we get perps if defaultType doesn't cover it
-        markets = exchange.load_markets(params={'type': 'swap'})
+        markets = exchange.load_markets(params={"type": "swap"})
 
         # Convert to list of dicts for output
         market_list = []
         for symbol, market in markets.items():
             # Ensure symbol is in the dict (usually is)
-            market['symbol'] = symbol
+            market["symbol"] = symbol
             market_list.append(market)
 
         print(json.dumps(market_list, indent=4, default=str))
@@ -66,6 +70,7 @@ def main():
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
