@@ -117,3 +117,7 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+
+# Specific config ignores
+user_data/configs/config.delta.dryrun.json
+user_data/configs/config.delta.live.json

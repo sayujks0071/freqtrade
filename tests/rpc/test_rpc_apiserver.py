@@ -1844,7 +1844,7 @@ def test_api_force_entry(botclient, mocker, fee, endpoint):
     }
 
 
-def test_api_forceexit(botclient, mocker, ticker, fee, markets):
+def test_api_forceexit(botclient, mocker, ticker, fee, markets, time_machine):
     ftbot, client = botclient
     mocker.patch.multiple(
         EXMS,
@@ -1881,6 +1881,9 @@ def test_api_forceexit(botclient, mocker, ticker, fee, markets):
     assert pytest.approx(trade.amount) == 100
     assert trade.is_open is True
 
+    # Move time to avoid duplicate order_ids
+    time_machine.move_to(datetime.now(UTC) + timedelta(seconds=1))
+
     # Test with explicit price
     rc = client_post(
         client,
@@ -1900,6 +1903,9 @@ def test_api_forceexit(botclient, mocker, ticker, fee, markets):
 
     assert pytest.approx(trade.amount) == 75
     assert trade.is_open is True
+
+    # Move time to avoid duplicate order_ids
+    time_machine.move_to(datetime.now(UTC) + timedelta(seconds=2))
 
     rc = client_post(client, f"{BASE_URI}/forceexit", data={"tradeid": "5"})
     assert_response(rc)
