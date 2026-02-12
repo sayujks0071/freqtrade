@@ -51,7 +51,7 @@ def download_data():
         "--days",
         "60",
         "--timeframe",
-        "1h"
+        "1h",
     ]
 
     result = run_command(cmd, capture=True)
@@ -198,6 +198,17 @@ def check_git_status():
     return True
 
 
+def try_parse_json(text: str) -> dict | None:
+    """Try to parse a string as JSON and return it if it contains expected keys."""
+    try:
+        params = json.loads(text)
+        if "params" in params or "minimal_roi" in params:
+            return params
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
@@ -208,12 +219,9 @@ def extract_hyperopt_params(output: str) -> dict:
     for line in reversed(lines):
         line = line.strip()
         if line.startswith("{") and line.endswith("}"):
-            try:
-                params = json.loads(line)
-                if "params" in params or "minimal_roi" in params:
-                    return params
-            except json.JSONDecodeError:
-                pass
+            params = try_parse_json(line)
+            if params:
+                return params
 
     json_str = ""
     started = False
@@ -224,12 +232,9 @@ def extract_hyperopt_params(output: str) -> dict:
         if started:
             json_str = line + "\n" + json_str
             if line.strip() == "{":
-                try:
-                    params = json.loads(json_str)
-                    if "params" in params or "minimal_roi" in params:
-                        return params
-                except json.JSONDecodeError:
-                    continue
+                params = try_parse_json(json_str)
+                if params:
+                    return params
     return {}
 
 
@@ -363,8 +368,8 @@ def main():  # noqa: C901
 
     # 4. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    # The strategy parameters are already in the .json file, so Freqtrade will pick them up automatically.
-    # We do not need to pass the json file as a config.
+    # The strategy parameters are already in the .json file, so Freqtrade will pick them up
+    # automatically. We do not need to pass the json file as a config.
     new_backtest_data = run_backtest_job(worst_strategy)
 
     if not new_backtest_data:
@@ -440,6 +445,7 @@ def main():  # noqa: C901
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
 
 if __name__ == "__main__":
     main()
