@@ -287,14 +287,19 @@ def reduce_dataframe_footprint(df: DataFrame) -> DataFrame:
     logger.debug(f"Memory usage of dataframe is {df.memory_usage().sum() / 1024**2:.2f} MB")
 
     df_dtypes = df.dtypes
+    modified = False
     for column, dtype in df_dtypes.items():
         if column in ["open", "high", "low", "close", "volume"]:
             continue
         if dtype == np.float64:
             df_dtypes[column] = np.float32
+            modified = True
         elif dtype == np.int64:
             df_dtypes[column] = np.int32
-    df = df.astype(df_dtypes)
+            modified = True
+
+    if modified:
+        df = df.astype(df_dtypes)
 
     logger.debug(f"Memory usage after optimization is: {df.memory_usage().sum() / 1024**2:.2f} MB")
 
