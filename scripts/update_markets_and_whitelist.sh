@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Ensure root
+# Ensure we are in the root
 cd "$(dirname "$0")/.."
 
 DELTA_ENV=${DELTA_ENV:-india_testnet}
@@ -10,82 +10,89 @@ REPORTS_DIR="user_data/reports"
 PAIRLISTS_DIR="user_data/pairlists"
 MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
 
-mkdir -p $REPORTS_DIR
-mkdir -p $PAIRLISTS_DIR
-
-# Find latest previous dump
-PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
+# Ensure dirs exist
+mkdir -p "$REPORTS_DIR"
+mkdir -p "$PAIRLISTS_DIR"
 
 echo "Fetching markets for $DELTA_ENV..."
 
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
+# Find latest previous dump for drift check
+PREV_DUMP=$(ls -t "$REPORTS_DIR"/markets_*.json 2>/dev/null | head -n 1 || echo "")
 
-# We use a temporary file for the docker output because of potential log noise
-TEMP_OUTPUT=$(mktemp)
+# Fetch Markets using custom tool inside Docker
+# We capture stdout to the file.
+# Note: we must ensure no other output goes to stdout (logging to stderr).
+docker compose run --rm -e DELTA_ENV="$DELTA_ENV" freqtrade \
+    python3 /freqtrade/custom_tools/fetch_markets.py > "$MARKETS_FILE"
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
-
-docker compose run --rm freqtrade list-markets \
-    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
-    --print-json > $TEMP_OUTPUT
-
-# Check if successful
-if [ $? -ne 0 ]; then
-    echo "Failed to fetch markets"
-    rm $TEMP_OUTPUT
+if [ ! -s "$MARKETS_FILE" ]; then
+    echo "Error: Markets file is empty."
+    rm "$MARKETS_FILE"
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
+echo "Markets saved to $MARKETS_FILE"
 
-mv $TEMP_OUTPUT $MARKETS_FILE
-
+# Validate Schema & Drift
 echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
+# We map the reports dir so the container can see the previous file
+# The container path for reports is /freqtrade/user_data/reports
+# So we need to translate host path to container path for arguments
+CONTAINER_MARKETS_FILE="/freqtrade/user_data/reports/markets_${TIMESTAMP}.json"
+if [ -n "$PREV_DUMP" ]; then
+    CONTAINER_PREV_DUMP="/freqtrade/user_data/reports/$(basename "$PREV_DUMP")"
+else
+    CONTAINER_PREV_DUMP=""
+fi
 
+docker compose run --rm \
+    -e MIN_MARKETS="${MIN_MARKETS:-20}" \
+    -e MAX_REMOVAL_RATIO="${MAX_REMOVAL_RATIO:-0.25}" \
+    -e STRICT_VOLUME="${STRICT_VOLUME:-false}" \
+    freqtrade \
+    python3 /freqtrade/custom_tools/validate_markets_schema.py "$CONTAINER_MARKETS_FILE" "$CONTAINER_PREV_DUMP"
+
+if [ $? -ne 0 ]; then
+    echo "Validation Failed! Keeping dump for inspection but aborting update."
+    # We might want to rename it to failed
+    mv "$MARKETS_FILE" "${MARKETS_FILE%.json}_failed.json"
+    exit 1
+fi
+
+# Generate Whitelist
 echo "Generating whitelist..."
 WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
 WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
 
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
+# Run generator inside docker
+docker compose run --rm \
+    -e FILTER_MODE="${FILTER_MODE:-perps_usdt}" \
+    -e ALLOWLIST_REGEX="${ALLOWLIST_REGEX:-.*}" \
+    freqtrade \
+    python3 /freqtrade/custom_tools/generate_whitelist.py "$CONTAINER_MARKETS_FILE" > "$WHITELIST_JSON"
 
-# Also generate TXT list (symbols only)
+# Generate simple TXT list
 grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
 
 echo "Whitelist updated at $WHITELIST_JSON"
 
-# Drift Report (Diff)
+# Generate Drift Report (Diff)
+DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
+echo "# Whitelist Drift Report" > "$DIFF_FILE"
+echo "Date: $TIMESTAMP" >> "$DIFF_FILE"
+echo "Env: $DELTA_ENV" >> "$DIFF_FILE"
+echo "Previous Dump: $(basename "$PREV_DUMP")" >> "$DIFF_FILE"
+echo "Current Dump: $(basename "$MARKETS_FILE")" >> "$DIFF_FILE"
+echo "" >> "$DIFF_FILE"
+
 if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+    echo "## Stats" >> "$DIFF_FILE"
+    COUNT=$(grep -c ":" "$WHITELIST_TXT")
+    echo "Total Pairs: $COUNT" >> "$DIFF_FILE"
 fi
 
-# Clean up old dumps (keep last 7)
-ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+# Cleanup old dumps (keep last 7)
+echo "Cleaning up old dumps..."
+ls -t "$REPORTS_DIR"/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
 
 echo "Done."

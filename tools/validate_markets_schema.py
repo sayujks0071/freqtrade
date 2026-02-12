@@ -105,10 +105,27 @@ def validate_drift(current_symbols, previous_path):
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+            # Handle if previous dump is also list of dicts or list of strings?
+            # We enforce consistency.
+            if isinstance(prev_data, list):
+                if prev_data and isinstance(prev_data[0], dict):
+                    prev_symbols = {m.get("symbol") for m in prev_data if "symbol" in m}
+                elif prev_data and isinstance(prev_data[0], str):
+                    prev_symbols = set(prev_data)
+                else:
+                    prev_symbols = set()  # Empty
+            elif isinstance(prev_data, dict) and "markets" in prev_data:
+                # Standard freqtrade dump
+                prev_symbols = {m.get("symbol") for m in prev_data["markets"]}
+            else:
+                warn("Previous dump format unrecognized. Assuming empty.")
+                prev_symbols = set()
+
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
+        return
+
+    if not prev_symbols:
         return
 
     removed = prev_symbols - current_symbols
@@ -146,10 +163,12 @@ def main():
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
+    # Handle different potential inputs
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
+    elif isinstance(data, dict):
+        # Maybe ccxt dict of dicts? Convert to list
+        data = list(data.values())
 
     symbols = validate_schema(data)
 
@@ -162,10 +181,13 @@ Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
+
+    # Write report if needed, usually we rely on stdout for simple CI checks but saving is good
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
+        # Create dir if not exists (script should handle it but safe to check)
+        Path("user_data/reports").mkdir(parents=True, exist_ok=True)
         write_report(report_file, report)
         print(f"Report written to {report_file}")
     except Exception as e:
