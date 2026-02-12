@@ -23,10 +23,10 @@ set -e
 # Ensure we are in the root
 cd "$(dirname "$0")/.."
 
-# Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Please run update_markets_and_whitelist.sh first or bootstrap."
-    exit 1
+# Check whitelist and config
+if [ ! -f user_data/pairlists/whitelist.delta.json ] || [ ! -f user_data/configs/config.delta.live.json ]; then
+    echo "Configuration or whitelist not found. Running bootstrap..."
+    ./scripts/bootstrap.sh
 fi
 
 echo "WARNING: Switching to LIVE TRADING config..."

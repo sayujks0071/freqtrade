@@ -14,9 +14,9 @@ set -e
 # Ensure we are in the root
 cd "$(dirname "$0")/.."
 
-# Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Running bootstrap..."
+# Check whitelist and config
+if [ ! -f user_data/pairlists/whitelist.delta.json ] || [ ! -f user_data/configs/config.delta.dryrun.json ]; then
+    echo "Configuration or whitelist not found. Running bootstrap..."
     ./scripts/bootstrap.sh
 fi
 
