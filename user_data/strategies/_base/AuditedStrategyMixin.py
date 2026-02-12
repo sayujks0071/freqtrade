@@ -43,9 +43,7 @@ class AuditedStrategyMixin:
         Returns True if trading is allowed, False if locked.
         """
         # Determine start of day (UTC)
-        start_of_day = current_time.replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=UTC
-        )
+        start_of_day = current_time.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=UTC)
 
         # We need to filter trades closed after start_of_day
         # Note: Trade.close_date is usually naive UTC in DB, so be careful with timezone comparison
@@ -58,7 +56,8 @@ class AuditedStrategyMixin:
         if not trades:
             return True
 
-        daily_profit = sum(t.close_profit for t in trades)
+        # Fix: Ensure close_profit is treated as float, defaulting to 0.0 if None
+        daily_profit = sum((t.close_profit or 0.0) for t in trades)
 
         if daily_profit < self.daily_loss_limit:
             logger.warning(

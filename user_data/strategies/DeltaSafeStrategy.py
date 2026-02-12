@@ -27,7 +27,7 @@ except ImportError:
     # Fallback or error if not found
     print("ERROR: AuditedStrategyMixin not found")
 
-    class AuditedStrategyMixin:
+    class AuditedStrategyMixin:  # type: ignore[no-redef]
         def check_daily_loss_limit(self, t):
             return True
 
@@ -152,7 +152,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
