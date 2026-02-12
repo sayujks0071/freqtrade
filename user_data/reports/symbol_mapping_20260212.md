@@ -1,5 +1,5 @@
 # Symbol Mapping Report: Delta Exchange vs Freqtrade
-Date: 2026-02-12T11:08:43.469989+00:00
+Date: 2026-02-12T11:37:44.564327+00:00
 
 ## Understanding Symbol Formats
 - **Delta Exchange Contract Symbol**: The raw symbol used on Delta Exchange (e.g., `BTCUSDT`).

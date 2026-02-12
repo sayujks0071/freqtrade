@@ -58,7 +58,7 @@ def generate_report(markets_file, output_file=None):
         out_path = Path(output_file)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("w") as f:
-            f.write(report_content)
+            f.write(report_content + "\n")
         print(f"Report written to {output_file}")
     else:
         print(report_content)

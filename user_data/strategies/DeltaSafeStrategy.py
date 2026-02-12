@@ -73,8 +73,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         # Check whitelist first
         pair = metadata["pair"]
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             if not self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"]):
-                 return dataframe
+            if not self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"]):
+                return dataframe
 
         # Named boolean conditions
         # RSI oversold condition

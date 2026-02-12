@@ -60,8 +60,8 @@ class StrategyAuditor(ast.NodeVisitor):
         self.check_header()
 
         if self.errors:
-            for e in self.errors:
-                print(f"  FAIL: {e}")
+            for err in self.errors:
+                print(f"  FAIL: {err}")
             return False
 
         print("  PASS")
@@ -152,7 +152,7 @@ class StrategyAuditor(ast.NodeVisitor):
                         # This is likely dataframe.loc[...] = ...
                         # Check the slice (condition)
                         sl = target.slice
-                        if isinstance(sl, ast.Index):  # Python < 3.9
+                        if hasattr(ast, "Index") and isinstance(sl, ast.Index):  # Python < 3.9
                             sl = sl.value
 
                         # Validate the condition `sl`
@@ -172,9 +172,6 @@ class StrategyAuditor(ast.NodeVisitor):
 
         # Accept constants (like 'enter_long' string in the slice)
         if isinstance(node, ast.Constant):
-            return True
-        # Python < 3.8
-        if isinstance(node, ast.Str) or isinstance(node, ast.Num):
             return True
 
         # Accept simple comparisons like (df['x'] > y) IF they are assigned to variables first?
