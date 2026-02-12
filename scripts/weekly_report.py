@@ -67,6 +67,38 @@ def get_git_log_updates(days=7):
     return updates
 
 
+def _process_log_line(line, strategies_status, cutoff_date):
+    """
+    Helper function to process a single line from the optimization log.
+    """
+    line = line.strip()
+    if not line:
+        return
+
+    # Format: TIMESTAMP|STRATEGY|STATUS|ROI_IMPROVEMENT|SHARPE_OLD|SHARPE_NEW|DD_OLD|DD_NEW
+    parts = line.split("|")
+    if len(parts) < 3:
+        return
+
+    try:
+        timestamp_str = parts[0]
+        strategy = parts[1]
+        status = parts[2]
+
+        timestamp = datetime.fromisoformat(timestamp_str)
+
+        if timestamp >= cutoff_date:
+            if strategy not in strategies_status:
+                strategies_status[strategy] = {"success": False, "failed": False}
+
+            if status == "SUCCESS":
+                strategies_status[strategy]["success"] = True
+            elif status == "FAILED":
+                strategies_status[strategy]["failed"] = True
+    except ValueError:
+        return
+
+
 def parse_optimization_log(days=7):
     """
     Parse optimization_log.txt to find stuck strategies.
@@ -83,32 +115,7 @@ def parse_optimization_log(days=7):
 
     with LOG_FILE.open("r") as f:
         for line in f:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Format: TIMESTAMP|STRATEGY|STATUS|ROI_IMPROVEMENT|SHARPE_OLD|SHARPE_NEW|DD_OLD|DD_NEW
-            parts = line.split("|")
-            if len(parts) < 3:
-                continue
-
-            try:
-                timestamp_str = parts[0]
-                strategy = parts[1]
-                status = parts[2]
-
-                timestamp = datetime.fromisoformat(timestamp_str)
-
-                if timestamp >= cutoff_date:
-                    if strategy not in strategies_status:
-                        strategies_status[strategy] = {"success": False, "failed": False}
-
-                    if status == "SUCCESS":
-                        strategies_status[strategy]["success"] = True
-                    elif status == "FAILED":
-                        strategies_status[strategy]["failed"] = True
-            except ValueError:
-                continue
+            _process_log_line(line, strategies_status, cutoff_date)
 
     stuck_strategies = []
     for strategy, status in strategies_status.items():
