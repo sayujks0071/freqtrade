@@ -2,7 +2,7 @@
 import argparse
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -20,7 +20,7 @@ def generate_report(markets_file, output_file=None):
 
     lines = []
     lines.append("# Symbol Mapping Report: Delta Exchange vs Freqtrade")
-    lines.append(f"Date: {datetime.now(UTC).isoformat()}")
+    lines.append(f"Date: {datetime.now(timezone.utc).isoformat()}")
     lines.append("")
     lines.append("## Understanding Symbol Formats")
     lines.append(
@@ -76,7 +76,7 @@ def main():
 
     # Generate default output filename if not provided
     if not args.output:
-        ts = datetime.now(UTC).strftime("%Y%m%d")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d")
         args.output = f"user_data/reports/symbol_mapping_{ts}.md"
 
     generate_report(args.markets_file, args.output)

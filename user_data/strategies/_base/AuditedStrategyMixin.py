@@ -4,7 +4,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+import re
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -36,7 +37,7 @@ class AuditedStrategyMixin:
         indicators_str = ", ".join(f"{k}={v}" for k, v in indicators_snapshot.items())
 
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
+            f"AUDIT_SIGNAL | {datetime.now(timezone.utc).isoformat()} | {pair} | "
             f"{side} | {reason} | {ts_utc} | {indicators_str}"
         )
         logger.info(msg)
@@ -49,13 +50,22 @@ class AuditedStrategyMixin:
 
     def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> bool:
         """
-        Assert pair is in the provided whitelist.
+        Assert pair is in the provided whitelist and follows correct naming convention.
+        Format expected: BASE/QUOTE:SETTLE (e.g. BTC/USDT:USDT) for futures.
         """
         normalized_pair = self.normalize_pair(pair)
-        # We assume whitelist is already normalized or we normalize it too?
-        # Usually whitelist from freqtrade is clean.
+
+        # Sanity check for Futures format
+        # This assumes we are trading futures on Delta as per requirements
+        if not re.match(r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$", normalized_pair):
+            logger.error(
+                f"AUDIT_ERROR | Pair {pair} does not match futures format BASE/QUOTE:SETTLE"
+            )
+            return False
 
         if normalized_pair not in whitelist:
-            logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
+            logger.warning(
+                f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!"
+            )
             return False
         return True

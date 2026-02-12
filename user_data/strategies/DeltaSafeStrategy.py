@@ -125,7 +125,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         indicators_snapshot = {
             "rsi": last_candle.get("rsi"),
             "volume": last_candle.get("volume"),
-            "close": last_candle.get("close")
+            "close": last_candle.get("close"),
         }
 
         reason = "RSI < 30 and Volume > 0" if side == "long" else "Unknown"
@@ -135,6 +135,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason=reason,
             ts_utc=current_time,
-            indicators_snapshot=indicators_snapshot
+            indicators_snapshot=indicators_snapshot,
         )
         return True
