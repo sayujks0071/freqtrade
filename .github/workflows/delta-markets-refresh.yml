@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.3.0
         with:
           python-version: '3.11'
 
@@ -72,7 +72,7 @@ jobs:
             user_data/reports/markets_schema_report_*.md
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@5e914681df9dc8120e6bf369b609f108f1e63869 # v7.0.5
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update markets and whitelist"
