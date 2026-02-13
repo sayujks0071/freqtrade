@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 
-class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+class BollingerRSI(IStrategy, AuditedStrategyMixin):
     INTERFACE_VERSION = 3
 
     # Minimal ROI

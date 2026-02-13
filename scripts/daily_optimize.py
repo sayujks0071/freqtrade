@@ -33,6 +33,29 @@ def run_command(cmd, capture=True):
     return result
 
 
+def download_data(days=60):
+    """Downloads historical data for backtesting."""
+    print("Downloading historical data...")
+    cmd = [
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--days",
+        str(days),
+        "--timeframe",
+        "1h",
+        "--erase",
+    ]
+    result = run_command(cmd, capture=True)
+    if result.returncode != 0:
+        print("Failed to download data.")
+        print(result.stderr)
+        sys.exit(1)
+    else:
+        print("Data download complete.")
+
+
 def get_timerange():
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
@@ -182,31 +205,42 @@ def get_current_branch():
     return None
 
 
+def try_parse_json(text: str) -> dict:
+    """Try to parse a string as JSON and validate minimal keys."""
+    try:
+        params = json.loads(text)
+        if "params" in params or "minimal_roi" in params:
+            return params
+    except json.JSONDecodeError:
+        pass
+    return {}
+
+
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
     Finds the last JSON object in the output which typically contains the best parameters.
     """
     lines = output.splitlines()
-    json_str = ""
-    started = False
+
+    # Try to find single line JSON first (common in some versions or if piped)
+    for line in reversed(lines):
+        line = line.strip()
+        if line.startswith("{") and line.endswith("}"):
+            if params := try_parse_json(line):
+                return params
 
     # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
+    json_str = ""
+    started = False
     for line in reversed(lines):
         if line.strip() == "}":
             started = True
         if started:
             json_str = line + "\n" + json_str
             if line.strip() == "{":
-                try:
-                    params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
-                    if "params" in params or "minimal_roi" in params:
-                        return params
-                except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                if params := try_parse_json(json_str):
+                    return params
     return {}
 
 
@@ -240,8 +274,18 @@ Examples:
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Run quickly with fewer epochs (for testing)",
+    )
 
     args = parser.parse_args()
+
+    global EPOCHS
+    if args.quick:
+        EPOCHS = 1
+        print("Quick mode enabled: Setting EPOCHS to 1")
 
     # Check git status before starting (unless in dry-run mode)
     if not args.dry_run:
@@ -249,6 +293,9 @@ Examples:
             print("\nPlease commit or stash your changes before running this script.")
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
+
+    # 0. Download Data
+    download_data()
 
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
@@ -330,6 +377,9 @@ Examples:
     # Apply new parameters
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
     if new_params:
+        # Ensure strategy_name is present in the parameters file
+        new_params["strategy_name"] = worst_strategy
+
         print(f"Applying new parameters to {strategy_json}")
         with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
