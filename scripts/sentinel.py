@@ -17,6 +17,7 @@ sys.path.append(str(ROOT_DIR / "ft_client"))
 
 try:
     import ccxt
+
     from freqtrade_client.ft_client import FtRestClient, load_config
 except ImportError as e:
     print(f"Error importing dependencies: {e}")

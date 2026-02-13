@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+
 # Add scripts directory to path to allow importing sentinel
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.append(str(SCRIPTS_DIR))
