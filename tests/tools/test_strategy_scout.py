@@ -4,16 +4,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 # Add tools to path
 sys.path.append(str((Path(__file__).parent.parent.parent / "tools").resolve()))
 
-# Since strategy_scout is a script in tools/, we might need to import it carefully
-# But since I added tools to path, I can import strategy_scout if it was a module.
-# However, strategy_scout.py is a script. Importing it might run main if not guarded.
-# It is guarded with if __name__ == '__main__':.
-
-from strategy_scout import StrategyScout, StrategyVisitor
+from strategy_scout import StrategyScout, StrategyVisitor  # noqa: E402
 
 
 class TestStrategyVisitor(unittest.TestCase):
@@ -34,14 +28,15 @@ class MyStrategy(IStrategy):
         visitor = StrategyVisitor()
         visitor.visit(ast.parse(code))
 
-        self.assertEqual(visitor.metadata['stoploss'], -0.10)
-        self.assertEqual(visitor.metadata['timeframe'], '5m')
-        self.assertTrue(visitor.metadata['can_short'])
-        self.assertIn('ta.RSI', visitor.metadata['indicators'])
-        self.assertIn('talib.MACD', visitor.metadata['indicators'])
+        self.assertEqual(visitor.metadata["stoploss"], -0.10)
+        self.assertEqual(visitor.metadata["timeframe"], "5m")
+        self.assertTrue(visitor.metadata["can_short"])
+        self.assertIn("ta.RSI", visitor.metadata["indicators"])
+        self.assertIn("talib.MACD", visitor.metadata["indicators"])
+
 
 class TestStrategyScout(unittest.TestCase):
-    @patch('requests.Session')
+    @patch("requests.Session")
     def test_search_github(self, mock_session):
         # Mock responses
         mock_resp = MagicMock()
@@ -49,7 +44,7 @@ class TestStrategyScout(unittest.TestCase):
         mock_resp.json.return_value = {
             "items": [
                 {"full_name": "user/repo1", "stargazers_count": 100},
-                {"full_name": "user/repo2", "stargazers_count": 50}
+                {"full_name": "user/repo2", "stargazers_count": 50},
             ]
         }
         # Configure the mock to return the response when get is called
@@ -71,8 +66,9 @@ class TestStrategyScout(unittest.TestCase):
         # So it will add them multiple times (deduplicated by dict key though).
         self.assertEqual(len(scout.candidates), 2)
         # Check full_name is in candidates
-        names = [c['full_name'] for c in scout.candidates]
-        self.assertIn('user/repo1', names)
+        names = [c["full_name"] for c in scout.candidates]
+        self.assertIn("user/repo1", names)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

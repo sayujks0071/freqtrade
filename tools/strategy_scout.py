@@ -431,7 +431,7 @@ class StrategyScout:
                 downloaded = 0
                 for file_info in strategies:
                     if downloaded >= 3:
-                         break
+                        break
 
                     fname = Path(file_info.get("path", "")).name
                     raw_url = file_info.get("download_url")
