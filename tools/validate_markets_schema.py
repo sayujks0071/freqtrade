@@ -4,7 +4,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Configuration
@@ -35,7 +35,7 @@ def is_eligible(m):
 
     symbol = m.get("symbol", "")
     if not symbol:
-        return False # Can't determine eligibility without symbol
+        return False  # Can't determine eligibility without symbol
 
     if FILTER_MODE == "perps_usdt":
         # Strict check for USDT perps on Delta
@@ -67,7 +67,9 @@ def validate_market_structure(i, m, errors):
     # Check for type/contract indicator (at least one)
     type_keys = ["type", "contract", "future", "perp", "spot", "linear", "inverse"]
     if not any(k in m for k in type_keys):
-        errors.append(f"Item {i}: missing market type indicator (checked: {', '.join(type_keys)})")
+        errors.append(
+            f"Item {i}: missing market type indicator (checked: {', '.join(type_keys)})"
+        )
 
     symbol = m.get("symbol", "")
     if not isinstance(symbol, str) or not symbol:
@@ -158,6 +160,7 @@ def load_whitelist(path):
 
     return set()
 
+
 def validate_drift(candidate_path, prev_path, errors):
     drift_stats = {}
     if not prev_path or not Path(prev_path).exists():
@@ -168,8 +171,8 @@ def validate_drift(candidate_path, prev_path, errors):
     prev_symbols = load_whitelist(prev_path)
 
     if not prev_symbols:
-         print("Previous whitelist is empty. Skipping drift check.")
-         return None
+        print("Previous whitelist is empty. Skipping drift check.")
+        return None
 
     removed = prev_symbols - candidate_symbols
     added = candidate_symbols - prev_symbols
@@ -184,11 +187,14 @@ def validate_drift(candidate_path, prev_path, errors):
         "ratio": removal_ratio,
         "removed_samples": list(removed)[:5],
         "added_samples": list(added)[:5],
-        "format_changes": []
+        "format_changes": [],
     }
 
     if removal_ratio > MAX_REMOVAL_RATIO:
-        errors.append(f"Drift Error: Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO})")
+        errors.append(
+            f"Drift Error: Removal ratio {removal_ratio:.2f} > "
+            f"MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO})"
+        )
         errors.append(f"Removed count: {len(removed)}/{len(prev_symbols)}")
 
     def normalize(s):
@@ -200,7 +206,12 @@ def validate_drift(candidate_path, prev_path, errors):
     format_changes = removed_normalized.intersection(added_normalized)
 
     if format_changes:
-        errors.append(f"Drift Error: Pair format changed for {len(format_changes)} pairs (e.g., {list(format_changes)[0]})")
+        # Use next(iter(...)) to avoid RUF015
+        sample_change = next(iter(format_changes))
+        errors.append(
+            f"Drift Error: Pair format changed for {len(format_changes)} pairs "
+            f"(e.g., {sample_change})"
+        )
         drift_stats["format_changes"] = list(format_changes)
 
     return drift_stats
@@ -209,35 +220,37 @@ def validate_drift(candidate_path, prev_path, errors):
 def generate_report(path, status, current_path, symbols_count, errors, drift_stats):
     try:
         with Path(path).open("w") as f:
-            f.write(f"# Markets Schema Validation Report\n")
-            f.write(f"Date: {datetime.now(timezone.utc).isoformat()}\n")
+            f.write("# Markets Schema Validation Report\n")
+            f.write(f"Date: {datetime.now(UTC).isoformat()}\n")
             f.write(f"Status: {status}\n")
             f.write(f"File: {current_path}\n")
             f.write(f"Eligible Markets count: {symbols_count}\n")
 
             if drift_stats:
-                f.write(f"## Drift Statistics\n")
+                f.write("## Drift Statistics\n")
                 f.write(f"- Previous Whitelist Count: {drift_stats['total_prev']}\n")
                 f.write(f"- Candidate Whitelist Count: {drift_stats['total_cand']}\n")
                 f.write(f"- Added: {drift_stats['added_count']}\n")
                 f.write(f"- Removed: {drift_stats['removed_count']}\n")
                 f.write(f"- Removal Ratio: {drift_stats['ratio']:.2f}\n")
 
-                if drift_stats.get('format_changes'):
+                if drift_stats.get("format_changes"):
                     f.write(f"- Format Changes Detected: {len(drift_stats['format_changes'])}\n")
-                    for fc in drift_stats['format_changes'][:10]:
-                         f.write(f"  - {fc}\n")
+                    for fc in drift_stats["format_changes"][:10]:
+                        f.write(f"  - {fc}\n")
 
-                if drift_stats['removed_samples']:
-                     f.write(f"- Removed Samples: {', '.join(drift_stats['removed_samples'])}\n")
+                if drift_stats["removed_samples"]:
+                    samples = ", ".join(drift_stats["removed_samples"])
+                    f.write(f"- Removed Samples: {samples}\n")
 
             if errors:
-                f.write(f"## Errors\n")
+                f.write("## Errors\n")
                 for e in errors:
                     f.write(f"- {e}\n")
         print(f"Report written to {path}")
     except Exception as e:
         warn(f"Could not write report: {e}")
+
 
 def check_env_sanity(data, expected_env):
     # Check for metadata if available
@@ -251,24 +264,45 @@ def check_env_sanity(data, expected_env):
     # Placeholder for logic to detect environment from market data
     # E.g. check for specific testnet pairs or URL references in 'info'
     if isinstance(data, list) and len(data) > 0:
-        sample = data[0]
+        # sample = data[0]
         # Delta testnet pairs might have same names as prod.
         # Check 'info' dict if available
-        info = sample.get("info", {})
+        # info = sample.get("info", {})
         # This depends on what CCXT returns.
         pass
 
     if not verified:
-        warn(f"Could not verify market dump matches DELTA_ENV={expected_env} (No metadata found). Proceeding with caution.")
+        warn(
+            f"Could not verify market dump matches DELTA_ENV={expected_env} "
+            "(No metadata found). Proceeding with caution."
+        )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Validate markets schema and whitelist drift.")
     parser.add_argument("--markets", required=True, help="Path to the markets JSON file")
-    parser.add_argument("--candidate-whitelist", required=False, help="Path to the candidate whitelist JSON file")
-    parser.add_argument("--prev-whitelist", required=False, help="Path to the previous whitelist JSON file")
-    parser.add_argument("--env", required=False, default="india_prod", help="Expected environment")
-    parser.add_argument("--out-report", required=False, default="user_data/reports/markets_schema_report.md", help="Output path for the report")
+    parser.add_argument(
+        "--candidate-whitelist",
+        required=False,
+        help="Path to the candidate whitelist JSON file"
+    )
+    parser.add_argument(
+        "--prev-whitelist",
+        required=False,
+        help="Path to the previous whitelist JSON file"
+    )
+    parser.add_argument(
+        "--env",
+        required=False,
+        default="india_prod",
+        help="Expected environment"
+    )
+    parser.add_argument(
+        "--out-report",
+        required=False,
+        default="user_data/reports/markets_schema_report.md",
+        help="Output path for the report"
+    )
 
     args = parser.parse_args()
 
@@ -301,7 +335,9 @@ def main():
 
     status = "FAIL" if errors else "PASS"
 
-    generate_report(args.out_report, status, current_path, len(symbols), errors, drift_stats)
+    generate_report(
+        args.out_report, status, current_path, len(symbols), errors, drift_stats
+    )
 
     if errors:
         print("Validation Failed:")
@@ -312,6 +348,7 @@ def main():
         sys.exit(2)
 
     print(f"Validation PASS. Found {len(symbols)} eligible symbols.")
+
 
 if __name__ == "__main__":
     main()
