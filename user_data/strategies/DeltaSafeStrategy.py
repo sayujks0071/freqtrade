@@ -1,38 +1,34 @@
 """
 DeltaSafeStrategy module.
 """
+
 # pragma pylint: disable=missing-docstring, invalid-name, pointless-string-statement
 # flake8: noqa: F401
 # isort: skip_file
 # --- Do not remove these libs ---
-import numpy as np
-import pandas as pd
 from pandas import DataFrame
-from datetime import datetime
-from typing import Optional, Union
-
-from freqtrade.strategy import (IStrategy, IntParameter, DecimalParameter)
-from freqtrade.persistence import Trade
-
-# Import AuditedStrategyMixin
+from freqtrade.strategy import IStrategy, IntParameter
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent / "_base"))
+from datetime import datetime
+from typing import Optional
+
+# Add _base to path to import AuditedStrategyMixin
+# This handles both running from root and running via freqtrade
+base_path = Path(__file__).parent / "_base"
+if str(base_path) not in sys.path:
+    sys.path.append(str(base_path))
 
 try:
     from AuditedStrategyMixin import AuditedStrategyMixin
 except ImportError:
-    # If _base not in path correctly, try adding parent of _base (strategies dir)
-    # Freqtrade usually adds user_data/strategies to path
+    # If the file is directly in strategies folder or tests
     try:
         from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
     except ImportError:
-         # Fallback for direct execution or testing
-         sys.path.append(str(Path(__file__).parent))
-         from _base.AuditedStrategyMixin import AuditedStrategyMixin
+        # Fallback if structure is flattened or strictly controlled
+        pass
 
-
-# --- Strategy ---
 
 class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     """
@@ -50,11 +46,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
 
     # Minimal ROI designed for the strategy.
     # This attribute will be overridden if the config file contains "minimal_roi".
-    minimal_roi = {
-        "60": 0.01,
-        "30": 0.02,
-        "0": 0.04
-    }
+    minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
 
     # Optimal stoploss designed for the strategy.
     # This attribute will be overridden if the config file contains "stoploss".
@@ -64,7 +56,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     trailing_stop = False
 
     # Timeframe
-    timeframe = '5m'
+    timeframe = "5m"
 
     # Run "populate_indicators" only for new candle.
     process_only_new_candles = True
@@ -81,15 +73,32 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     buy_rsi = IntParameter(10, 40, default=30, space="buy")
     sell_rsi = IntParameter(60, 90, default=70, space="sell")
 
+    def leverage(
+        self,
+        pair: str,
+        current_time: datetime,
+        current_rate: float,
+        proposed_leverage: float,
+        max_leverage: float,
+        entry_tag: Optional[str],
+        side: str,
+        **kwargs,
+    ) -> float:
+        """
+        Customize leverage for each new trade.
+        """
+        return 2.0
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         """
         Adds several different TA indicators to the given DataFrame
         """
         # RSI
         import talib.abstract as ta
-        dataframe['rsi'] = ta.RSI(dataframe)
-        dataframe['sma_short'] = ta.SMA(dataframe, timeperiod=10)
-        dataframe['sma_long'] = ta.SMA(dataframe, timeperiod=30)
+
+        dataframe["rsi"] = ta.RSI(dataframe)
+        dataframe["sma_short"] = ta.SMA(dataframe, timeperiod=10)
+        dataframe["sma_long"] = ta.SMA(dataframe, timeperiod=30)
 
         return dataframe
 
@@ -99,18 +108,14 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         """
 
         # Named conditions for readability and audit compliance
-        condition_long_rsi = (dataframe['rsi'] < self.buy_rsi.value)
-        condition_long_sma = (dataframe['sma_short'] > dataframe['sma_long'])
-        condition_volume = (dataframe['volume'] > 0)
+        condition_long_rsi = dataframe["rsi"] < self.buy_rsi.value
+        condition_long_sma = dataframe["sma_short"] > dataframe["sma_long"]
+        condition_volume = dataframe["volume"] > 0
 
         # Apply entry signal
         dataframe.loc[
-            (
-                condition_long_rsi &
-                condition_long_sma &
-                condition_volume
-            ),
-            'enter_long'] = 1
+            (condition_long_rsi & condition_long_sma & condition_volume), "enter_long"
+        ] = 1
 
         return dataframe
 
@@ -120,15 +125,10 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         """
 
         # Named conditions
-        condition_exit_rsi = (dataframe['rsi'] > self.sell_rsi.value)
-        condition_exit_sma = (dataframe['sma_short'] < dataframe['sma_long'])
+        condition_exit_rsi = dataframe["rsi"] > self.sell_rsi.value
+        condition_exit_sma = dataframe["sma_short"] < dataframe["sma_long"]
 
         # Apply exit signal
-        dataframe.loc[
-            (
-                condition_exit_rsi |
-                condition_exit_sma
-            ),
-            'exit_long'] = 1
+        dataframe.loc[(condition_exit_rsi | condition_exit_sma), "exit_long"] = 1
 
         return dataframe

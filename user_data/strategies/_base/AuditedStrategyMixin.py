@@ -4,6 +4,7 @@ Mixin for auditing strategy signals and safety checks.
 
 import logging
 from datetime import datetime
+from typing import Any
 
 from freqtrade.persistence import Trade
 
@@ -20,6 +21,7 @@ class AuditedStrategyMixin:
 
     # Safety Check: Enforce closed candle processing
     process_only_new_candles = True
+    config: dict[str, Any]
 
     def bot_start(self, **kwargs) -> None:
         """
@@ -36,9 +38,18 @@ class AuditedStrategyMixin:
             "AUDIT: Strategy %s started with AuditedStrategyMixin.", self.__class__.__name__
         )
 
-    def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, current_time: datetime, entry_tag: str | None,
-                            side: str, **kwargs) -> bool:
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time: datetime,
+        entry_tag: str | None,
+        side: str,
+        **kwargs,
+    ) -> bool:
         """
         Audit log for trade entry.
         """

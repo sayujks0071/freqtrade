@@ -45,7 +45,7 @@ def generate_report():
 
     conn.close()
 
-    date_str = datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
 
     with Path(report_file).open("w") as f:
@@ -57,8 +57,8 @@ def generate_report():
             return
 
         # Convert dates
-        df['open_date'] = pd.to_datetime(df['open_date'])
-        df['close_date'] = pd.to_datetime(df['close_date'])
+        df["open_date"] = pd.to_datetime(df["open_date"])
+        df["close_date"] = pd.to_datetime(df["close_date"])
 
         # Metrics
         total_trades = len(df)
@@ -68,16 +68,16 @@ def generate_report():
         total_profit_abs = df["close_profit_abs"].sum()
 
         # Exposure Time
-        df['exposure'] = df['close_date'] - df['open_date']
-        avg_exposure = df['exposure'].mean()
-        max_exposure = df['exposure'].max()
+        df["exposure"] = df["close_date"] - df["open_date"]
+        avg_exposure = df["exposure"].mean()
+        max_exposure = df["exposure"].max()
 
         # Max Drawdown (Approximate absolute from closed PnL sequence)
-        df = df.sort_values('close_date')
-        df['cum_profit'] = df['close_profit_abs'].cumsum()
-        df['max_cum'] = df['cum_profit'].cummax()
-        df['drawdown'] = df['max_cum'] - df['cum_profit']
-        max_dd_abs = df['drawdown'].max()
+        df = df.sort_values("close_date")
+        df["cum_profit"] = df["close_profit_abs"].cumsum()
+        df["max_cum"] = df["cum_profit"].cummax()
+        df["drawdown"] = df["max_cum"] - df["cum_profit"]
+        max_dd_abs = df["drawdown"].max()
 
         f.write("## Summary\n")
         f.write(f"- **Total Trades**: {total_trades}\n")

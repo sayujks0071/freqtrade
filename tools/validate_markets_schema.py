@@ -14,6 +14,7 @@ STRICT_VOLUME = os.environ.get("STRICT_VOLUME", "false").lower() == "true"
 
 REQUIRED_FIELDS = ["symbol", "base", "quote", "active"]
 
+
 def fail(message, report_path=None, report_content=None):
     print(f"FAIL: {message}")
     if report_path and report_content:
@@ -54,7 +55,8 @@ def validate_symbol_format(symbol, m, errors):
     # Freqtrade/CCXT usually puts colon for futures
     if ":" not in symbol:
         errors.append(
-            f"Symbol '{symbol}' missing settle delimiter (:). Expected futures format (BASE/QUOTE:SETTLE)."
+            f"Symbol '{symbol}' missing settle delimiter (:). "
+            "Expected futures format (BASE/QUOTE:SETTLE)."
         )
     else:
         # Check components
@@ -70,8 +72,8 @@ def validate_volume(m, symbol, errors):
         pass
     # If standard volume is present
     if "quoteVolume" in m and m["quoteVolume"] is not None:
-         if m["quoteVolume"] < 1000 and STRICT_VOLUME:
-             errors.append(f"Low volume for {symbol}: {m['quoteVolume']}")
+        if m["quoteVolume"] < 1000 and STRICT_VOLUME:
+            errors.append(f"Low volume for {symbol}: {m['quoteVolume']}")
 
 
 def validate_schema(data):
@@ -113,7 +115,7 @@ def validate_drift(current_symbols, previous_path):
 
             # If prev_data is not a list?
             if not isinstance(prev_data, list):
-                 return "Previous dump invalid format. Skipping drift check.", 0.0, []
+                return "Previous dump invalid format. Skipping drift check.", 0.0, []
 
             prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
     except Exception as e:
@@ -139,6 +141,22 @@ def validate_drift(current_symbols, previous_path):
     return drift_msg, removal_ratio, errors
 
 
+def process_drift_check(symbols, prev_path, report_content, report_file):
+    if prev_path:
+        drift_msg, _, drift_errors = validate_drift(symbols, prev_path)
+        report_content += f"\n## Drift Check\n- {drift_msg or 'N/A'}\n"
+
+        if drift_errors:
+            report_content += "\n### Drift Errors\n"
+            for err in drift_errors:
+                report_content += f"- {err}\n"
+            fail(f"Drift validation failed: {drift_errors[0]}", report_file, report_content)
+    else:
+        report_content += "\n## Drift Check\n- Skipped (No previous dump)\n"
+
+    return report_content
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: validate_markets_schema.py <current_json> [previous_json]")
@@ -148,11 +166,11 @@ def main():
     prev_path = sys.argv[2] if len(sys.argv) > 2 else None
 
     # Report file setup
-    ts = datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     report_content = (
         f"# Markets Schema Validation Report\n\n"
-        f"Date: {datetime.now(datetime.UTC).isoformat()}\n"
+        f"Date: {datetime.now(timezone.utc).isoformat()}\n"
         f"File: {current_path}\n"
     )
 
@@ -171,30 +189,20 @@ def main():
 
     if schema_errors:
         report_content += "\n## Schema Errors\n"
-        for e in schema_errors[:20]:
-            report_content += f"- {e}\n"
+        for err in schema_errors[:20]:
+            report_content += f"- {err}\n"
         if len(schema_errors) > 20:
             report_content += f"- ...and {len(schema_errors) - 20} more\n"
 
         fail(
             f"Schema validation failed with {len(schema_errors)} errors.",
             report_file,
-            report_content
+            report_content,
         )
 
     report_content += f"\n## Schema Check\n- Status: PASS\n- Markets count: {len(symbols)}\n"
 
-    if prev_path:
-        drift_msg, _, drift_errors = validate_drift(symbols, prev_path)
-        report_content += f"\n## Drift Check\n- {drift_msg or 'N/A'}\n"
-
-        if drift_errors:
-            report_content += "\n### Drift Errors\n"
-            for e in drift_errors:
-                report_content += f"- {e}\n"
-            fail(f"Drift validation failed: {drift_errors[0]}", report_file, report_content)
-    else:
-        report_content += "\n## Drift Check\n- Skipped (No previous dump)\n"
+    report_content = process_drift_check(symbols, prev_path, report_content, report_file)
 
     report_content += "\n## Result\nVALIDATION PASS\n"
 

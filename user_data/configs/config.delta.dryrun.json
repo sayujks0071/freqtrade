@@ -50,6 +50,13 @@
             "stop_duration_candles": 5
         },
         {
+            "method": "StoplossGuard",
+            "lookback_period_candles": 24,
+            "trade_limit": 4,
+            "stop_duration_candles": 20,
+            "only_per_pair": false
+        },
+        {
             "method": "MaxDrawdown",
             "lookback_period_candles": 48,
             "trade_limit": 20,

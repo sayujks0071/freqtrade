@@ -60,8 +60,8 @@ def main():
         data = data["markets"]
 
     if not isinstance(data, list):
-         print("Error: Markets data is not a list")
-         sys.exit(1)
+        print("Error: Markets data is not a list")
+        sys.exit(1)
 
     whitelist = filter_markets(data)
 
