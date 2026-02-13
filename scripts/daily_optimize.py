@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+OPTIMIZATION_LOG_FILE = USER_DATA_DIR / "logs/optimization_log.txt"
 
 # Optimization Parameters
 EPOCHS = 200
@@ -210,6 +211,26 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def log_optimization_result(
+    strategy, status, roi_improvement, sharpe_old, sharpe_new, dd_old, dd_new
+):
+    """
+    Appends the optimization result to the log file.
+    Format: TIMESTAMP|STRATEGY|STATUS|ROI_IMPROVEMENT|SHARPE_OLD|SHARPE_NEW|DD_OLD|DD_NEW
+    """
+    # Ensure logs directory exists
+    OPTIMIZATION_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().isoformat()
+    log_entry = (
+        f"{timestamp}|{strategy}|{status}|{roi_improvement:.2f}|"
+        f"{sharpe_old:.4f}|{sharpe_new:.4f}|{dd_old:.4f}|{dd_new:.4f}\n"
+    )
+
+    with OPTIMIZATION_LOG_FILE.open("a") as f:
+        f.write(log_entry)
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -376,6 +397,17 @@ Examples:
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
+    status = "PASS" if (sharpe_improved and drawdown_improved) else "FAIL"
+    log_optimization_result(
+        worst_strategy,
+        status,
+        avg_profit_pct if status == "PASS" else 0.0,
+        current_sharpe,
+        new_sharpe,
+        current_drawdown,
+        new_drawdown,
+    )
+
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
@@ -383,6 +415,7 @@ Examples:
         if args.dry_run:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
             print(f"  File: {strategy_json}")
+            print(f"  File: {OPTIMIZATION_LOG_FILE}")
             print(f"  Message: {msg}")
             if args.branch:
                 print(f"  Branch: {args.branch}")
@@ -395,6 +428,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -438,6 +472,24 @@ Examples:
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        if not args.dry_run:
+            # Commit the failed attempt log
+            msg = f"chore: record failed optimization for {worst_strategy}"
+            target_branch = args.branch if args.branch else "main"
+
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
+            run_command(["git", "commit", "-m", msg])
+
+            if args.yes:
+                print(f"\nPushing log update to {target_branch}...")
+                push_cmd = ["git", "push", "origin"]
+                if target_branch == "main":
+                    push_cmd.append("HEAD:main")
+                else:
+                    push_cmd.append(target_branch)
+
+                run_command(push_cmd, capture=True)
 
 
 if __name__ == "__main__":
