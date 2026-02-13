@@ -26,10 +26,10 @@ def audit_file(filepath):  # noqa: C901
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for n in node.names:
-                if n.name in ["requests", "urllib", "socket", "http"]:
+                if n.name in ["requests", "urllib", "socket", "http", "subprocess"]:
                     errors.append(f"Unsafe import: {n.name}")
         elif isinstance(node, ast.ImportFrom):
-            if node.module in ["requests", "urllib", "socket", "http"]:
+            if node.module in ["requests", "urllib", "socket", "http", "subprocess"]:
                 errors.append(f"Unsafe import from: {node.module}")
 
     # Check 3: datetime.now() usage (heuristic)
@@ -45,17 +45,41 @@ def audit_file(filepath):  # noqa: C901
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
     has_class = False
+    process_candles_ok = False
+
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
-            has_class = True
-            # Check bases
-            bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
-            if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
+            # Check if it looks like a strategy (inherits IStrategy)
+            bases = []
+            for b in node.bases:
+                if isinstance(b, ast.Name):
+                    bases.append(b.id)
+                elif isinstance(b, ast.Attribute):
+                    bases.append(b.attr)
+
+            if "IStrategy" in bases:
+                has_class = True
+                if "AuditedStrategyMixin" not in bases:
+                    errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
+
+                # Check process_only_new_candles = True in body
+                for item in node.body:
+                    if isinstance(item, ast.Assign):
+                        for t in item.targets:
+                            if isinstance(t, ast.Name) and t.id == "process_only_new_candles":
+                                if (
+                                    isinstance(item.value, ast.Constant)
+                                    and item.value.value is True
+                                ):
+                                    process_candles_ok = True
+                                elif (
+                                    isinstance(item.value, ast.NameConstant)
+                                    and item.value.value is True
+                                ):  # Python < 3.8
+                                    process_candles_ok = True
+
+    if has_class and not process_candles_ok:
+        errors.append("process_only_new_candles must be set to True")
 
     # Check 5: "closed candle only" note
     if "closed candle" not in source.lower():
@@ -74,23 +98,34 @@ def audit_file(filepath):  # noqa: C901
                     if isinstance(sl, ast.Index):
                         sl = sl.value
 
-                    if isinstance(sl, ast.BoolOp):
-                        if len(sl.values) > 3:
-                            errors.append(
-                                f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
-                            )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
-                                )
+                    # Check tuple of conditions (common in loc)
+                    conditions = []
+                    if isinstance(sl, ast.Tuple):
+                        conditions = sl.elts
+                    else:
+                        conditions = [sl]
 
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
+                    for cond in conditions:
+                        if isinstance(cond, ast.BoolOp):
+                            # Check if it has many values (unnamed conditions)
+                            # e.g. (a & b & c & d)
+                            # If values are not simple Names, it's complex
+                            complex_parts = 0
+                            for v in cond.values:
+                                if not isinstance(v, ast.Name):
+                                    # Allow UnaryOp (invert) of Name
+                                    if isinstance(v, ast.UnaryOp) and isinstance(
+                                        v.operand, ast.Name
+                                    ):
+                                        continue
+                                    # Allow Compare (x < y) if simple? No, prefer named vars
+                                    complex_parts += 1
+
+                            if complex_parts > 2:
+                                errors.append(
+                                    f"Complex inline condition at line {node.lineno}. "
+                                    "Use named variables."
+                                )
 
     if errors:
         for e in errors:

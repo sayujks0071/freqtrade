@@ -16,7 +16,7 @@ def filter_markets(markets):
     regex = re.compile(ALLOWLIST_REGEX)
 
     for m in markets:
-        symbol = m["symbol"]
+        symbol = m.get("symbol", "")
 
         # Basic active check
         if not m.get("active", True):
@@ -30,7 +30,9 @@ def filter_markets(markets):
             if "/USDT:USDT" in symbol:
                 whitelist.append(symbol)
         elif FILTER_MODE == "all_futures":
-            whitelist.append(symbol)
+            # Just check if it looks like a future (colon)
+            if ":" in symbol:
+                whitelist.append(symbol)
         elif FILTER_MODE == "allowlist_regex":
             if regex.match(symbol):
                 whitelist.append(symbol)
@@ -47,19 +49,23 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    try:
+        with Path(sys.argv[1]).open() as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error reading markets file: {e}")
+        sys.exit(1)
 
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]
 
+    if not isinstance(data, list):
+        print("Error: Markets data is not a list")
+        sys.exit(1)
+
     whitelist = filter_markets(data)
 
-    # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
-
-    # JSON format for Freqtrade inclusion
+    # Output format for freqtrade config
     output_obj = {"exchange": {"pair_whitelist": whitelist}}
 
     print(json.dumps(output_obj, indent=4))
