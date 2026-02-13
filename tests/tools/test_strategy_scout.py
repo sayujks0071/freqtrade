@@ -1,12 +1,12 @@
 import ast
-import os
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
 # Add tools to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../tools')))
+sys.path.append(str((Path(__file__).parent.parent.parent / "tools").resolve()))
 
 # Since strategy_scout is a script in tools/, we might need to import it carefully
 # But since I added tools to path, I can import strategy_scout if it was a module.
