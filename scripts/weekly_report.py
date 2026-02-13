@@ -43,9 +43,7 @@ def get_git_commits(days=7):
             try:
                 parts = line.split("|")
                 if len(parts) >= 3:
-                    commits.append(
-                        {"hash": parts[0], "subject": parts[1], "date": parts[2]}
-                    )
+                    commits.append({"hash": parts[0], "subject": parts[1], "date": parts[2]})
             except Exception as e:
                 print(f"Error parsing git log line: {line}. Error: {e}")
                 continue
@@ -168,13 +166,9 @@ def generate_stuck_strategies_section(log_entries):
     if stuck_strategies:
         for strategy in sorted(stuck_strategies):
             fail_count = sum(
-                1
-                for e in log_entries
-                if e["strategy"] == strategy and e["status"] == "FAIL"
+                1 for e in log_entries if e["strategy"] == strategy and e["status"] == "FAIL"
             )
-            lines.append(
-                f"- **{strategy}**: {fail_count} failed optimization attempts this week."
-            )
+            lines.append(f"- **{strategy}**: {fail_count} failed optimization attempts this week.")
     else:
         lines.append("No stuck strategies detected.")
 
