@@ -253,8 +253,8 @@ def audit_file(filepath, fix=False):
             ]
 
     if visitor.errors:
-        for e in visitor.errors:
-            logger.error(f"  - {e}")
+        for err in visitor.errors:
+            logger.error(f"  - {err}")
         return False
 
     logger.info("PASS")

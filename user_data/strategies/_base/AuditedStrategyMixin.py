@@ -36,10 +36,7 @@ class AuditedStrategyMixin:
         snapshot_str = ", ".join(f"{k}={v}" for k, v in indicators_snapshot.items())
 
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {snapshot_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot_str}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:

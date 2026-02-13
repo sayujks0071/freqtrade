@@ -21,10 +21,10 @@ No Repainting Note:
 - Only act on closed candles (no incomplete candle usage).
 """
 
+from datetime import UTC, datetime
 import logging
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sys
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -166,10 +166,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         except Exception as e:
             logger.warning(f"Could not fetch snapshot for {pair}: {e}")
 
-        # Use datetime.UTC (Python 3.11+) or timezone.utc
+        # Use datetime.UTC (Python 3.11+)
         # If current_time has no tzinfo, assume UTC.
         if current_time.tzinfo is None:
-            ts_utc = current_time.replace(tzinfo=timezone.utc)
+            ts_utc = current_time.replace(tzinfo=UTC)
         else:
             ts_utc = current_time
 
@@ -207,10 +207,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         except Exception as e:
             logger.warning(f"Could not fetch snapshot for {pair}: {e}")
 
-        # Use datetime.UTC (Python 3.11+) or timezone.utc
+        # Use datetime.UTC (Python 3.11+)
         ts_utc = current_time
         if current_time.tzinfo is None:
-            ts_utc = current_time.replace(tzinfo=timezone.utc)
+            ts_utc = current_time.replace(tzinfo=UTC)
 
         self.log_signal(
             pair=pair,
