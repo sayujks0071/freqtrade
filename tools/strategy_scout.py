@@ -5,6 +5,8 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 """
 
 import argparse
+import ast
+import contextlib
 import datetime
 import os
 from pathlib import Path
@@ -26,6 +28,67 @@ REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
 TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
+
+
+class StrategyVisitor(ast.NodeVisitor):
+    """
+    AST Visitor to extract metadata from strategy files without executing them.
+    """
+
+    def __init__(self):
+        self.metadata = {
+            "stoploss": None,
+            "minimal_roi": None,
+            "timeframe": None,
+            "can_short": False,
+            "process_only_new_candles": None,
+            "indicators": [],
+        }
+
+    def visit_ClassDef(self, node):
+        # We only care about classes that look like strategies (inherit from IStrategy effectively)
+        # But we can't easily check inheritance without resolving imports.
+        # So we just look for specific fields in any class.
+        for item in node.body:
+            if isinstance(item, ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, ast.Name):
+                        self._check_assignment(target.id, item.value)
+        self.generic_visit(node)
+
+    def _check_assignment(self, name, value):
+        if name == "stoploss":
+            self.metadata["stoploss"] = self._get_value(value)
+        elif name == "minimal_roi":
+            self.metadata["minimal_roi"] = "Dict"  # ROI is usually a dict, hard to parse fully
+        elif name == "timeframe":
+            self.metadata["timeframe"] = self._get_value(value)
+        elif name == "can_short":
+            self.metadata["can_short"] = self._get_value(value)
+        elif name == "process_only_new_candles":
+            self.metadata["process_only_new_candles"] = self._get_value(value)
+
+    def _get_value(self, node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.UnaryOp):
+            if isinstance(node.op, ast.USub) and isinstance(node.operand, ast.Constant):
+                return -node.operand.value
+        return None
+
+    def visit_FunctionDef(self, node):
+        if node.name == "populate_indicators":
+            # heuristics to find indicators
+            # We can check for 'qtpylib', 'ta.', 'talib.' calls
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call):
+                    if isinstance(child.func, ast.Attribute):
+                        if isinstance(child.func.value, ast.Name):
+                            if child.func.value.id in ["ta", "talib", "qtpylib"]:
+                                ind = f"{child.func.value.id}.{child.func.attr}"
+                                if ind not in self.metadata["indicators"]:
+                                    self.metadata["indicators"].append(ind)
+        self.generic_visit(node)
 
 
 class StrategyScout:
@@ -74,7 +137,8 @@ class StrategyScout:
 
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+            # Increased per_page to 100
+            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 100}
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
@@ -118,14 +182,25 @@ class StrategyScout:
 
             # 1. License Check
             license_name = "Unknown"
+            is_known_source = full_name in KNOWN_SOURCES
+
             if license_data and license_data.get("key") != "other":
                 license_name = license_data.get("name", "Unknown")
                 score += 5  # Clear license
             elif license_data and license_data.get("key") == "other":
                 license_name = "Other (Check manually)"
-                score += 1
+                # Strictly penalize "Other" unless known source, or at least don't give points
+                if is_known_source:
+                    score += 5
+                else:
+                    score += 1
             else:
-                if full_name not in KNOWN_SOURCES:
+                # No license
+                if is_known_source:
+                    score += 5
+                    license_name = "Implicit (Known Source)"
+                else:
+                    # Reject "no license"
                     continue
 
             # 2. Recency
@@ -159,59 +234,43 @@ class StrategyScout:
         self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
         print(f"Candidates after filtering: {len(self.candidates)}")
 
-    def _find_strategy_files(self, full_name):
-        """Helper to find strategy files in a repo."""
+    def _fetch_repo_tree(self, repo):
+        """Fetch recursive tree to find strategy files."""
+        full_name = repo["full_name"]
+        default_branch = repo.get("default_branch", "master")
         strategies = []
-        found_path = None
-        paths_to_check = ["user_data/strategies", "strategies", "."]
 
-        for path in paths_to_check:
-            try:
-                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
-                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
-                if resp.status_code == 200:
-                    contents = resp.json()
-                    if isinstance(contents, list):
-                        potential = [
-                            f
-                            for f in contents
-                            if f["name"].endswith(".py") and f["name"] != "__init__.py"
-                        ]
-                        if potential:
-                            strategies = potential
-                            found_path = path
-                            break
-            except Exception:  # noqa: S110
-                pass
-        return strategies, found_path
-
-    def _analyze_strategy_content(self, strat_file, repo):
-        """Helper to download and analyze strategy content."""
+        url = f"{GITHUB_API_URL}/repos/{full_name}/git/trees/{default_branch}?recursive=1"
         try:
-            download_url = strat_file.get("download_url")
-            if download_url:
-                content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
-                if content_resp.status_code == 200:
-                    content = content_resp.text
-
-                    # Check heuristics
-                    if "stoploss" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has stoploss")
-                    if "minimal_roi" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-                    if "populate_indicators" in content:
-                        repo["scout_score"] += 2
-                    if "can_short" in content:
-                        repo["scout_notes"].append("Futures/Shorts mentioned")
-
-                    # Negative heuristics
-                    if "martingale" in content.lower():
-                        repo["scout_score"] -= 10
-                        repo["scout_notes"].append("Martingale detected (Risk!)")
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                tree = resp.json().get("tree", [])
+                for item in tree:
+                    path = item.get("path", "")
+                    # Heuristic: .py file, contains 'strategy' in path or name, not __init__
+                    if path.endswith(".py") and not path.endswith("__init__.py"):
+                        # Check if it looks like a strategy file location
+                        if (
+                            "strategies" in path
+                            or "Strategy" in path
+                            or "freqtrade" in path.lower()
+                        ):
+                            # We need the raw download url
+                            base = "https://raw.githubusercontent.com"
+                            item["download_url"] = f"{base}/{full_name}/{default_branch}/{path}"
+                            strategies.append(item)
         except Exception as e:
-            print(f"Failed to read file {strat_file['name']}: {e}")
+            print(f"Error fetching tree for {full_name}: {e}")
+
+        return strategies
+
+    def _analyze_strategy_content(self, content):
+        """Analyze strategy content using AST."""
+        visitor = StrategyVisitor()
+        with contextlib.suppress(Exception):
+            tree = ast.parse(content)
+            visitor.visit(tree)
+        return visitor.metadata
 
     def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
@@ -225,25 +284,59 @@ class StrategyScout:
                 print("Rate limit exhausted, stopping inspection.")
                 break
 
-            full_name = repo["full_name"]
-            print(f"Inspecting {full_name}...")
-
-            strategies, found_path = self._find_strategy_files(full_name)
-
-            repo["strategy_count"] = len(strategies)
-            repo["strategy_path"] = found_path
-
-            if len(strategies) > 0:
-                repo["scout_score"] += min(len(strategies), 5) * 1  # +1 per strategy up to 5
-                # Check the first strategy file for content
-                self._analyze_strategy_content(strategies[0], repo)
-            else:
-                repo["scout_score"] -= 5
-
+            self._inspect_single_repo(repo)
             inspected_count += 1
 
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
+
+    def _inspect_single_repo(self, repo):
+        full_name = repo["full_name"]
+        print(f"Inspecting {full_name}...")
+
+        strategies = self._fetch_repo_tree(repo)
+        repo["strategy_count"] = len(strategies)
+        repo["strategies"] = strategies
+
+        if strategies:
+            repo["scout_score"] += min(len(strategies), 5) * 1
+            self._analyze_first_strategy(repo, strategies[0])
+        else:
+            repo["scout_score"] -= 5
+
+    def _analyze_first_strategy(self, repo, strategy_file):
+        try:
+            # Fetch content
+            content_resp = requests.get(
+                strategy_file["download_url"], timeout=REQUEST_TIMEOUT
+            )
+            if content_resp.status_code == 200:
+                content = content_resp.text
+                metadata = self._analyze_strategy_content(content)
+                self._apply_metadata_score(repo, metadata, content)
+        except Exception as e:
+            print(f"Failed to analyze content for {repo['full_name']}: {e}")
+
+    def _apply_metadata_score(self, repo, metadata, content):
+        if metadata["stoploss"] is not None:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has stoploss")
+        if metadata["minimal_roi"] is not None:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has ROI")
+        if metadata["can_short"] is True:
+            repo["scout_notes"].append("Futures/Shorts mentioned")
+            repo["can_short"] = True
+        if metadata["indicators"]:
+            repo["scout_score"] += 2
+            repo["indicators_sample"] = metadata["indicators"][:5]
+
+        if metadata["timeframe"]:
+            repo["timeframe"] = metadata["timeframe"]
+
+        if "martingale" in content.lower():
+            repo["scout_score"] -= 10
+            repo["scout_notes"].append("Martingale detected (Risk!)")
 
     def generate_report(self):
         print("Generating report...")
@@ -274,15 +367,22 @@ class StrategyScout:
                 if desc:
                     f.write(f"- **Description:** {desc}\n")
 
+                if repo.get("timeframe"):
+                    f.write(f"- **Timeframe:** {repo['timeframe']}\n")
+
+                if repo.get("indicators_sample"):
+                    f.write(f"- **Indicators (Sample):** {', '.join(repo['indicators_sample'])}\n")
+
                 if repo.get("scout_notes"):
                     f.write(f"- **Notes:** {', '.join(repo['scout_notes'])}\n")
 
                 f.write("- **Adoption Notes:** ")
                 adoption = []
-                if "Futures/Shorts mentioned" in repo.get("scout_notes", []):
-                    adoption.append("Seems to support futures.")
+                if repo.get("can_short"):
+                    adoption.append("**Futures Support:** detected `can_short=True`.")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
+
                 adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
@@ -317,10 +417,10 @@ class StrategyScout:
             full_name = repo["full_name"]
             repo_name = repo["name"]
             safe_name = full_name.replace("/", "_")
-            path = repo.get("strategy_path")
+            strategies = repo.get("strategies", [])
 
-            if not path:
-                continue  # Can't vendor if we didn't find the path
+            if not strategies:
+                continue
 
             print(f"Vendoring from {full_name}...")
 
@@ -328,29 +428,23 @@ class StrategyScout:
             vendor_dir.mkdir(parents=True, exist_ok=True)
 
             try:
-                url = f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}"
-                resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
-                if resp.status_code == 200:
-                    contents = resp.json()
-                    downloaded = 0
-                    for file_info in contents:
-                        fname = file_info.get("name", "")
-                        if not fname.endswith(".py") or fname == "__init__.py":
-                            continue
+                downloaded = 0
+                for file_info in strategies:
+                    if downloaded >= 3:
+                        break
 
-                        if downloaded >= 3:
-                            # Limit to 3 files per repo to save bandwidth/noise
-                            break
+                    fname = Path(file_info.get("path", "")).name
+                    raw_url = file_info.get("download_url")
 
-                        raw_url = file_info.get("download_url")
-                        if raw_url:
-                            r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
-                            if r.status_code == 200:
-                                file_path = vendor_dir / file_info["name"]
-                                with file_path.open("w") as f:
-                                    f.write(r.text)
-                                downloaded += 1
+                    if raw_url:
+                        r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
+                        if r.status_code == 200:
+                            file_path = vendor_dir / fname
+                            with file_path.open("w") as f:
+                                f.write(r.text)
+                            downloaded += 1
 
+                if downloaded > 0:
                     license_file = vendor_dir / "LICENSE_NOTE.md"
                     with license_file.open("w") as f:
                         f.write(f"# License Note for {repo_name}\n\n")
