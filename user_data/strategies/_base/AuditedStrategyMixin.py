@@ -4,7 +4,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         ts_utc: datetime,
-        indicators_snapshot: dict[str, Any] = None,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.

@@ -5,7 +5,8 @@ Version: 1.1
 Supported Timeframes: 1h
 
 Supported Pair Format Notes:
-- Delta contract symbols (e.g., BTCUSDT) must be mapped to Freqtrade/CCXT futures pair format (base/quote:settle like BTC/USDT:USDT).
+- Delta contract symbols (e.g., BTCUSDT) must be mapped to Freqtrade/CCXT futures pair format.
+  (base/quote:settle like BTC/USDT:USDT).
 
 Timezone Rule:
 - All timestamps logged as UTC ISO-8601.
@@ -22,14 +23,13 @@ No Repainting Note:
 
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
-
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -80,12 +80,15 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         # Symbol Sanity Check
         # Check if pairs in whitelist are formatted correctly for Delta Futures
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             for pair in self.config["exchange"]["pair_whitelist"]:
-                 # Check for colon in pair (e.g. BTC/USDT:USDT)
-                 if ":" not in pair:
-                     error_msg = f"Symbol sanity failure: {pair} missing settle currency (e.g. :USDT). Required for Delta Futures."
-                     logger.error(error_msg)
-                     raise ValueError(error_msg)
+            for pair in self.config["exchange"]["pair_whitelist"]:
+                # Check for colon in pair (e.g. BTC/USDT:USDT)
+                if ":" not in pair:
+                    error_msg = (
+                        f"Symbol sanity failure: {pair} missing settle currency (e.g. :USDT). "
+                        "Required for Delta Futures."
+                    )
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
@@ -102,9 +105,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
         # Named boolean conditions
         # RSI oversold condition
-        rsi_oversold = (dataframe["rsi"] < 30)
+        rsi_oversold = dataframe["rsi"] < 30
         # Volume filter
-        volume_ok = (dataframe["volume"] > 0)
+        volume_ok = dataframe["volume"] > 0
 
         # Long entry
         long_entry = rsi_oversold & volume_ok
@@ -120,9 +123,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Named boolean conditions
         # RSI overbought condition
-        rsi_overbought = (dataframe["rsi"] > 70)
+        rsi_overbought = dataframe["rsi"] > 70
         # Volume filter
-        volume_ok = (dataframe["volume"] > 0)
+        volume_ok = dataframe["volume"] > 0
 
         # Long exit
         long_exit = rsi_overbought & volume_ok
@@ -141,7 +144,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
+        current_time: datetime,
         entry_tag,
         side: str,
         **kwargs,
@@ -158,17 +161,24 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             snapshot = {
                 "rsi": last_candle.get("rsi"),
                 "close": last_candle.get("close"),
-                "volume": last_candle.get("volume")
+                "volume": last_candle.get("volume"),
             }
         except Exception as e:
             logger.warning(f"Could not fetch snapshot for {pair}: {e}")
+
+        # Use datetime.UTC (Python 3.11+)
+        # If current_time has no tzinfo, assume UTC.
+        if current_time.tzinfo is None:
+            ts_utc = current_time.replace(tzinfo=datetime.UTC)
+        else:
+            ts_utc = current_time
 
         self.log_signal(
             pair=pair,
             side=side,
             reason=entry_tag or "Signal Confirmed",
-            ts_utc=current_time.replace(tzinfo=timezone.utc) if current_time.tzinfo is None else current_time,
-            indicators_snapshot=snapshot
+            ts_utc=ts_utc,
+            indicators_snapshot=snapshot,
         )
         return True
 
@@ -181,7 +191,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         exit_reason: str,
-        current_time,
+        current_time: datetime,
         **kwargs,
     ) -> bool:
 
@@ -192,16 +202,21 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             snapshot = {
                 "rsi": last_candle.get("rsi"),
                 "close": last_candle.get("close"),
-                "volume": last_candle.get("volume")
+                "volume": last_candle.get("volume"),
             }
         except Exception as e:
             logger.warning(f"Could not fetch snapshot for {pair}: {e}")
+
+        # Use datetime.UTC (Python 3.11+)
+        ts_utc = current_time
+        if current_time.tzinfo is None:
+            ts_utc = current_time.replace(tzinfo=datetime.UTC)
 
         self.log_signal(
             pair=pair,
             side=trade.trade_direction,
             reason=exit_reason,
-            ts_utc=current_time.replace(tzinfo=timezone.utc) if current_time.tzinfo is None else current_time,
-            indicators_snapshot=snapshot
+            ts_utc=ts_utc,
+            indicators_snapshot=snapshot,
         )
         return True
