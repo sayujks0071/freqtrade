@@ -23,7 +23,7 @@ No Repainting Note:
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import talib.abstract as ta
@@ -166,10 +166,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         except Exception as e:
             logger.warning(f"Could not fetch snapshot for {pair}: {e}")
 
-        # Use datetime.UTC (Python 3.11+)
+        # Use datetime.UTC (Python 3.11+) or timezone.utc
         # If current_time has no tzinfo, assume UTC.
         if current_time.tzinfo is None:
-            ts_utc = current_time.replace(tzinfo=datetime.UTC)
+            ts_utc = current_time.replace(tzinfo=timezone.utc)
         else:
             ts_utc = current_time
 
@@ -207,10 +207,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         except Exception as e:
             logger.warning(f"Could not fetch snapshot for {pair}: {e}")
 
-        # Use datetime.UTC (Python 3.11+)
+        # Use datetime.UTC (Python 3.11+) or timezone.utc
         ts_utc = current_time
         if current_time.tzinfo is None:
-            ts_utc = current_time.replace(tzinfo=datetime.UTC)
+            ts_utc = current_time.replace(tzinfo=timezone.utc)
 
         self.log_signal(
             pair=pair,

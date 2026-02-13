@@ -249,7 +249,7 @@ def audit_file(filepath, fix=False):
         if apply_fix(filepath):
             # Clear docstring error since we fixed it
             visitor.errors = [
-                e for e in visitor.errors if "Missing module docstring" not in e
+                err for err in visitor.errors if "Missing module docstring" not in err
             ]
 
     if visitor.errors:
