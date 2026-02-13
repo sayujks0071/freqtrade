@@ -1,8 +1,9 @@
+import ast
+import os
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
-import ast
-import sys
-import os
+
 
 # Add tools to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../tools')))
@@ -12,7 +13,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../t
 # However, strategy_scout.py is a script. Importing it might run main if not guarded.
 # It is guarded with if __name__ == '__main__':.
 
-from strategy_scout import StrategyVisitor, StrategyScout
+from strategy_scout import StrategyScout, StrategyVisitor
+
 
 class TestStrategyVisitor(unittest.TestCase):
     def test_extract_metadata(self):
