@@ -1,20 +1,41 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+Strategy Name: DeltaSafeStrategy
+Author: Jules
+Version: 1.1
+Supported Timeframes: 1h
+
+Supported Pair Format Notes:
+- Delta contract symbols (e.g., BTCUSDT) must be mapped to Freqtrade/CCXT futures pair format.
+  (base/quote:settle like BTC/USDT:USDT).
+
+Timezone Rule:
+- All timestamps logged as UTC ISO-8601.
+
+Entry/Exit Definitions:
+- Long Entry: RSI < 30 and Volume > 0
+- Long Exit: RSI > 70 and Volume > 0
+- Short Entry: N/A
+- Short Exit: N/A
+
+No Repainting Note:
+- Only act on closed candles (no incomplete candle usage).
 """
 
-import sys
+from datetime import UTC, datetime
+import logging
 from pathlib import Path
+import sys
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
 
-
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
+
+logger = logging.getLogger(__name__)
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -52,24 +73,68 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        """
+        # Symbol Sanity Check
+        # Check if pairs in whitelist are formatted correctly for Delta Futures
+        if self.config.get("exchange", {}).get("pair_whitelist"):
+            for pair in self.config["exchange"]["pair_whitelist"]:
+                # Check for colon in pair (e.g. BTC/USDT:USDT)
+                if ":" not in pair:
+                    error_msg = (
+                        f"Symbol sanity failure: {pair} missing settle currency (e.g. :USDT). "
+                        "Required for Delta Futures."
+                    )
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
+        # Check whitelist first
+        whitelist = self.config.get("exchange", {}).get("pair_whitelist", [])
+        try:
+            self.assert_pair_in_whitelist(metadata["pair"], whitelist)
+        except ValueError:
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        # Named boolean conditions
+        # RSI oversold condition
+        rsi_oversold = dataframe["rsi"] < 30
+        # Volume filter
+        volume_ok = dataframe["volume"] > 0
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Long entry
+        long_entry = rsi_oversold & volume_ok
+
+        dataframe.loc[long_entry, "enter_long"] = 1
+
+        # Comments explaining market thesis
+        # We enter long when RSI is oversold (<30) indicating potential reversal,
+        # and there is volume activity to support the move.
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        # Named boolean conditions
+        # RSI overbought condition
+        rsi_overbought = dataframe["rsi"] > 70
+        # Volume filter
+        volume_ok = dataframe["volume"] > 0
+
+        # Long exit
+        long_exit = rsi_overbought & volume_ok
+
+        dataframe.loc[long_exit, "exit_long"] = 1
+
+        # Comments explaining market thesis
+        # We exit long when RSI is overbought (>70) indicating overextension.
+
         return dataframe
 
     def confirm_trade_entry(
@@ -79,7 +144,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
+        current_time: datetime,
         entry_tag,
         side: str,
         **kwargs,
@@ -87,5 +152,71 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        # Capture indicators snapshot if possible
+        # We need the last closed candle indicators
+        snapshot = {}
+        try:
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            last_candle = dataframe.iloc[-1]
+            snapshot = {
+                "rsi": last_candle.get("rsi"),
+                "close": last_candle.get("close"),
+                "volume": last_candle.get("volume"),
+            }
+        except Exception as e:
+            logger.warning(f"Could not fetch snapshot for {pair}: {e}")
+
+        # Use datetime.UTC (Python 3.11+)
+        # If current_time has no tzinfo, assume UTC.
+        if current_time.tzinfo is None:
+            ts_utc = current_time.replace(tzinfo=UTC)
+        else:
+            ts_utc = current_time
+
+        self.log_signal(
+            pair=pair,
+            side=side,
+            reason=entry_tag or "Signal Confirmed",
+            ts_utc=ts_utc,
+            indicators_snapshot=snapshot,
+        )
+        return True
+
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
+
+        snapshot = {}
+        try:
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            last_candle = dataframe.iloc[-1]
+            snapshot = {
+                "rsi": last_candle.get("rsi"),
+                "close": last_candle.get("close"),
+                "volume": last_candle.get("volume"),
+            }
+        except Exception as e:
+            logger.warning(f"Could not fetch snapshot for {pair}: {e}")
+
+        # Use datetime.UTC (Python 3.11+)
+        ts_utc = current_time
+        if current_time.tzinfo is None:
+            ts_utc = current_time.replace(tzinfo=UTC)
+
+        self.log_signal(
+            pair=pair,
+            side=trade.trade_direction,
+            reason=exit_reason,
+            ts_utc=ts_utc,
+            indicators_snapshot=snapshot,
+        )
         return True

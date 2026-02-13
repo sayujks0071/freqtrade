@@ -4,9 +4,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,35 +21,36 @@ class AuditedStrategyMixin:
     def log_signal(
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
+        if indicators_snapshot is None:
+            indicators_snapshot = {}
 
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
-                return False
-        return True
+        # Format snapshot as key=value string
+        snapshot_str = ", ".join(f"{k}={v}" for k, v in indicators_snapshot.items())
+
+        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot_str}"
+        logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:
         """
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:
+        """
+        Assert pair is in the provided whitelist.
+        Raises ValueError if not found.
+        """
+        if pair not in whitelist:
+            error_msg = f"AUDIT_ERROR | Pair {pair} not in whitelist but processing attempted!"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
