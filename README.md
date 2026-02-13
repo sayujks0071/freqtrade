@@ -140,6 +140,16 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
 
+## Configuration Knobs
+
+The following environment variables (set in `.env`) control the validation behavior:
+
+-   `MIN_MARKETS` (default: 20): Minimum number of markets required in the dump.
+-   `MAX_REMOVAL_RATIO` (default: 0.25): Maximum allowed ratio of removed pairs vs previous whitelist.
+-   `STRICT_VOLUME` (default: false): If true, fails validation on low volume markets.
+-   `FILTER_MODE` (default: perps_usdt): Filtering strategy for whitelist generation (`perps_usdt`, `all_futures`, `allowlist_regex`).
+-   `ALLOWLIST_REGEX`: Regex pattern for `allowlist_regex` mode.
+
 ## Documentation
 
 -   [Risk Profile](user_data/reports/risk_profile.md)
