@@ -45,7 +45,6 @@ def audit_file(filepath):  # noqa: C901
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
     has_class = False
-    has_mixin = False
     process_candles_ok = False
 
     for node in ast.walk(tree):
@@ -60,20 +59,24 @@ def audit_file(filepath):  # noqa: C901
 
             if "IStrategy" in bases:
                 has_class = True
-                if "AuditedStrategyMixin" in bases:
-                    has_mixin = True
-                else:
-                     errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
+                if "AuditedStrategyMixin" not in bases:
+                    errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
 
                 # Check process_only_new_candles = True in body
                 for item in node.body:
-                     if isinstance(item, ast.Assign):
-                         for t in item.targets:
-                             if isinstance(t, ast.Name) and t.id == "process_only_new_candles":
-                                 if isinstance(item.value, ast.Constant) and item.value.value is True:
-                                     process_candles_ok = True
-                                 elif isinstance(item.value, ast.NameConstant) and item.value.value is True: # Python < 3.8
-                                     process_candles_ok = True
+                    if isinstance(item, ast.Assign):
+                        for t in item.targets:
+                            if isinstance(t, ast.Name) and t.id == "process_only_new_candles":
+                                if (
+                                    isinstance(item.value, ast.Constant)
+                                    and item.value.value is True
+                                ):
+                                    process_candles_ok = True
+                                elif (
+                                    isinstance(item.value, ast.NameConstant)
+                                    and item.value.value is True
+                                ):  # Python < 3.8
+                                    process_candles_ok = True
 
     if has_class and not process_candles_ok:
         errors.append("process_only_new_candles must be set to True")
@@ -103,23 +106,26 @@ def audit_file(filepath):  # noqa: C901
                         conditions = [sl]
 
                     for cond in conditions:
-                         if isinstance(cond, ast.BoolOp):
-                             # Check if it has many values (unnamed conditions)
-                             # e.g. (a & b & c & d)
-                             # If values are not simple Names, it's complex
-                             complex_parts = 0
-                             for v in cond.values:
-                                 if not isinstance(v, ast.Name):
-                                     # Allow UnaryOp (invert) of Name
-                                     if isinstance(v, ast.UnaryOp) and isinstance(v.operand, ast.Name):
-                                         continue
-                                     # Allow Compare (x < y) if simple? No, prefer named vars
-                                     complex_parts += 1
+                        if isinstance(cond, ast.BoolOp):
+                            # Check if it has many values (unnamed conditions)
+                            # e.g. (a & b & c & d)
+                            # If values are not simple Names, it's complex
+                            complex_parts = 0
+                            for v in cond.values:
+                                if not isinstance(v, ast.Name):
+                                    # Allow UnaryOp (invert) of Name
+                                    if isinstance(v, ast.UnaryOp) and isinstance(
+                                        v.operand, ast.Name
+                                    ):
+                                        continue
+                                    # Allow Compare (x < y) if simple? No, prefer named vars
+                                    complex_parts += 1
 
-                             if complex_parts > 2:
-                                 errors.append(
-                                     f"Complex inline condition at line {node.lineno}. Use named variables."
-                                 )
+                            if complex_parts > 2:
+                                errors.append(
+                                    f"Complex inline condition at line {node.lineno}. "
+                                    "Use named variables."
+                                )
 
     if errors:
         for e in errors:

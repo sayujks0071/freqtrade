@@ -1,11 +1,15 @@
 """
 Mixin for auditing strategy signals and safety checks.
 """
+
 import logging
 from datetime import datetime
+
 from freqtrade.persistence import Trade
 
+
 logger = logging.getLogger(__name__)
+
 
 class AuditedStrategyMixin:
     """
@@ -22,9 +26,15 @@ class AuditedStrategyMixin:
         Called on startup. Verifies safety settings.
         """
         if not self.process_only_new_candles:
-             logger.warning("AUDIT: Strategy %s does not enforce process_only_new_candles=True. This is risky for futures!", self.__class__.__name__)
+            logger.warning(
+                "AUDIT: Strategy %s does not enforce process_only_new_candles=True. "
+                "This is risky for futures!",
+                self.__class__.__name__,
+            )
 
-        logger.info("AUDIT: Strategy %s started with AuditedStrategyMixin.", self.__class__.__name__)
+        logger.info(
+            "AUDIT: Strategy %s started with AuditedStrategyMixin.", self.__class__.__name__
+        )
 
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
                             time_in_force: str, current_time: datetime, entry_tag: str | None,
@@ -44,18 +54,34 @@ class AuditedStrategyMixin:
         """
         Verify that the pair is in the active whitelist.
         """
-        if self.config['exchange'].get('pair_whitelist') and pair not in self.config['exchange']['pair_whitelist']:
-             logger.error(f"[AUDIT] SECURITY ALERT: Attempted to trade pair {pair} not in whitelist!")
-             raise ValueError(f"Pair {pair} not in whitelist.")
+        if (
+            self.config["exchange"].get("pair_whitelist")
+            and pair not in self.config["exchange"]["pair_whitelist"]
+        ):
+            logger.error(
+                f"[AUDIT] SECURITY ALERT: Attempted to trade pair {pair} not in whitelist!"
+            )
+            raise ValueError(f"Pair {pair} not in whitelist.")
 
-    def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
-                           rate: float, time_in_force: str, exit_reason: str,
-                           current_time: datetime, **kwargs) -> bool:
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade: Trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
         """
         Audit log for trade exit.
         """
         logger.info(
-            f"[AUDIT] EXIT SIGNAL: Pair={pair}, Profit={trade.close_profit_abs if trade else 'N/A'}, Reason={exit_reason}, "
+            f"[AUDIT] EXIT SIGNAL: Pair={pair}, "
+            f"Profit={trade.close_profit_abs if trade else 'N/A'}, "
+            f"Reason={exit_reason}, "
             f"Time={current_time.isoformat()}"
         )
         return True

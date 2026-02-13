@@ -53,7 +53,9 @@ def validate_symbol_format(symbol, m, errors):
     # Check if 'linear' or 'inverse' is in type, or check for colon
     # Freqtrade/CCXT usually puts colon for futures
     if ":" not in symbol:
-        errors.append(f"Symbol '{symbol}' missing settle delimiter (:). Expected futures format (BASE/QUOTE:SETTLE).")
+        errors.append(
+            f"Symbol '{symbol}' missing settle delimiter (:). Expected futures format (BASE/QUOTE:SETTLE)."
+        )
     else:
         # Check components
         parts = symbol.split(":")
@@ -129,7 +131,10 @@ def validate_drift(current_symbols, previous_path):
 
     errors = []
     if removal_ratio > MAX_REMOVAL_RATIO:
-        errors.append(f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO}). Unsafe drift!")
+        errors.append(
+            f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO "
+            f"({MAX_REMOVAL_RATIO}). Unsafe drift!"
+        )
 
     return drift_msg, removal_ratio, errors
 
@@ -143,9 +148,13 @@ def main():
     prev_path = sys.argv[2] if len(sys.argv) > 2 else None
 
     # Report file setup
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
-    report_content = f"# Markets Schema Validation Report\n\nDate: {datetime.now(timezone.utc).isoformat()}\nFile: {current_path}\n"
+    report_content = (
+        f"# Markets Schema Validation Report\n\n"
+        f"Date: {datetime.now(datetime.UTC).isoformat()}\n"
+        f"File: {current_path}\n"
+    )
 
     print(f"Validating {current_path}...")
 
@@ -167,12 +176,16 @@ def main():
         if len(schema_errors) > 20:
             report_content += f"- ...and {len(schema_errors) - 20} more\n"
 
-        fail(f"Schema validation failed with {len(schema_errors)} errors.", report_file, report_content)
+        fail(
+            f"Schema validation failed with {len(schema_errors)} errors.",
+            report_file,
+            report_content
+        )
 
     report_content += f"\n## Schema Check\n- Status: PASS\n- Markets count: {len(symbols)}\n"
 
     if prev_path:
-        drift_msg, ratio, drift_errors = validate_drift(symbols, prev_path)
+        drift_msg, _, drift_errors = validate_drift(symbols, prev_path)
         report_content += f"\n## Drift Check\n- {drift_msg or 'N/A'}\n"
 
         if drift_errors:

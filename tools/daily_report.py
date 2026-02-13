@@ -45,7 +45,7 @@ def generate_report():
 
     conn.close()
 
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
 
     with Path(report_file).open("w") as f:
