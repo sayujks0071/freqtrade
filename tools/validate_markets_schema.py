@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+
 # Configuration
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 # Drift ratio is handled in drift check logic
@@ -67,9 +68,7 @@ def validate_market_structure(i, m, errors):
     # Check for type/contract indicator (at least one)
     type_keys = ["type", "contract", "future", "perp", "spot", "linear", "inverse"]
     if not any(k in m for k in type_keys):
-        errors.append(
-            f"Item {i}: missing market type indicator (checked: {', '.join(type_keys)})"
-        )
+        errors.append(f"Item {i}: missing market type indicator (checked: {', '.join(type_keys)})")
 
     symbol = m.get("symbol", "")
     if not isinstance(symbol, str) or not symbol:
@@ -282,26 +281,17 @@ def main():
     parser = argparse.ArgumentParser(description="Validate markets schema and whitelist drift.")
     parser.add_argument("--markets", required=True, help="Path to the markets JSON file")
     parser.add_argument(
-        "--candidate-whitelist",
-        required=False,
-        help="Path to the candidate whitelist JSON file"
+        "--candidate-whitelist", required=False, help="Path to the candidate whitelist JSON file"
     )
     parser.add_argument(
-        "--prev-whitelist",
-        required=False,
-        help="Path to the previous whitelist JSON file"
+        "--prev-whitelist", required=False, help="Path to the previous whitelist JSON file"
     )
-    parser.add_argument(
-        "--env",
-        required=False,
-        default="india_prod",
-        help="Expected environment"
-    )
+    parser.add_argument("--env", required=False, default="india_prod", help="Expected environment")
     parser.add_argument(
         "--out-report",
         required=False,
         default="user_data/reports/markets_schema_report.md",
-        help="Output path for the report"
+        help="Output path for the report",
     )
 
     args = parser.parse_args()
@@ -335,14 +325,12 @@ def main():
 
     status = "FAIL" if errors else "PASS"
 
-    generate_report(
-        args.out_report, status, current_path, len(symbols), errors, drift_stats
-    )
+    generate_report(args.out_report, status, current_path, len(symbols), errors, drift_stats)
 
     if errors:
         print("Validation Failed:")
-        for e in errors[:10]:
-            print(f"  - {e}")
+        for err in errors[:10]:
+            print(f"  - {err}")
         if len(errors) > 10:
             print(f"  ... and {len(errors) - 10} more.")
         sys.exit(2)
