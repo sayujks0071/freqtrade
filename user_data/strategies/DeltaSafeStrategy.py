@@ -1,39 +1,75 @@
 """
-DeltaSafeStrategy
-A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+DeltaSafeStrategy module.
 """
+# pragma pylint: disable=missing-docstring, invalid-name, pointless-string-statement
+# flake8: noqa: F401
+# isort: skip_file
+# --- Do not remove these libs ---
+import numpy as np
+import pandas as pd
+from pandas import DataFrame
+from datetime import datetime
+from typing import Optional, Union
 
+from freqtrade.strategy import (IStrategy, IntParameter, DecimalParameter)
+from freqtrade.persistence import Trade
+
+# Import AuditedStrategyMixin
 import sys
 from pathlib import Path
-
-import talib.abstract as ta
-from pandas import DataFrame
-
-from freqtrade.strategy import IStrategy
-
-
-# Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
+
+try:
+    from AuditedStrategyMixin import AuditedStrategyMixin
+except ImportError:
+    # If _base not in path correctly, try adding parent of _base (strategies dir)
+    # Freqtrade usually adds user_data/strategies to path
+    try:
+        from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
+    except ImportError:
+         # Fallback for direct execution or testing
+         sys.path.append(str(Path(__file__).parent))
+         from _base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
-class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+# --- Strategy ---
+
+class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
+    """
+    DeltaSafeStrategy
+
+    A sample strategy for Delta Exchange futures.
+    - Inherits AuditedStrategyMixin for safety and logging.
+    - Uses SMA crossover logic.
+    - Strict closed candle processing (Logic runs on closed candles).
+    """
+
+    # Strategy interface version - allow new iterations of the strategy interface.
+    # Check freqtrade documentation for details.
     INTERFACE_VERSION = 3
 
-    # Minimal ROI
-    minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
+    # Minimal ROI designed for the strategy.
+    # This attribute will be overridden if the config file contains "minimal_roi".
+    minimal_roi = {
+        "60": 0.01,
+        "30": 0.02,
+        "0": 0.04
+    }
 
-    # Stoploss
+    # Optimal stoploss designed for the strategy.
+    # This attribute will be overridden if the config file contains "stoploss".
     stoploss = -0.10
 
-    # Timeframe
-    timeframe = "1h"
+    # Trailing stoploss
+    trailing_stop = False
 
-    # Run "populate_indicators" only for new candle
-    # Logic runs on closed candle only
+    # Timeframe
+    timeframe = '5m'
+
+    # Run "populate_indicators" only for new candle.
     process_only_new_candles = True
 
-    # These values can be overridden in the "ask_strategy" section in the config.
+    # These values can be overridden in the config.
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
@@ -41,51 +77,58 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Number of candles the strategy requires before producing valid signals
     startup_candle_count: int = 30
 
-    # Optional order type mapping.
-    order_types = {
-        "entry": "limit",
-        "exit": "limit",
-        "stoploss": "market",
-        "stoploss_on_exchange": False,
-    }
-
-    # Order time in force.
-    order_time_in_force = {"entry": "GTC", "exit": "GTC"}
+    # Strategy parameters
+    buy_rsi = IntParameter(10, 40, default=30, space="buy")
+    sell_rsi = IntParameter(60, 90, default=70, space="sell")
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Adds several different TA indicators to the given DataFrame
+        """
         # RSI
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        import talib.abstract as ta
+        dataframe['rsi'] = ta.RSI(dataframe)
+        dataframe['sma_short'] = ta.SMA(dataframe, timeperiod=10)
+        dataframe['sma_long'] = ta.SMA(dataframe, timeperiod=30)
+
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
+        """
+        Based on TA indicators, populates the entry signal for the given dataframe
+        """
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        # Named conditions for readability and audit compliance
+        condition_long_rsi = (dataframe['rsi'] < self.buy_rsi.value)
+        condition_long_sma = (dataframe['sma_short'] > dataframe['sma_long'])
+        condition_volume = (dataframe['volume'] > 0)
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Apply entry signal
+        dataframe.loc[
+            (
+                condition_long_rsi &
+                condition_long_sma &
+                condition_volume
+            ),
+            'enter_long'] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
-        return dataframe
+        """
+        Based on TA indicators, populates the exit signal for the given dataframe
+        """
 
-    def confirm_trade_entry(
-        self,
-        pair: str,
-        order_type: str,
-        amount: float,
-        rate: float,
-        time_in_force: str,
-        current_time,
-        entry_tag,
-        side: str,
-        **kwargs,
-    ) -> bool:
-        """
-        Called right before placing a trade.
-        """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
-        return True
+        # Named conditions
+        condition_exit_rsi = (dataframe['rsi'] > self.sell_rsi.value)
+        condition_exit_sma = (dataframe['sma_short'] < dataframe['sma_long'])
+
+        # Apply exit signal
+        dataframe.loc[
+            (
+                condition_exit_rsi |
+                condition_exit_sma
+            ),
+            'exit_long'] = 1
+
+        return dataframe

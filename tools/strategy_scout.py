@@ -148,6 +148,11 @@ class StrategyScout:
             if "freqtrade" in description.lower():
                 score += 2
 
+            # Check for unrealistic claims in description
+            if "100% win" in description.lower() or "guaranteed" in description.lower():
+                 score -= 5
+                 notes.append("Unrealistic claims in description")
+
             repo["scout_score"] = score
             repo["scout_notes"] = notes
             repo["license_name"] = license_name
@@ -210,6 +215,10 @@ class StrategyScout:
                     if "martingale" in content.lower():
                         repo["scout_score"] -= 10
                         repo["scout_notes"].append("Martingale detected (Risk!)")
+                    if "100% win" in content.lower() or "guaranteed" in content.lower():
+                        repo["scout_score"] -= 5
+                        if "Unrealistic claims detected" not in repo["scout_notes"]:
+                             repo["scout_notes"].append("Unrealistic claims detected")
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 

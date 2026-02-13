@@ -1,36 +1,47 @@
-# Risk Profile & Guardrails
+# Delta Exchange Risk Profile
 
 ## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+This document outlines the risk guardrails configured for the Delta Exchange trading bot. These settings are enforced by the bot configuration and cannot be overridden by strategies.
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+## Execution Limits
+| Parameter | Value | Description |
+|---|---|---|
+| **Max Open Trades** | 3 | Maximum number of concurrent open positions. |
+| **Stake Amount** | Unlimited (99%) | Uses 99% of available balance, divided by max open trades. |
+| **Leverage** | 2x | Maximum leverage allowed per trade. |
+| **Order Type** | Limit | Strict limit orders for entry/exit. Market orders used only for emergency. |
+| **Margin Mode** | Isolated | Risk is isolated to the position margin. |
 
 ## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
+The following protections are active:
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+### 1. Cooldown Period
+- **Duration**: 5 candles
+- **Effect**: Prevents re-entry into the same pair immediately after a trade closes.
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+### 2. Max Drawdown
+- **Max Drawdown**: 20%
+- **Lookback**: 48 candles
+- **Stop Duration**: 12 candles
+- **Effect**: Stops trading a pair if it has drawn down > 20% in the last 48 candles.
 
-## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+### 3. Daily Loss Limit (Custom)
+- **Max Daily Loss**: 5% (Sum of trade percentages)
+- **Effect**: Stops **all trading** for the rest of the day (UTC) if the sum of closed trade returns exceeds -5%.
+  - *Note*: This is calculated on trade ROI, not account balance. e.g., 5 trades with -1% ROI each triggers the stop. This is a conservative safety net.
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+## Strategy Constraints
+- Strategies must inherit from `AuditedStrategyMixin`.
+- Strategies must define `stoploss` and `minimal_roi`.
+- Strategies cannot execute market orders directly (bot enforces limit).
+- Strategies operate on closed candles only to prevent repainting.
+
+## Monitoring
+- **Logs**: All trade decisions are logged with `[AUDIT]` tags.
+- **Reports**: A daily summary is generated at `user_data/reports/daily_summary_YYYY-MM-DD.md`.
+- **Alerts**: Critical errors or protection triggers should be monitored via logs.
+
+## Emergency Procedures
+1. **Stop Bot**: `docker compose down`
+2. **Close Positions**: Log in to Delta Exchange manually to close open positions if the bot fails.
+3. **Review Logs**: Check `user_data/logs/freqtrade.log` for errors.

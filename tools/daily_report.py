@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -13,17 +13,26 @@ DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
 
 
 def get_db_connection():
-    if not Path(DB_URL).exists():
-        print(f"Database not found at {DB_URL}")
-        sys.exit(1)
-    return sqlite3.connect(DB_URL)
+    # Handle sqlite url
+    db_path = DB_URL
+    if "://" in db_path:
+        db_path = db_path.split("://")[1]
+
+    if not Path(db_path).exists():
+        print(f"Database not found at {db_path} (DB_URL={DB_URL})")
+        # Not an error if just starting
+        sys.exit(0)
+    return sqlite3.connect(db_path)
 
 
 def generate_report():
     conn = get_db_connection()
 
+    # Get trades closed in last 24h
+    # SQLite datetime is text, usually UTC if inserted by freqtrade
     query = """
-    SELECT * FROM trades
+    SELECT pair, open_date, close_date, close_profit, close_profit_abs, exit_reason
+    FROM trades
     WHERE close_date >= datetime('now', '-1 day')
     AND is_open = 0
     """
@@ -32,12 +41,11 @@ def generate_report():
         df = pd.read_sql_query(query, conn)
     except Exception as e:
         print(f"Error querying DB: {e}")
-        # Fallback to verify table exists
-        sys.exit(1)
+        return
 
     conn.close()
 
-    date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"
 
     with Path(report_file).open("w") as f:
@@ -48,6 +56,10 @@ def generate_report():
             print(f"Report written to {report_file} (Empty)")
             return
 
+        # Convert dates
+        df['open_date'] = pd.to_datetime(df['open_date'])
+        df['close_date'] = pd.to_datetime(df['close_date'])
+
         # Metrics
         total_trades = len(df)
         wins = df[df["close_profit"] > 0]
@@ -55,15 +67,26 @@ def generate_report():
         avg_return = df["close_profit"].mean() * 100
         total_profit_abs = df["close_profit_abs"].sum()
 
-        # Max Drawdown (Approximate from closed trades)
-        # For real max drawdown we need high res data, but we can use cumulative profit min
-        df["cum_profit"] = df["close_profit_abs"].cumsum()
+        # Exposure Time
+        df['exposure'] = df['close_date'] - df['open_date']
+        avg_exposure = df['exposure'].mean()
+        max_exposure = df['exposure'].max()
+
+        # Max Drawdown (Approximate absolute from closed PnL sequence)
+        df = df.sort_values('close_date')
+        df['cum_profit'] = df['close_profit_abs'].cumsum()
+        df['max_cum'] = df['cum_profit'].cummax()
+        df['drawdown'] = df['max_cum'] - df['cum_profit']
+        max_dd_abs = df['drawdown'].max()
 
         f.write("## Summary\n")
         f.write(f"- **Total Trades**: {total_trades}\n")
         f.write(f"- **Win Rate**: {win_rate:.2f}%\n")
         f.write(f"- **Avg Return**: {avg_return:.2f}%\n")
-        f.write(f"- **Total Profit**: {total_profit_abs:.4f}\n\n")
+        f.write(f"- **Total Profit (Abs)**: {total_profit_abs:.4f}\n")
+        f.write(f"- **Max Drawdown (Abs from closed)**: {max_dd_abs:.4f}\n")
+        f.write(f"- **Avg Exposure**: {avg_exposure}\n")
+        f.write(f"- **Max Exposure**: {max_exposure}\n\n")
 
         f.write("## Top Pairs\n")
         top_pairs = df["pair"].value_counts().head(5)

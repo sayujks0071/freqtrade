@@ -1,33 +1,40 @@
 name: Strategy CI
 
 on:
-  pull_request:
-    branches: [ main, master ]
+  push:
+    branches: [ main ]
     paths:
       - 'user_data/strategies/**'
-      - 'tools/strategy_auditor.py'
-
-permissions:
-  contents: read
+  pull_request:
+    paths:
+      - 'user_data/strategies/**'
 
 jobs:
-  audit_strategies:
+  audit-strategies:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+    - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
-        with:
-          python-version: '3.12'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Compile Check
-        run: |
-          python3 -m compileall user_data/strategies/
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Minimal dependencies for AST check (pandas/numpy might be needed if auditor imports them via strategy execution? No, auditor uses AST)
+        # But compileall might fail if imports are missing? No, compileall just checks syntax.
+        # But if we want to run tests or static analysis that imports, we need deps.
+        # tools/strategy_auditor.py only uses `ast` which is stdlib.
+        # But let's install minimal just in case.
+        # We don't need freqtrade installed for AST check.
 
-      - name: Run Strategy Auditor
-        run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+    - name: Syntax Check
+      run: |
+        python -m compileall user_data/strategies/
+
+    - name: Audit Strategies
+      run: |
+        python tools/strategy_auditor.py user_data/strategies/

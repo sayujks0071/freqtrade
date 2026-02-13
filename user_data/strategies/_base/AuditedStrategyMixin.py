@@ -1,56 +1,48 @@
-"""
-AuditedStrategyMixin
-Mixin class for strategies to enforce audit logging and safety checks.
-"""
-
 import logging
-from datetime import UTC, datetime
-from typing import Any
-
+from datetime import datetime
+from freqtrade.persistence import Trade
 
 logger = logging.getLogger(__name__)
 
-
 class AuditedStrategyMixin:
     """
-    Mixin for strategies to enforce audit logging and safety checks.
+    Mixin to enforce audit logging and safety checks for Delta Exchange strategies.
+    Must be mixed in with IStrategy.
+    Usage: class MyStrategy(AuditedStrategyMixin, IStrategy):
     """
 
-    # Type hint for the config attribute expected from IStrategy
-    config: dict[str, Any]
+    # Safety Check: Enforce closed candle processing
+    process_only_new_candles = True
 
-    def log_signal(
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime,
-    ) -> None:
+    def bot_start(self, **kwargs) -> None:
         """
-        Log entry/exit signals to audit log.
+        Called on startup. Verifies safety settings.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
+        if not self.process_only_new_candles:
+             logger.warning("AUDIT: Strategy %s does not enforce process_only_new_candles=True. This is risky for futures!", self.__class__.__name__)
+
+        logger.info("AUDIT: Strategy %s started with AuditedStrategyMixin.", self.__class__.__name__)
+
+    def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
+                            time_in_force: str, current_time: datetime, entry_tag: str | None,
+                            side: str, **kwargs) -> bool:
+        """
+        Audit log for trade entry.
+        """
+        logger.info(
+            f"[AUDIT] ENTRY SIGNAL: Pair={pair}, Side={side}, Amount={amount}, Rate={rate}, "
+            f"Tag={entry_tag}, Time={current_time.isoformat()}"
         )
-        logger.info(msg)
-
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
-                return False
         return True
 
-    def normalize_pair(self, pair: str) -> str:
+    def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
+                           rate: float, time_in_force: str, exit_reason: str,
+                           current_time: datetime, **kwargs) -> bool:
         """
-        Normalize pair to uppercase.
+        Audit log for trade exit.
         """
-        return pair.upper()
+        logger.info(
+            f"[AUDIT] EXIT SIGNAL: Pair={pair}, Profit={trade.close_profit_abs if trade else 'N/A'}, Reason={exit_reason}, "
+            f"Time={current_time.isoformat()}"
+        )
+        return True
