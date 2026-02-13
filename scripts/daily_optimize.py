@@ -45,7 +45,7 @@ def download_data(days=60):
         str(days),
         "--timeframe",
         "1h",
-        "--erase"
+        "--erase",
     ]
     result = run_command(cmd, capture=True)
     if result.returncode != 0:
@@ -205,42 +205,42 @@ def get_current_branch():
     return None
 
 
+def try_parse_json(text: str) -> dict:
+    """Try to parse a string as JSON and validate minimal keys."""
+    try:
+        params = json.loads(text)
+        if "params" in params or "minimal_roi" in params:
+            return params
+    except json.JSONDecodeError:
+        pass
+    return {}
+
+
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
     Finds the last JSON object in the output which typically contains the best parameters.
     """
     lines = output.splitlines()
-    json_str = ""
-    started = False
 
     # Try to find single line JSON first (common in some versions or if piped)
     for line in reversed(lines):
         line = line.strip()
         if line.startswith("{") and line.endswith("}"):
-            try:
-                params = json.loads(line)
-                if "params" in params or "minimal_roi" in params:
-                    return params
-            except json.JSONDecodeError:
-                pass
+            if params := try_parse_json(line):
+                return params
 
     # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
+    json_str = ""
+    started = False
     for line in reversed(lines):
         if line.strip() == "}":
             started = True
         if started:
             json_str = line + "\n" + json_str
             if line.strip() == "{":
-                try:
-                    params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
-                    if "params" in params or "minimal_roi" in params:
-                        return params
-                except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                if params := try_parse_json(json_str):
+                    return params
     return {}
 
 

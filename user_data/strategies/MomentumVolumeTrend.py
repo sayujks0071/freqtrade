@@ -9,7 +9,7 @@ from pathlib import Path
 import talib.abstract as ta
 from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy, IntParameter
+from freqtrade.strategy import IntParameter, IStrategy
 
 
 # Add _base to path to allow import
