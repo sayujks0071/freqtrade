@@ -53,19 +53,7 @@ def validate_symbol_format(symbol, m, errors):
     # Check if 'linear' or 'inverse' is in type, or check for colon
     # Freqtrade/CCXT usually puts colon for futures
     if ":" not in symbol:
-        # Check if it's spot?
-        # If we are strictly validating futures schema
-        # But maybe list-markets returns spot too?
-        # We should only fail if we expect futures format.
-        # But the requirement is "Strict schema gatekeeper".
-        # If the market dump contains spot pairs, we shouldn't fail unless we only requested futures?
-        # Freqtrade list-markets output depends on config or exchange.
-        # Assuming we filter for futures later, but the schema check runs on the raw dump.
-        # If raw dump has mixed, we can't enforce colon on everything.
-        # However, for Delta, we expect futures.
-        # I'll add a warning if no colon, but not fail unless strict mode?
-        # Let's be strict on "no whitespace" and "uppercase".
-        pass
+        errors.append(f"Symbol '{symbol}' missing settle delimiter (:). Expected futures format (BASE/QUOTE:SETTLE).")
     else:
         # Check components
         parts = symbol.split(":")

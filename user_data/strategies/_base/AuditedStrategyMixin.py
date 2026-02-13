@@ -1,3 +1,6 @@
+"""
+Mixin for auditing strategy signals and safety checks.
+"""
 import logging
 from datetime import datetime
 from freqtrade.persistence import Trade
@@ -29,11 +32,21 @@ class AuditedStrategyMixin:
         """
         Audit log for trade entry.
         """
+        self.assert_pair_in_whitelist(pair)
+
         logger.info(
             f"[AUDIT] ENTRY SIGNAL: Pair={pair}, Side={side}, Amount={amount}, Rate={rate}, "
             f"Tag={entry_tag}, Time={current_time.isoformat()}"
         )
         return True
+
+    def assert_pair_in_whitelist(self, pair: str) -> None:
+        """
+        Verify that the pair is in the active whitelist.
+        """
+        if self.config['exchange'].get('pair_whitelist') and pair not in self.config['exchange']['pair_whitelist']:
+             logger.error(f"[AUDIT] SECURITY ALERT: Attempted to trade pair {pair} not in whitelist!")
+             raise ValueError(f"Pair {pair} not in whitelist.")
 
     def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
                            rate: float, time_in_force: str, exit_reason: str,

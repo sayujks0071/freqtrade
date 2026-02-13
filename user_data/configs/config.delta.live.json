@@ -68,6 +68,7 @@
         "process_throttle_secs": 5,
         "sd_notify": true
     },
+    "log_format": "json",
     "entry_pricing": {
         "price_side": "same",
         "use_order_book": true,

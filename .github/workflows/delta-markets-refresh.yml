@@ -27,18 +27,21 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0b93645e9fea870f0663e4109b9cc1c54a01502b # v5.3.0
         with:
           python-version: '3.11'
 
       - name: Create .env
+        env:
+          DELTA_ENV: ${{ inputs.DELTA_ENV || 'india_prod' }}
+          FILTER_MODE: ${{ inputs.FILTER_MODE || 'perps_usdt' }}
         run: |
           cp .env.example .env
-          echo "DELTA_ENV=${{ inputs.DELTA_ENV || 'india_prod' }}" >> .env
-          echo "FILTER_MODE=${{ inputs.FILTER_MODE || 'perps_usdt' }}" >> .env
+          echo "DELTA_ENV=$DELTA_ENV" >> .env
+          echo "FILTER_MODE=$FILTER_MODE" >> .env
           # Secrets
           if [ -n "${{ secrets.DELTA_API_KEY }}" ]; then
             echo "DELTA_API_KEY=${{ secrets.DELTA_API_KEY }}" >> .env
@@ -58,7 +61,7 @@ jobs:
 
       - name: Upload Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: market-reports
           path: |
@@ -67,7 +70,7 @@ jobs:
             user_data/reports/markets_schema_report_*.md
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update markets and whitelist"

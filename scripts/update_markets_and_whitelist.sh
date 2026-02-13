@@ -74,7 +74,12 @@ fi
 # Generate new whitelist
 python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
 
+# Generate TXT list (symbols only)
+WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
+grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
+
 echo "Whitelist updated at $WHITELIST_JSON"
+echo "Whitelist TXT updated at $WHITELIST_TXT"
 
 # Whitelist Drift Report
 if [ -f "$PREV_WHITELIST_JSON" ]; then
