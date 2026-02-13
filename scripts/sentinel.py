@@ -3,20 +3,21 @@
 Sentinel - Circuit Breaker for Freqtrade
 """
 
+import argparse
+import logging
 import sys
 import time
-import logging
-import argparse
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
+
 
 # Add parent directory to path to allow importing freqtrade_client
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR / "ft_client"))
 
 try:
-    from freqtrade_client.ft_client import FtRestClient, load_config
     import ccxt
+    from freqtrade_client.ft_client import FtRestClient, load_config
 except ImportError as e:
     print(f"Error importing dependencies: {e}")
     print("Please ensure freqtrade-client and ccxt are installed or available.")
@@ -61,7 +62,7 @@ class Sentinel:
         """
         try:
             # Fetch last 5 candles (4 hours + current incomplete candle)
-            ohlcv = self.exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=5)
+            ohlcv = self.exchange.fetch_ohlcv("BTC/USDT", timeframe="1h", limit=5)
             if not ohlcv:
                 logger.warning("Could not fetch BTC/USDT OHLCV data.")
                 return False
@@ -72,7 +73,7 @@ class Sentinel:
             highs = [candle[2] for candle in ohlcv]
             max_high = max(highs)
 
-            current_price = ohlcv[-1][4] # Close of last candle (current price)
+            current_price = ohlcv[-1][4]  # Close of last candle (current price)
 
             if max_high == 0:
                 return False
@@ -80,7 +81,10 @@ class Sentinel:
             drop = (max_high - current_price) / max_high
 
             if drop > 0.10:
-                logger.warning(f"BTC Crash Detected! Drop: {drop:.2%}, Max High: {max_high}, Current: {current_price}")
+                logger.warning(
+                    f"BTC Crash Detected! Drop: {drop:.2%}, Max High: {max_high}, "
+                    f"Current: {current_price}"
+                )
                 return True
 
             return False
@@ -105,16 +109,18 @@ class Sentinel:
             # Usually it returns a dict with 'currencies' list and 'total' (total in quote currency)
             # We'll use 'total' from the response if available, or sum 'total' of currencies.
 
-            current_balance = balance_data.get('total')
+            current_balance = balance_data.get("total")
 
-            # If total is missing or 0 (which might happen if structure is different), try to calculate
+            # If total is missing or 0 (which might happen if structure is different),
+            # try to calculate
             if current_balance is None or current_balance == 0:
-                 currencies = balance_data.get('currencies', [])
-                 if currencies:
-                     # Some versions return list of dicts
-                     # We might need to know the stake currency to sum correctly, or just trust 'total'
-                     # If 'total' is present but 0, maybe account is empty.
-                     pass
+                currencies = balance_data.get("currencies", [])
+                if currencies:
+                    # Some versions return list of dicts
+                    # We might need to know the stake currency to sum correctly,
+                    # or just trust 'total'
+                    # If 'total' is present but 0, maybe account is empty.
+                    pass
 
             if current_balance is None:
                 logger.warning("Could not determine total balance.")
@@ -138,7 +144,10 @@ class Sentinel:
             drawdown = (max_balance_last_hour - current_balance) / max_balance_last_hour
 
             if drawdown > 0.05:
-                logger.warning(f"Drawdown Detected! Drawdown: {drawdown:.2%}, Max Balance (1h): {max_balance_last_hour}, Current: {current_balance}")
+                logger.warning(
+                    f"Drawdown Detected! Drawdown: {drawdown:.2%}, "
+                    f"Max Balance (1h): {max_balance_last_hour}, Current: {current_balance}"
+                )
                 return True
 
             return False
@@ -168,7 +177,7 @@ class Sentinel:
                 trades = self.client.status()
                 if trades:
                     for trade in trades:
-                        trade_id = trade['trade_id']
+                        trade_id = trade["trade_id"]
                         logger.info(f"Force exiting trade {trade_id}")
                         self.client.forceexit(trade_id)
             except Exception as e:
@@ -213,18 +222,24 @@ class Sentinel:
                 break
             except Exception as e:
                 logger.error(f"Unexpected error in monitor loop: {e}")
-                time.sleep(60) # Retry after 1 min on error
+                time.sleep(60)  # Retry after 1 min on error
+
 
 def main():
     parser = argparse.ArgumentParser(description="Sentinel - Circuit Breaker for Freqtrade")
     parser.add_argument("-c", "--config", required=True, help="Path to config file")
-    parser.add_argument("--liquidate", action="store_true", help="Liquidate all positions on trigger")
-    parser.add_argument("--dry-run", action="store_true", help="Simulate actions without executing them")
+    parser.add_argument(
+        "--liquidate", action="store_true", help="Liquidate all positions on trigger"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simulate actions without executing them"
+    )
 
     args = parser.parse_args()
 
     sentinel = Sentinel(args.config, args.liquidate, args.dry_run)
     sentinel.run()
+
 
 if __name__ == "__main__":
     main()

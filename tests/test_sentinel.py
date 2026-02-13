@@ -1,7 +1,7 @@
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add scripts directory to path to allow importing sentinel
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
@@ -11,32 +11,33 @@ sys.path.append(str(SCRIPTS_DIR))
 try:
     import sentinel
 except ImportError:
-    sys.modules['ccxt'] = MagicMock()
-    sys.modules['freqtrade_client'] = MagicMock()
-    sys.modules['freqtrade_client.ft_client'] = MagicMock()
+    sys.modules["ccxt"] = MagicMock()
+    sys.modules["freqtrade_client"] = MagicMock()
+    sys.modules["freqtrade_client.ft_client"] = MagicMock()
     import sentinel
+
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
         # Patch load_config
-        self.config_patcher = patch('sentinel.load_config')
+        self.config_patcher = patch("sentinel.load_config")
         self.mock_load_config = self.config_patcher.start()
         self.mock_load_config.return_value = {
             "api_server": {
                 "listen_ip_address": "127.0.0.1",
                 "listen_port": "8080",
                 "username": "user",
-                "password": "pass"
+                "password": "pass",
             }
         }
 
         # Patch FtRestClient
-        self.client_patcher = patch('sentinel.FtRestClient')
+        self.client_patcher = patch("sentinel.FtRestClient")
         self.mock_client_cls = self.client_patcher.start()
         self.mock_client = self.mock_client_cls.return_value
 
         # Patch ccxt.gateio
-        self.ccxt_patcher = patch('sentinel.ccxt.gateio')
+        self.ccxt_patcher = patch("sentinel.ccxt.gateio")
         self.mock_gateio = self.ccxt_patcher.start()
         self.mock_exchange = self.mock_gateio.return_value
 
@@ -92,6 +93,7 @@ class TestSentinel(unittest.TestCase):
         s = sentinel.Sentinel("config.json")
         # Inject history
         from datetime import datetime
+
         now = datetime.now()
         s.balance_history = [(now, 100)]
 
@@ -99,11 +101,11 @@ class TestSentinel(unittest.TestCase):
         self.mock_client.balance.return_value = {"total": 94}
         self.assertTrue(s.check_drawdown())
 
-    @patch('sentinel.sys.exit')
+    @patch("sentinel.sys.exit")
     def test_emergency_action(self, mock_exit):
         s = sentinel.Sentinel("config.json", liquidate=True)
         # Mock status for liquidate
-        self.mock_client.status.return_value = [{'trade_id': 1}]
+        self.mock_client.status.return_value = [{"trade_id": 1}]
 
         s.emergency_action("TEST")
 
@@ -111,7 +113,7 @@ class TestSentinel(unittest.TestCase):
         self.mock_client.stop.assert_called_once()
         mock_exit.assert_called_with(0)
 
-    @patch('sentinel.sys.exit')
+    @patch("sentinel.sys.exit")
     def test_emergency_action_dry_run(self, mock_exit):
         s = sentinel.Sentinel("config.json", liquidate=True, dry_run=True)
         s.emergency_action("TEST")
@@ -120,5 +122,6 @@ class TestSentinel(unittest.TestCase):
         self.mock_client.stop.assert_not_called()
         mock_exit.assert_not_called()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
