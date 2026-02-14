@@ -18,10 +18,12 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+LOG_DIR = USER_DATA_DIR / "logs"
+OPTIMIZATION_LOG_FILE = LOG_DIR / "optimization_log.txt"
 
 # Optimization Parameters
 EPOCHS = 200
-SPACES = ["buy", "roi", "stoploss", "trailing"]
+SPACES = ["roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
@@ -188,6 +190,19 @@ def extract_hyperopt_params(output: str) -> dict:
     Finds the last JSON object in the output which typically contains the best parameters.
     """
     lines = output.splitlines()
+
+    # Strategy 1: Look for single-line JSON at the end
+    for line in reversed(lines):
+        line = line.strip()
+        if line.startswith("{") and line.endswith("}"):
+            try:
+                params = json.loads(line)
+                if "params" in params or "minimal_roi" in params:
+                    return params
+            except json.JSONDecodeError:
+                pass
+
+    # Strategy 2: Look for multi-line JSON
     json_str = ""
     started = False
 
@@ -240,8 +255,18 @@ Examples:
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Run quick optimization (1 epoch) for testing/verification",
+    )
 
     args = parser.parse_args()
+
+    if args.quick:
+        global EPOCHS
+        EPOCHS = 1
+        print("Quick mode enabled: Setting EPOCHS to 1")
 
     # Check git status before starting (unless in dry-run mode)
     if not args.dry_run:
@@ -328,22 +353,12 @@ Examples:
         sys.exit(1)
 
     # Apply new parameters
-    new_params = extract_hyperopt_params(result_hyperopt.stdout)
-    if new_params:
-        print(f"Applying new parameters to {strategy_json}")
-        with strategy_json.open("w") as f:
-            json.dump(new_params, f, indent=4)
-    else:
-        print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
-        # If capture failed to get json, we should probably revert and exit
-        if strategy_json.exists() and not created_new:
+    # Freqtrade hyperopt (recent versions) dumps the parameters to the strategy json file automatically.
+    # We trust that file is correct. We verify it exists.
+    if not strategy_json.exists():
+        print("Strategy parameter file was not created by hyperopt.")
+        if backup_json.exists():
             shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
         sys.exit(1)
 
     # 3. Evaluation (Verification Backtest)
@@ -378,11 +393,33 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
+        status = "SUCCESS"
+        roi_improvement = avg_profit_pct - (current_stats.get("profit_total_pct", 0.0) * 100)
+    else:
+        print("Evaluation FAILED. Reverting changes.")
+        status = "FAILURE"
+        roi_improvement = 0.0
+
+    # Log entry
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_line = (
+        f"{timestamp}|{worst_strategy}|{status}|{roi_improvement:.4f}|"
+        f"{current_sharpe}|{new_sharpe}|{current_drawdown}|{new_drawdown}\n"
+    )
+
+    if not LOG_DIR.exists():
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    with OPTIMIZATION_LOG_FILE.open("a") as f:
+        f.write(log_line)
+
+    if sharpe_improved and drawdown_improved:
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         if args.dry_run:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
             print(f"  File: {strategy_json}")
+            print(f"  Log File: {OPTIMIZATION_LOG_FILE}")
             print(f"  Message: {msg}")
             if args.branch:
                 print(f"  Branch: {args.branch}")
@@ -395,6 +432,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -430,14 +468,34 @@ Examples:
 
         if backup_json.exists():
             backup_json.unlink()
-
     else:
-        print("Evaluation FAILED. Reverting changes.")
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        # Commit failure log
+        if not args.dry_run:
+            msg = f"log: optimization failure for {worst_strategy}"
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
+            run_command(["git", "commit", "-m", msg])
+
+            target_branch = args.branch if args.branch else "main"
+
+            if not args.yes:
+                 print(f"\nOptimization failed. Ready to push log to branch '{target_branch}'")
+                 response = input("\nProceed with push? [y/N]: ").strip().lower()
+                 if response not in ["y", "yes"]:
+                    print("Push cancelled. Log committed locally.")
+                    return
+
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
 
 
 if __name__ == "__main__":
