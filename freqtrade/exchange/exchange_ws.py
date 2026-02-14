@@ -49,6 +49,11 @@ class ExchangeWS:
         if hasattr(self, "_loop") and not self._loop.is_closed():
             self.reset_connections()
 
+            # Wait for background tasks to finish cleaning up
+            start = time.time()
+            while self._background_tasks and (time.time() - start) < 2.0:
+                time.sleep(0.1)
+
             self._loop.call_soon_threadsafe(self._loop.stop)
             time.sleep(0.1)
             if not self._loop.is_closed():
@@ -151,7 +156,6 @@ class ExchangeWS:
     def _continuous_stopped(
         self, task: asyncio.Task, pair: str, timeframe: str, candle_type: CandleType
     ):
-        self._background_tasks.discard(task)
         result = "done"
         if task.cancelled():
             result = "cancelled"
@@ -166,6 +170,7 @@ class ExchangeWS:
 
         self._klines_scheduled.discard((pair, timeframe, candle_type))
         self._pop_history((pair, timeframe, candle_type))
+        self._background_tasks.discard(task)
 
     async def _continuously_async_watch_ohlcv(
         self, pair: str, timeframe: str, candle_type: CandleType
