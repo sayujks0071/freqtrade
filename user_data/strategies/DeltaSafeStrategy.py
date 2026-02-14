@@ -2,10 +2,13 @@
 # flake8: noqa: F401
 # isort: skip_file
 # --- Do not remove these libs ---
+from datetime import datetime
+
 import numpy as np  # noqa
 import pandas as pd  # noqa
 from pandas import DataFrame
-from freqtrade.strategy import (IStrategy, IntParameter)
+
+from freqtrade.strategy import IStrategy, IntParameter
 
 # Import Mixin
 # Depending on freqtrade setup, user_data/strategies is in path

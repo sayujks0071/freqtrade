@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import json
 import os
-import urllib.request
 import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 
 GITHUB_API = "https://api.github.com/search/repositories"

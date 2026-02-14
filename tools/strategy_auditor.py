@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-import ast
-import sys
-import os
 import argparse
+import ast
+import os
+import sys
 
 class StrategyVisitor(ast.NodeVisitor):
     def __init__(self):

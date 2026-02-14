@@ -1,5 +1,6 @@
-import logging
 from datetime import datetime, timezone
+import logging
+
 from freqtrade.strategy import IStrategy
 
 logger = logging.getLogger(__name__)
