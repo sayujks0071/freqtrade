@@ -134,7 +134,8 @@ class ApiServer(RPCHandler):
         if api_config.get("jwt_secret_key", "super-secret") in ("super-secret", "somethingrandom"):
             api_config["jwt_secret_key"] = secrets.token_urlsafe(32)
             logger.warning(
-                "Using random JWT secret key. Please configure 'jwt_secret_key' in config.json to persist sessions."
+                "Using random JWT secret key. Please configure 'jwt_secret_key' in "
+                "config.json to persist sessions."
             )
 
         self.app = FastAPI(
@@ -306,7 +307,6 @@ class ApiServer(RPCHandler):
                 "SECURITY WARNING - No password for local REST Server defined. "
                 "Please make sure that this is intentional!"
             )
-
 
         logger.info("Starting Local Rest Server.")
         verbosity = self._config["api_server"].get("verbosity", "error")

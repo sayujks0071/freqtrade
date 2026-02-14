@@ -430,7 +430,8 @@ def test_api_run(default_conf, mocker, caplog):
     assert server_mock.call_count == 1
     assert apiserver._config == default_conf
     assert log_has(
-        "Using random JWT secret key. Please configure 'jwt_secret_key' in config.json to persist sessions.",
+        "Using random JWT secret key. Please configure 'jwt_secret_key' in "
+        "config.json to persist sessions.",
         caplog,
     )
     apiserver.start_api()
