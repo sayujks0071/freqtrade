@@ -1,56 +1,34 @@
-"""
-AuditedStrategyMixin
-Mixin class for strategies to enforce audit logging and safety checks.
-"""
-
 import logging
-from datetime import UTC, datetime
-from typing import Any
-
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
 
 class AuditedStrategyMixin:
     """
-    Mixin for strategies to enforce audit logging and safety checks.
+    Mixin for audited strategies.
+    Provides signal logging and whitelist validation.
     """
 
-    # Type hint for the config attribute expected from IStrategy
-    config: dict[str, Any]
+    def audit(self, event_type, pair, msg):
+        """
+        Log an audit event.
+        """
+        timestamp = datetime.now(timezone.utc).isoformat()
+        logger.info(f"AUDIT_SIGNAL: {timestamp} | {event_type} | {pair} | {msg}")
 
-    def log_signal(
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime,
-    ) -> None:
+    def assert_pair_in_whitelist(self, pair):
         """
-        Log entry/exit signals to audit log.
+        Verify pair is in the active whitelist.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
-
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
+        if self.config["runmode"].value in ("live", "dry_run"):
+            # In backtesting, pair_whitelist might not be populated same way
+            if pair not in self.dp.current_whitelist():
+                self.audit("ERROR", pair, "Pair not in whitelist!")
+                # raise ValueError(f"Pair {pair} not in whitelist")
+                # Returning False to prevent trade is better handled in confirm_trade_entry
                 return False
         return True
 
-    def normalize_pair(self, pair: str) -> str:
-        """
-        Normalize pair to uppercase.
-        """
-        return pair.upper()
+    def log_signal(self, pair, timeframe, signal_type):
+        self.audit("SIGNAL", pair, f"Signal {signal_type} on {timeframe}")

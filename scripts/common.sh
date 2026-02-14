@@ -1,58 +1,35 @@
 #!/bin/bash
 
-# Load .env
-if [ -f .env ]; then
-    # echo "Loading .env..."
-    set -a
-    . .env
-    set +a
+# Default to india_testnet if not set
+export DELTA_ENV=${DELTA_ENV:-india_testnet}
+
+echo "Loading environment for DELTA_ENV: $DELTA_ENV"
+
+# Define API URLs based on environment
+if [ "$DELTA_ENV" == "india_prod" ]; then
+    export DELTA_API_URL="https://api.india.delta.exchange"
+    export DELTA_WWW_URL="https://india.delta.exchange"
+elif [ "$DELTA_ENV" == "global_prod" ]; then
+    export DELTA_API_URL="https://api.delta.exchange"
+    export DELTA_WWW_URL="https://www.delta.exchange"
+elif [ "$DELTA_ENV" == "india_testnet" ]; then
+    export DELTA_API_URL="https://cdn-ind.testnet.deltaex.org"
+    export DELTA_WWW_URL="https://testnet.delta.exchange" # check if correct
 else
-    echo "No .env file found. Proceeding with environment variables..."
+    echo "Unknown DELTA_ENV: $DELTA_ENV. Using defaults or manual overrides."
 fi
 
-if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
-fi
-
-# Determine Base URL
-case "$DELTA_ENV" in
-    india_prod)
-        BASE_URL="https://api.india.delta.exchange"
-        WWW_URL="https://india.delta.exchange"
-        ;;
-    global_prod)
-        BASE_URL="https://api.delta.exchange"
-        WWW_URL="https://www.delta.exchange"
-        ;;
-    india_testnet)
-        BASE_URL="https://cdn-ind.testnet.deltaex.org"
-        WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
-        ;;
-    *)
-        echo "Unknown DELTA_ENV: $DELTA_ENV"
-        echo "Supported: india_prod, global_prod, india_testnet"
-        exit 1
-        ;;
-esac
-
-# Override if set
+# Allow manual override
 if [ -n "$DELTA_BASE_URL" ]; then
-    BASE_URL="$DELTA_BASE_URL"
+    export DELTA_API_URL="$DELTA_BASE_URL"
 fi
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
+# Export FREQTRADE__ variables for CCXT config
+# Freqtrade uses double underscore as delimiter for nested config
+# exchange.ccxt_config.urls.api.public
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PUBLIC="$DELTA_API_URL"
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PRIVATE="$DELTA_API_URL"
+# exchange.ccxt_config.urls.www
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__WWW="$DELTA_WWW_URL"
 
-# Export Freqtrade Variables
-export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
-export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
-
-# CCXT Config for URLs
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
-
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
-fi
+echo "API URL set to: $FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PUBLIC"
