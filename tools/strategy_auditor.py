@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import ast
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -55,14 +56,12 @@ def check_boolean_logic(tree, source, errors):
 
 
 def check_method_comments(node, source, errors):
-    try:
+    with contextlib.suppress(Exception):
         segment = ast.get_source_segment(source, node)
         if segment and "#" not in segment:
             errors.append(
                 f"Method {node.name} missing comments explaining the market thesis."
             )
-    except Exception:
-        pass
 
 
 def check_method_logic(method_node, errors):

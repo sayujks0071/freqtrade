@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 import json
-import urllib.request
-from datetime import datetime, timezone
+import requests
+from datetime import datetime, UTC
 from pathlib import Path
 
 
 def fetch_markets():
     url = "https://api.delta.exchange/v2/products"
     try:
-        with urllib.request.urlopen(url) as response:
-            data = json.loads(response.read().decode())
-        return data
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
         print(f"Failed to fetch markets: {e}")
         return None
@@ -28,19 +28,21 @@ def generate_report():
     # Sort by symbol
     perpetuals.sort(key=lambda x: x["symbol"])
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_file = Path(f"user_data/reports/symbol_mapping_{timestamp}.md")
     report_file.parent.mkdir(parents=True, exist_ok=True)
 
     content = f"""# Delta Exchange Symbol Mapping Report
-Date: {datetime.now(timezone.utc).isoformat()}
+Date: {datetime.now(UTC).isoformat()}
 
 ## Overview
-This report documents the mapping between Delta Exchange contract symbols and Freqtrade Futures pair formats.
+This report documents the mapping between Delta Exchange contract symbols
+and Freqtrade Futures pair formats.
 
 ### Format Definition
 - **Delta Symbol**: The raw symbol used by Delta Exchange API (e.g., `BTCUSDT`).
-- **Freqtrade Pair**: The standardized format used in Freqtrade configuration and strategies (e.g., `BTC/USDT:USDT`).
+- **Freqtrade Pair**: The standardized format used in Freqtrade configuration and strategies
+  (e.g., `BTC/USDT:USDT`).
 
 **Formula:** `BASE/QUOTE:SETTLE`
 
@@ -52,7 +54,8 @@ This report documents the mapping between Delta Exchange contract symbols and Fr
 
     # Limit to first 50 to avoid massive files in repo if checked in,
     # but practically we want them all available.
-    # For this task, I'll generate a comprehensive list but maybe truncate for the PR description if needed.
+    # For this task, I'll generate a comprehensive list but maybe truncate
+    # for the PR description if needed.
 
     for m in perpetuals:
         symbol = m["symbol"]
