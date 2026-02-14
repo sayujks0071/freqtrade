@@ -20,14 +20,7 @@ def test_init(scout):
 def test_check_rate_limit_ok(mock_get, scout):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    mock_resp.json.return_value = {
-        "resources": {
-            "core": {
-                "remaining": 50,
-                "reset": 1234567890
-            }
-        }
-    }
+    mock_resp.json.return_value = {"resources": {"core": {"remaining": 50, "reset": 1234567890}}}
     mock_get.return_value = mock_resp
     assert scout.check_rate_limit() is True
 
@@ -36,14 +29,7 @@ def test_check_rate_limit_ok(mock_get, scout):
 def test_check_rate_limit_low(mock_get, scout):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    mock_resp.json.return_value = {
-        "resources": {
-            "core": {
-                "remaining": 0,
-                "reset": 1234567890
-            }
-        }
-    }
+    mock_resp.json.return_value = {"resources": {"core": {"remaining": 0, "reset": 1234567890}}}
     mock_get.return_value = mock_resp
     # It should print a warning and return False
     assert scout.check_rate_limit() is False
@@ -59,7 +45,7 @@ def test_search_github(mock_get, scout):
         mock_resp_search.json.return_value = {
             "items": [
                 {"full_name": "user/repo1", "stargazers_count": 100},
-                {"full_name": "user/repo2", "stargazers_count": 50}
+                {"full_name": "user/repo2", "stargazers_count": 50},
             ]
         }
 
@@ -67,7 +53,8 @@ def test_search_github(mock_get, scout):
         mock_resp_known = MagicMock()
         mock_resp_known.status_code = 200
         mock_resp_known.json.return_value = {
-            "full_name": "freqtrade/freqtrade-strategies", "stargazers_count": 5000
+            "full_name": "freqtrade/freqtrade-strategies",
+            "stargazers_count": 5000,
         }
 
         mock_get.side_effect = [
@@ -76,7 +63,7 @@ def test_search_github(mock_get, scout):
             mock_resp_search,
             mock_resp_search,
             mock_resp_search,  # 5 queries
-            mock_resp_known  # 1 known source
+            mock_resp_known,  # 1 known source
         ]
 
         scout.search_github()
@@ -97,14 +84,14 @@ def test_filter_and_score(scout):
             "full_name": "user/repo1",
             "description": "A freqtrade strategy",
             "pushed_at": "2023-01-01T00:00:00Z",
-            "license": {"key": "mit", "name": "MIT License"}
+            "license": {"key": "mit", "name": "MIT License"},
         },
         {
             "full_name": "user/repo2",
             "description": "No license",
             "pushed_at": "2023-01-01T00:00:00Z",
-            "license": None
-        }
+            "license": None,
+        },
     ]
 
     scout.filter_and_score()
