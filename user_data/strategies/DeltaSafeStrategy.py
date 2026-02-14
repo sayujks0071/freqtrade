@@ -12,9 +12,10 @@ Exit definitions:
 No repainting: Logic runs on closed candles only.
 """
 
+import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -25,6 +26,9 @@ from freqtrade.strategy import IStrategy
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
 from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
+
+
+logger = logging.getLogger(__name__)
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -68,9 +72,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         Expected format: BASE/QUOTE:SETTLE (e.g. BTC/USDT:USDT)
         """
         if ":" not in pair:
-             raise ValueError(f"Invalid Pair Format: {pair} (Missing settle currency)")
+            raise ValueError(f"Invalid Pair Format: {pair} (Missing settle currency)")
         if "/" not in pair:
-             raise ValueError(f"Invalid Pair Format: {pair} (Missing quote currency separator)")
+            raise ValueError(f"Invalid Pair Format: {pair} (Missing quote currency separator)")
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
@@ -90,10 +94,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             return dataframe
 
         # Named boolean conditions
-        is_rsi_low = (dataframe["rsi"] < 30)
-        is_volume_valid = (dataframe["volume"] > 0)
+        is_rsi_low = dataframe["rsi"] < 30
+        is_volume_valid = dataframe["volume"] > 0
 
-        entry_condition = (is_rsi_low & is_volume_valid)
+        entry_condition = is_rsi_low & is_volume_valid
 
         dataframe.loc[entry_condition, "enter_long"] = 1
 
@@ -101,10 +105,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Named boolean conditions
-        is_rsi_high = (dataframe["rsi"] > 70)
-        is_volume_valid = (dataframe["volume"] > 0)
+        is_rsi_high = dataframe["rsi"] > 70
+        is_volume_valid = dataframe["volume"] > 0
 
-        exit_condition = (is_rsi_high & is_volume_valid)
+        exit_condition = is_rsi_high & is_volume_valid
 
         dataframe.loc[exit_condition, "exit_long"] = 1
         return dataframe
@@ -134,7 +138,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                     indicators["volume"] = last_candle.get("volume")
                     indicators["close"] = last_candle.get("close")
             except Exception:
-                pass
+                logger.warning("Failed to fetch indicators for audit log", exc_info=True)
 
         reason = f"Signal Confirmed ({entry_tag})"
 
