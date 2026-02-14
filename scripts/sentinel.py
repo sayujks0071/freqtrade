@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import ccxt
+
 from freqtrade_client.ft_rest_client import FtRestClient
 
 
@@ -31,9 +32,7 @@ logger = logging.getLogger("sentinel")
 
 def setup_logging(verbose=False):
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def load_config(config_path):
@@ -109,9 +108,7 @@ def check_drawdown(client, state):
         state["balance_history"].append({"ts": now_ts, "balance": current_balance})
 
         cutoff = now_ts - 3600
-        state["balance_history"] = [
-            x for x in state["balance_history"] if x["ts"] >= cutoff
-        ]
+        state["balance_history"] = [x for x in state["balance_history"] if x["ts"] >= cutoff]
 
         save_state(state)
 
