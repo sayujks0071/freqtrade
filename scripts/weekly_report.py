@@ -6,11 +6,11 @@ Aggregates optimization logs and git commit history to produce a weekly report.
 
 import datetime
 import subprocess
-import sys
 from pathlib import Path
 
+
 # Configuration
-REPO_ROOT = Path(".")
+REPO_ROOT = Path()
 LOG_FILE = REPO_ROOT / "user_data/logs/optimization_log.txt"
 REPORT_FILE = REPO_ROOT / "WEEKLY_REPORT.md"
 DAYS = 7
@@ -94,7 +94,7 @@ def parse_optimization_log(days):
                 "strategy": strategy,
                 "roi_improvement": roi_improvement,
                 "sharpe_new": parts[5],
-                "dd_new": parts[7]
+                "dd_new": parts[7],
             }
 
             if status == "SUCCESS":
@@ -118,12 +118,7 @@ def generate_report_content(updates, log_data):
 
     today = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    content = [
-        f"# Weekly Strategy Report ({today})",
-        "",
-        "## 1. Updated Strategies",
-        ""
-    ]
+    content = [f"# Weekly Strategy Report ({today})", "", "## 1. Updated Strategies", ""]
 
     if updates:
         for strategy in updates:
@@ -141,11 +136,16 @@ def generate_report_content(updates, log_data):
         content.append("| Strategy | ROI Improvement | New Sharpe | New Drawdown |")
         content.append("|---|---|---|---|")
         for entry in log_data["successes"]:
-            content.append(f"| {entry['strategy']} | {entry['roi_improvement']:.2f}% | {float(entry['sharpe_new']):.2f} | {float(entry['dd_new']):.2f} |")
+            content.append(
+                f"| {entry['strategy']} | {entry['roi_improvement']:.2f}% | "
+                f"{float(entry['sharpe_new']):.2f} | {float(entry['dd_new']):.2f} |"
+            )
 
     content.append("")
     content.append("## 3. Stuck Strategies")
-    content.append("Strategies that failed optimization attempts this week and were not successfully updated:")
+    content.append(
+        "Strategies that failed optimization attempts this week and were not successfully updated:"
+    )
     content.append("")
 
     if stuck_strategies:
@@ -174,8 +174,6 @@ def main():
     print("Committing and pushing report...")
 
     # Configure git if needed (CI environment)
-    # run_command(["git", "config", "user.name", "github-actions[bot]"], capture=False)
-    # run_command(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], capture=False)
     # We assume git is configured or we use the existing config.
 
     run_command(["git", "add", str(REPORT_FILE)])

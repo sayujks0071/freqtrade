@@ -184,6 +184,19 @@ def get_current_branch():
     return None
 
 
+def try_parse_json(json_str: str) -> dict | None:
+    """Helper to parse a string as JSON and validate it has strategy params."""
+    try:
+        params = json.loads(json_str)
+        # We want the full config object (containing minimal_roi, params, etc.)
+        # Verify it has at least 'params' or 'minimal_roi' to be valid
+        if "params" in params or "minimal_roi" in params:
+            return params
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
@@ -195,12 +208,9 @@ def extract_hyperopt_params(output: str) -> dict:
     for line in reversed(lines):
         line = line.strip()
         if line.startswith("{") and line.endswith("}"):
-            try:
-                params = json.loads(line)
-                if "params" in params or "minimal_roi" in params:
-                    return params
-            except json.JSONDecodeError:
-                pass
+            params = try_parse_json(line)
+            if params:
+                return params
 
     # Strategy 2: Look for multi-line JSON
     json_str = ""
@@ -214,14 +224,9 @@ def extract_hyperopt_params(output: str) -> dict:
         if started:
             json_str = line + "\n" + json_str
             if line.strip() == "{":
-                try:
-                    params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
-                    if "params" in params or "minimal_roi" in params:
-                        return params
-                except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                params = try_parse_json(json_str)
+                if params:
+                    return params
     return {}
 
 
@@ -353,8 +358,8 @@ Examples:
         sys.exit(1)
 
     # Apply new parameters
-    # Freqtrade hyperopt (recent versions) dumps the parameters to the strategy json file automatically.
-    # We trust that file is correct. We verify it exists.
+    # Freqtrade hyperopt (recent versions) dumps the parameters to the strategy json file
+    # automatically. We trust that file is correct. We verify it exists.
     if not strategy_json.exists():
         print("Strategy parameter file was not created by hyperopt.")
         if backup_json.exists():
@@ -484,9 +489,9 @@ Examples:
             target_branch = args.branch if args.branch else "main"
 
             if not args.yes:
-                 print(f"\nOptimization failed. Ready to push log to branch '{target_branch}'")
-                 response = input("\nProceed with push? [y/N]: ").strip().lower()
-                 if response not in ["y", "yes"]:
+                print(f"\nOptimization failed. Ready to push log to branch '{target_branch}'")
+                response = input("\nProceed with push? [y/N]: ").strip().lower()
+                if response not in ["y", "yes"]:
                     print("Push cancelled. Log committed locally.")
                     return
 
