@@ -22,6 +22,8 @@ import ccxt
 from freqtrade_client.ft_rest_client import FtRestClient
 
 
+
+
 # Configuration
 # Default config to check if user_data/config.json is missing
 CONFIG_PATH = Path("user_data/configs/config.delta.dryrun.json")
