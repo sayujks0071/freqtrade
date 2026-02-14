@@ -20,6 +20,7 @@ SEARCH_QUERIES = [
     "freqtrade-strategies",
     "FreqAI strategy",
     "crypto trading strategy python freqtrade",
+    "freqtrade strategy list",
 ]
 KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
 REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
@@ -29,7 +30,7 @@ REQUEST_TIMEOUT = 10  # Seconds
 
 
 class StrategyScout:
-    def __init__(self, token: str | None = None):
+    def __init__(self, token: str | None = None) -> None:
         self.token = token
         self.session = requests.Session()
         if self.token:
@@ -37,7 +38,7 @@ class StrategyScout:
         self.session.headers.update({"Accept": "application/vnd.github.v3+json"})
         self.candidates: list[dict[str, Any]] = []
 
-    def check_rate_limit(self):
+    def check_rate_limit(self) -> bool:
         try:
             resp = self.session.get(f"{GITHUB_API_URL}/rate_limit", timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
@@ -47,7 +48,7 @@ class StrategyScout:
                 reset = core["reset"]
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
-                    reset_time = datetime.datetime.fromtimestamp(reset)
+                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.timezone.utc)
                     print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
@@ -55,7 +56,7 @@ class StrategyScout:
             print(f"Error checking rate limit: {e}")
             return True  # Assume ok if check fails, to avoid loop
 
-    def search_github(self):
+    def search_github(self) -> None:
         print("Searching GitHub...")
         found_repos = {}  # Dedup by full_name
 
@@ -66,7 +67,7 @@ class StrategyScout:
         self.candidates = list(found_repos.values())
         print(f"Total unique candidates found: {len(self.candidates)}")
 
-    def _search_queries(self, found_repos):
+    def _search_queries(self, found_repos: dict[str, Any]) -> None:
         # 1. Search Queries
         for query in SEARCH_QUERIES:
             if not self.check_rate_limit():
@@ -74,7 +75,7 @@ class StrategyScout:
 
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 50}
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
@@ -88,7 +89,7 @@ class StrategyScout:
             except Exception as e:
                 print(f"Exception during search: {e}")
 
-    def _add_known_sources(self, found_repos):
+    def _add_known_sources(self, found_repos: dict[str, Any]) -> None:
         # 2. Add Known Sources
         for source in KNOWN_SOURCES:
             if source not in found_repos:
@@ -103,7 +104,7 @@ class StrategyScout:
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
 
-    def filter_and_score(self):
+    def filter_and_score(self) -> None:
         print("Filtering and Scoring...")
         scored_candidates = []
 
@@ -130,8 +131,17 @@ class StrategyScout:
 
             # 2. Recency
             if pushed_at:
-                pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                age_days = (datetime.datetime.now() - pushed_dt).days
+                # pushed_at is typically "2023-10-27T10:00:00Z"
+                if pushed_at.endswith("Z"):
+                    pushed_dt = datetime.datetime.fromisoformat(pushed_at.replace("Z", "+00:00"))
+                else:
+                    pushed_dt = datetime.datetime.fromisoformat(pushed_at)
+
+                # Make sure pushed_dt is timezone aware
+                if pushed_dt.tzinfo is None:
+                    pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)
+
+                age_days = (datetime.datetime.now(datetime.timezone.utc) - pushed_dt).days
                 if age_days < 30:
                     score += 5
                 elif age_days < 90:
@@ -159,7 +169,7 @@ class StrategyScout:
         self.candidates = sorted(scored_candidates, key=lambda x: x["scout_score"], reverse=True)
         print(f"Candidates after filtering: {len(self.candidates)}")
 
-    def _find_strategy_files(self, full_name):
+    def _find_strategy_files(self, full_name: str) -> tuple[list[dict[str, Any]], str | None]:
         """Helper to find strategy files in a repo."""
         strategies = []
         found_path = None
@@ -185,7 +195,7 @@ class StrategyScout:
                 pass
         return strategies, found_path
 
-    def _analyze_strategy_content(self, strat_file, repo):
+    def _analyze_strategy_content(self, strat_file: dict[str, Any], repo: dict[str, Any]) -> None:
         """Helper to download and analyze strategy content."""
         try:
             download_url = strat_file.get("download_url")
@@ -195,6 +205,9 @@ class StrategyScout:
                     content = content_resp.text
 
                     # Check heuristics
+                    if "IStrategy" in content:
+                        repo["scout_score"] += 5
+                        repo["scout_notes"].append("Uses IStrategy")
                     if "stoploss" in content:
                         repo["scout_score"] += 2
                         repo["scout_notes"].append("Has stoploss")
@@ -213,7 +226,7 @@ class StrategyScout:
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
-    def deep_inspect(self, limit=15):
+    def deep_inspect(self, limit: int = 15) -> None:
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -245,12 +258,12 @@ class StrategyScout:
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
 
-    def generate_report(self):
+    def generate_report(self) -> list[dict[str, Any]]:
         print("Generating report...")
         report_dir = Path("user_data/reports")
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
         top_10 = self.candidates[:10]
@@ -304,7 +317,7 @@ class StrategyScout:
         print(f"Report written to {filename}")
         return top_10
 
-    def vendor_strategies(self, candidates, top_n=5):
+    def vendor_strategies(self, candidates: list[dict[str, Any]], top_n: int = 5) -> None:
         print(f"Vendoring top {top_n} strategies...")
         vendor_base_dir = Path("user_data/strategies_vendor")
         vendor_base_dir.mkdir(parents=True, exist_ok=True)
@@ -363,7 +376,7 @@ class StrategyScout:
                 print(f"Error vendoring {full_name}: {e}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
     parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
