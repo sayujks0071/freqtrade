@@ -48,7 +48,7 @@ class StrategyScout:
                 reset = core["reset"]
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
-                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.timezone.utc)
+                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.UTC)
                     print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
@@ -58,7 +58,7 @@ class StrategyScout:
 
     def search_github(self) -> None:
         print("Searching GitHub...")
-        found_repos = {}  # Dedup by full_name
+        found_repos: dict[str, Any] = {}  # Dedup by full_name
 
         self._search_queries(found_repos)
         self._add_known_sources(found_repos)
@@ -75,7 +75,12 @@ class StrategyScout:
 
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 50}
+            params: dict[str, str | int] = {
+                "q": query,
+                "sort": "stars",
+                "order": "desc",
+                "per_page": 50,
+            }
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
@@ -110,7 +115,7 @@ class StrategyScout:
 
         for repo in self.candidates:
             score = 0
-            notes = []
+            notes: list[str] = []
 
             # Metadata filtering
             full_name = repo["full_name"]
@@ -139,9 +144,9 @@ class StrategyScout:
 
                 # Make sure pushed_dt is timezone aware
                 if pushed_dt.tzinfo is None:
-                    pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)
+                    pushed_dt = pushed_dt.replace(tzinfo=datetime.UTC)
 
-                age_days = (datetime.datetime.now(datetime.timezone.utc) - pushed_dt).days
+                age_days = (datetime.datetime.now(datetime.UTC) - pushed_dt).days
                 if age_days < 30:
                     score += 5
                 elif age_days < 90:
@@ -263,7 +268,7 @@ class StrategyScout:
         report_dir = Path("user_data/reports")
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
         filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
         top_10 = self.candidates[:10]
