@@ -133,6 +133,19 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   **Observability**: Daily reports and structured logging.
 -   **Audit Logs**: Strategy signals are logged with `AUDIT_SIGNAL` prefix in the logs (`user_data/logs/freqtrade.log`).
 
+## Market Validation Configuration
+
+The market refresh workflow uses strict validation rules. You can configure these in `.env`:
+
+- `MIN_MARKETS` (default: 20): Minimum number of markets required in the dump.
+- `MAX_REMOVAL_RATIO` (default: 0.25): Maximum ratio of removed pairs allowed before failing (drift check).
+- `STRICT_VOLUME` (default: false): If true, rejects markets with volume < 1000.
+- `FILTER_MODE` (default: perps_usdt):
+  - `perps_usdt`: Only USDT-margined perps (symbol contains `/USDT:USDT`).
+  - `all_futures`: All futures.
+  - `allowlist_regex`: Matches symbols against `ALLOWLIST_REGEX`.
+- `ALLOWLIST_REGEX` (default: `.*`): Regex for `allowlist_regex` mode.
+
 ## Tools
 
 -   `tools/daily_report.py`: Generates daily trading summary.
