@@ -1,13 +1,20 @@
 #!/bin/bash
 
 # Load .env
+# We check if .env exists in the current directory or the parent directory (if run from scripts/)
 if [ -f .env ]; then
-    # echo "Loading .env..."
     set -a
     . .env
     set +a
+elif [ -f ../.env ]; then
+    set -a
+    . ../.env
+    set +a
 else
-    echo "No .env file found. Proceeding with environment variables..."
+    # Only echo warning if not running in CI or non-interactive
+    if [ -t 1 ]; then
+        echo "No .env file found. Using environment variables."
+    fi
 fi
 
 if [ -z "$DELTA_ENV" ]; then
@@ -28,7 +35,6 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
         echo "Unknown DELTA_ENV: $DELTA_ENV"
@@ -44,7 +50,7 @@ fi
 
 echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
 
-# Export Freqtrade Variables
+# Export Freqtrade Variables for Docker Compose
 export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
 export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
 
@@ -54,5 +60,6 @@ export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
 
 if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
+    # Warn but don't exit, as some commands (like list-exchanges) might work without keys
+    echo "WARNING: API Key or Secret is missing! Trading will fail."
 fi
