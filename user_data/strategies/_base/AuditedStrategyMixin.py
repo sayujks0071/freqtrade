@@ -1,9 +1,8 @@
 from datetime import datetime, timezone
 import logging
 
-from freqtrade.strategy import IStrategy
-
 logger = logging.getLogger(__name__)
+
 
 class AuditedStrategyMixin:
     """
@@ -22,13 +21,13 @@ class AuditedStrategyMixin:
         """
         Verify pair is in the active whitelist.
         """
-        if self.config['runmode'].value in ('live', 'dry_run'):
+        if self.config["runmode"].value in ("live", "dry_run"):
             # In backtesting, pair_whitelist might not be populated same way
             if pair not in self.dp.current_whitelist():
-                 self.audit("ERROR", pair, "Pair not in whitelist!")
-                 # raise ValueError(f"Pair {pair} not in whitelist")
-                 # Returning False to prevent trade is better handled in confirm_trade_entry
-                 return False
+                self.audit("ERROR", pair, "Pair not in whitelist!")
+                # raise ValueError(f"Pair {pair} not in whitelist")
+                # Returning False to prevent trade is better handled in confirm_trade_entry
+                return False
         return True
 
     def log_signal(self, pair, timeframe, signal_type):

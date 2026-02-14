@@ -27,9 +27,9 @@ fi
 # Export FREQTRADE__ variables for CCXT config
 # Freqtrade uses double underscore as delimiter for nested config
 # exchange.ccxt_config.urls.api.public
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__api__public="$DELTA_API_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__api__private="$DELTA_API_URL"
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PUBLIC="$DELTA_API_URL"
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PRIVATE="$DELTA_API_URL"
 # exchange.ccxt_config.urls.www
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__www="$DELTA_WWW_URL"
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__WWW="$DELTA_WWW_URL"
 
-echo "API URL set to: $FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__api__public"
+echo "API URL set to: $FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PUBLIC"

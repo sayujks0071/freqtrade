@@ -16,9 +16,9 @@ services:
       - FREQTRADE__EXCHANGE__SECRET=${DELTA_API_SECRET}
       # These variables are expected to be set in the shell context (via scripts/common.sh)
       # or manually in .env if not using the scripts.
-      - FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__api__public
-      - FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__api__private
-      - FREQTRADE__EXCHANGE__CCXT_CONFIG__urls__www
+      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PUBLIC
+      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__PRIVATE
+      - FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__WWW
     command: >
       trade
       --logfile /freqtrade/user_data/logs/freqtrade.log
