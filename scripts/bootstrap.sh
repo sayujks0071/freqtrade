@@ -1,44 +1,31 @@
 #!/bin/bash
 set -e
 
-echo "Bootstrapping Freqtrade Delta Stack..."
-
-# Create directories
-mkdir -p user_data/configs user_data/reports user_data/logs user_data/data
-
-# Copy .env if not exists
-if [ ! -f .env ]; then
-    echo "Copying .env.example to .env..."
-    cp .env.example .env
-    echo "Please edit .env with your Delta API keys!"
-echo "Bootstrapping Delta Exchange Freqtrade Stack..."
-
-# Create directories
-mkdir -p user_data/logs
+# Setup user_data directory structure
+echo "Creating user_data directory structure..."
+mkdir -p user_data/configs
 mkdir -p user_data/pairlists
+mkdir -p user_data/strategies
+mkdir -p user_data/logs
 mkdir -p user_data/reports
-mkdir -p user_data/strategies/_base
-mkdir -p user_data/strategies_vendor
-mkdir -p user_data/db
+mkdir -p user_data/protections
+mkdir -p user_data/data
+mkdir -p user_data/notebooks
+mkdir -p user_data/backtest_results
 
-# Copy env if missing
+# Check for .env file
 if [ ! -f .env ]; then
-    echo "Creating .env from .env.example..."
+    echo ".env not found. Copying from .env.example..."
     cp .env.example .env
-    echo "PLEASE EDIT .env WITH YOUR CREDENTIALS!"
-else
-    echo ".env already exists."
+    echo "Please edit .env with your configuration."
 fi
 
-echo "Bootstrap complete."
-echo "Next steps:"
-echo "1. Edit .env with your API credentials."
-echo "2. Run 'scripts/validate_exchange.sh' to verify connectivity and markets."
-echo "3. Run 'scripts/run_dryrun.sh' to start the bot in dry-run mode."
-# Create dummy whitelist if missing to allow startup
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Creating dummy whitelist..."
-    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT", "ETH/USDT:USDT"]}}' > user_data/pairlists/whitelist.delta.json
+# Ensure initial whitelist exists if not present
+DELTA_ENV=${DELTA_ENV:-india_testnet}
+WHITELIST_FILE="user_data/pairlists/whitelist.delta.${DELTA_ENV}.json"
+if [ ! -f "$WHITELIST_FILE" ]; then
+    echo "Creating dummy whitelist for $DELTA_ENV..."
+    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT"]}}' > "$WHITELIST_FILE"
 fi
 
 echo "Bootstrap complete."

@@ -1,36 +1,62 @@
 # Risk Profile & Guardrails
 
-## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+This document outlines the risk management settings for the Delta Exchange Freqtrade bot.
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+## Hard Limits (Config)
+
+These are defined in `user_data/configs/config.delta.*.json`.
+
+| Setting | Value | Description |
+| :--- | :--- | :--- |
+| `max_open_trades` | 3 | Maximum concurrent open positions. |
+| `stake_amount` | 100 USDT | Capital allocated per trade. |
+| `tradable_balance_ratio` | 0.99 | Ratio of wallet balance available for trading. |
+| `dry_run_wallet` | 1000 | Simulated wallet balance for dry-run/backtesting. |
+| `margin_mode` | isolated | Margin mode (isolated prevents cross-contamination). |
+| `leverage` | Strategy | Leverage is usually set by strategy (default 2x recommended). |
 
 ## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+Protections are enabled in the `protections` block of the config.
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+### 1. Cooldown Period
+- **Duration**: 5 candles
+- **Description**: Prevents re-entering a trade on the same pair immediately after exit.
 
-## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+### 2. Max Drawdown
+- **Max Drawdown**: 20% (0.2)
+- **Trade Limit**: 5 trades
+- **Stop Duration**: 60 candles
+- **Description**: Stops trading for a specific pair if it incurs too much drawdown within a short period.
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+### 3. Daily Loss Limit (Custom)
+- **Limit**: -5% (Default)
+- **Description**: Stops **ALL** new entries for the rest of the day (UTC) if realized PnL drops below the limit.
+- **Configuration**:
+  - Set `DAILY_LOSS_LIMIT` in `.env` (e.g., `DAILY_LOSS_LIMIT=-0.05` for -5%).
+  - Calculations are based on `dry_run_wallet` (dry-run) or actual balance (live - depends on implementation). Currently uses `dry_run_wallet` as reference capital in `DailyLossLimit.py`.
+
+## Market Validation Guardrails
+
+Enforced by `scripts/update_markets_and_whitelist.sh` and `tools/validate_markets_schema.py`.
+
+- **MIN_MARKETS**: 20 (Minimum eligible markets required to proceed)
+- **MAX_REMOVAL_RATIO**: 0.25 (Max 25% of whitelist can be removed at once to prevent mass delisting drift)
+- **FILTER_MODE**: `perps_usdt` (Only USDT perpetuals allowed)
+- **Schema Checks**:
+  - Must have `BASE/QUOTE:SETTLE` format (Futures).
+  - Must be active.
+  - Must have valid symbol structure.
+
+## How to Change Limits
+
+1. **Edit `.env`**: Update `DAILY_LOSS_LIMIT`, `STAKE_AMOUNT`, etc. (Note: Config json takes precedence for some values unless using env var substitution in config, which is supported by some docker setups but safer to edit json).
+2. **Edit Config**: Modify `user_data/configs/config.delta.live.json`.
+3. **Restart**: Run `docker compose restart freqtrade`.
+
+## Safety Checklist Before Going Live
+
+- [ ] Validated markets using `scripts/validate_exchange.sh`.
+- [ ] Checked `DAILY_LOSS_LIMIT` in `.env`.
+- [ ] Verified `stake_amount` is appropriate for account size.
+- [ ] Confirmed `dry_run: false` in live config.
