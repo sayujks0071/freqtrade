@@ -24,6 +24,7 @@ class ExchangeWS:
         self.config = config
         self._ccxt_object = ccxt_object
         self._background_tasks: set[asyncio.Task] = set()
+        self._shutdown_tasks: set[asyncio.Task] = set()
 
         self._klines_watching: set[PairWithTimeframe] = set()
         self._klines_scheduled: set[PairWithTimeframe] = set()
@@ -51,7 +52,9 @@ class ExchangeWS:
 
             # Wait for background tasks to finish cleaning up
             start = time.time()
-            while self._background_tasks and (time.time() - start) < 2.0:
+            while (
+                (self._background_tasks or self._shutdown_tasks) and (time.time() - start) < 2.0
+            ):
                 time.sleep(0.1)
 
             self._loop.call_soon_threadsafe(self._loop.stop)
@@ -164,9 +167,11 @@ class ExchangeWS:
                 result = str(result1)
 
         logger.info(f"{pair}, {timeframe}, {candle_type} - Task finished - {result}")
-        asyncio.run_coroutine_threadsafe(
+        future = asyncio.run_coroutine_threadsafe(
             self._unwatch_ohlcv(pair, timeframe, candle_type), loop=self._loop
         )
+        self._shutdown_tasks.add(future)
+        future.add_done_callback(self._shutdown_tasks.discard)
 
         self._klines_scheduled.discard((pair, timeframe, candle_type))
         self._pop_history((pair, timeframe, candle_type))
