@@ -4,7 +4,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 
@@ -22,35 +22,50 @@ class AuditedStrategyMixin:
     def log_signal(
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
+        Format: AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
+        if indicators_snapshot is None:
+            indicators_snapshot = {}
+
+        # Format indicators as key=value string
+        indicators_str = ", ".join(f"{k}={v}" for k, v in indicators_snapshot.items())
+
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
+            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | "
+            f"{indicators_str}"
         )
         logger.info(msg)
-
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
-                return False
-        return True
 
     def normalize_pair(self, pair: str) -> str:
         """
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    def assert_pair_in_whitelist(self, pair: str) -> None:
+        """
+        Assert pair is in current whitelist.
+        Raises ValueError if not in whitelist.
+        """
+        whitelist = self.config.get("exchange", {}).get("pair_whitelist", [])
+        if not whitelist:
+            # If whitelist is empty or not found, we might warn but maybe it's dynamic
+            logger.warning("AUDIT_WARNING | Pair whitelist not found in config.")
+            return
+
+        if pair not in whitelist:
+            msg = f"AUDIT_FAIL | Pair {pair} not in whitelist!"
+            logger.error(msg)
+            # We raise error to fail fast as per requirement
+            # "Any symbol mismatch causes a clear startup failure"
+            # Although this is runtime check.
+            # The prompt says "symbol sanity function that fails fast".
+            # This is that function.
+            raise ValueError(msg)

@@ -150,3 +150,32 @@ This repository is configured as a production-ready crypto trading stack for Del
 # ![freqtrade](https://raw.githubusercontent.com/freqtrade/freqtrade/develop/docs/assets/freqtrade_poweredby.svg)
 
 [Original Freqtrade README follows...]
+
+## Strategy Auditing & Safety
+
+### How to choose pairs on Delta
+Always pick pairs from the generated market dump report to ensure correct formatting.
+1. Check `user_data/reports/symbol_mapping_*.md` for valid pair mappings.
+2. Format: `BASE/QUOTE:SETTLE` (e.g. `BTC/USDT:USDT`).
+3. **NEVER** hand-type symbols blindly. Use the report or `whitelist.delta.json`.
+
+### How to interpret logs
+The strategies in this stack use an audit layer to explain trade decisions.
+Look for the `AUDIT_SIGNAL` prefix in the logs:
+
+```
+AUDIT_SIGNAL | 2024-05-20T10:00:00+00:00 | BTC/USDT:USDT | long | Signal Confirmed (rsi_low) | rsi=28.5, volume=1024
+```
+
+- **Timestamp**: Exact UTC time of the signal.
+- **Pair**: The asset pair.
+- **Side**: Direction (long/short).
+- **Reason**: Which condition triggered the signal.
+- **Indicators**: Snapshot of key indicator values at that moment.
+
+### Running the Strategy Auditor
+To verify your strategy code complies with safety rules:
+```bash
+python3 tools/strategy_auditor.py user_data/strategies/YourStrategy.py
+```
+Use `--fix` to auto-insert missing headers.
