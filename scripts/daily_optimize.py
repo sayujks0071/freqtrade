@@ -39,6 +39,22 @@ def get_timerange():
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
 
+def download_data():
+    """Downloads historical data required for optimization."""
+    print("Downloading data...")
+    cmd = [
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--days",
+        "30",
+        "--timeframe",
+        "1h",
+    ]
+    run_command(cmd, capture=False)
+
+
 def get_latest_backtest_file():
     if not BACKTEST_RESULTS_DIR.exists():
         return None
@@ -113,7 +129,7 @@ def find_available_strategies():
     return strategies
 
 
-def run_backtest_job(strategy_name_or_list, extra_config=None):
+def run_backtest_job(strategy_name_or_list):
     """Runs a backtest job for a single strategy or a list of strategies."""
     timerange = get_timerange()
 
@@ -130,8 +146,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
         "none",
     ]
 
-    if extra_config:
-        cmd.extend(["--config", str(extra_config)])
+    # Note: strategy params are automatically loaded if the file exists in
+    # user_data/strategies/{StrategyName}.json
 
     if isinstance(strategy_name_or_list, list):
         print(f"Running backtest for {len(strategy_name_or_list)} strategies over {timerange}...")
@@ -250,6 +266,10 @@ Examples:
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
+    # 0. Download Data
+    if not args.dry_run:
+        download_data()
+
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
 
@@ -330,6 +350,9 @@ Examples:
     # Apply new parameters
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
     if new_params:
+        # Ensure strategy_name is included
+        new_params["strategy_name"] = worst_strategy
+
         print(f"Applying new parameters to {strategy_json}")
         with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
@@ -348,7 +371,7 @@ Examples:
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
+    new_backtest_data = run_backtest_job(worst_strategy)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
