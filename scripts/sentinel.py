@@ -20,6 +20,7 @@ from pathlib import Path
 import ccxt
 from freqtrade_client.ft_rest_client import FtRestClient
 
+
 # Configuration
 # Default config to check if user_data/config.json is missing
 CONFIG_PATH = Path("user_data/configs/config.delta.dryrun.json")
@@ -36,10 +37,13 @@ def setup_logging(verbose=False):
 
 
 def load_config(config_path):
-    with open(config_path) as f:
+    with Path(config_path).open() as f:
         try:
             import rapidjson
-            return rapidjson.load(f, parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS)
+
+            return rapidjson.load(
+                f, parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
+            )
         except ImportError:
             return json.load(f)
 
@@ -50,7 +54,9 @@ def get_rpc_client(config):
         logger.error("API Server not enabled in config.")
         sys.exit(1)
 
-    server_url = f"http://{api_config.get('listen_ip_address', '127.0.0.1')}:{api_config.get('listen_port', 8080)}"
+    ip = api_config.get("listen_ip_address", "127.0.0.1")
+    port = api_config.get("listen_port", 8080)
+    server_url = f"http://{ip}:{port}"
     username = api_config.get("username")
     password = api_config.get("password")
 
@@ -76,7 +82,7 @@ def send_alert(message):
 def load_state():
     if SENTINEL_STATE_FILE.exists():
         try:
-            with open(SENTINEL_STATE_FILE) as f:
+            with SENTINEL_STATE_FILE.open() as f:
                 return json.load(f)
         except json.JSONDecodeError:
             return {"balance_history": []}
@@ -86,7 +92,7 @@ def load_state():
 def save_state(state):
     # Ensure directory exists
     SENTINEL_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(SENTINEL_STATE_FILE, "w") as f:
+    with SENTINEL_STATE_FILE.open("w") as f:
         json.dump(state, f)
 
 
@@ -119,7 +125,10 @@ def check_drawdown(client, state):
         drawdown = (max_balance - current_balance) / max_balance
 
         if drawdown > 0.05:
-            return f"Drawdown {drawdown*100:.2f}% > 5% in last hour (Max: {max_balance}, Curr: {current_balance})"
+            return (
+                f"Drawdown {drawdown * 100:.2f}% > 5% in last hour "
+                f"(Max: {max_balance}, Curr: {current_balance})"
+            )
 
         return False
     except Exception as e:
@@ -140,18 +149,38 @@ def check_btc_crash():
         recent_candles = ohlcv
         max_high = max(c[2] for c in recent_candles)
 
-        if max_high == 0: return False
+        if max_high == 0:
+            return False
 
         drop = (max_high - current_close) / max_high
 
         if drop > 0.10:
-            return f"Bitcoin drop {drop*100:.2f}% > 10% in 4 hours (High: {max_high}, Curr: {current_close})"
+            return (
+                f"Bitcoin drop {drop * 100:.2f}% > 10% in 4 hours "
+                f"(High: {max_high}, Curr: {current_close})"
+            )
 
         return False
 
     except Exception as e:
         logger.error(f"Error checking BTC price: {e}")
         return False
+
+
+def emergency_liquidate(client):
+    if os.getenv("SENTINEL_PANIC_SELL", "false").lower() == "true":
+        logger.warning("Liquidating all positions...")
+        trades = client.status()
+        if isinstance(trades, list):
+            for trade in trades:
+                logger.info(f"Force exiting trade {trade['trade_id']}")
+                client.forceexit(trade["trade_id"])
+
+            # Wait for orders to be processed before stopping
+            logger.info("Waiting for liquidation orders to be processed...")
+            time.sleep(5)
+        else:
+            logger.error("Failed to get trades list for liquidation")
 
 
 def run_once(config, client, state):
@@ -186,20 +215,7 @@ def run_once(config, client, state):
         send_alert(msg)
 
         try:
-            if os.getenv("SENTINEL_PANIC_SELL", "false").lower() == "true":
-                logger.warning("Liquidating all positions...")
-                trades = client.status()
-                if isinstance(trades, list):
-                    for trade in trades:
-                        logger.info(f"Force exiting trade {trade['trade_id']}")
-                        client.forceexit(trade["trade_id"])
-
-                    # Wait for orders to be processed before stopping
-                    logger.info("Waiting for liquidation orders to be processed...")
-                    time.sleep(5)
-                else:
-                    logger.error("Failed to get trades list for liquidation")
-
+            emergency_liquidate(client)
             client.stop()
             logger.info("Freqtrade stopped.")
             return True
@@ -212,25 +228,15 @@ def run_once(config, client, state):
         return False
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Sentinel: Freqtrade Circuit Breaker")
-    parser.add_argument("--config", type=Path, help="Path to config file")
-    parser.add_argument("--oneshot", action="store_true", help="Run once and exit")
-    parser.add_argument("--interval", type=int, default=300, help="Check interval in seconds (default: 300)")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
-
-    args = parser.parse_args()
-
-    setup_logging(args.verbose)
-
-    config_file = args.config
+def load_and_validate_config(config_arg):
+    config_file = config_arg
     if not config_file:
         default_config = Path("user_data/config.json")
         if default_config.exists():
             config_file = default_config
         elif CONFIG_PATH.exists():
-             logger.info(f"{default_config} not found, checking fallback {CONFIG_PATH}")
-             config_file = CONFIG_PATH
+            logger.info(f"{default_config} not found, checking fallback {CONFIG_PATH}")
+            config_file = CONFIG_PATH
         else:
             logger.error(f"No config file found at {default_config} or {CONFIG_PATH}")
             sys.exit(1)
@@ -238,6 +244,26 @@ def main():
     if not config_file.exists():
         logger.error(f"Config file not found at {config_file}")
         sys.exit(1)
+    return config_file
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Sentinel: Freqtrade Circuit Breaker")
+    parser.add_argument("--config", type=Path, help="Path to config file")
+    parser.add_argument("--oneshot", action="store_true", help="Run once and exit")
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=300,
+        help="Check interval in seconds (default: 300)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
+
+    args = parser.parse_args()
+
+    setup_logging(args.verbose)
+
+    config_file = load_and_validate_config(args.config)
 
     try:
         config = load_config(config_file)
