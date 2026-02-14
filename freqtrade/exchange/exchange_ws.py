@@ -44,9 +44,9 @@ class ExchangeWS:
     def cleanup(self) -> None:
         logger.debug("Cleanup called - stopping")
         self._klines_watching.clear()
-        for task in self._background_tasks:
-            task.cancel()
         if hasattr(self, "_loop") and not self._loop.is_closed():
+            for task in self._background_tasks:
+                self._loop.call_soon_threadsafe(task.cancel)
             self.reset_connections()
 
             self._loop.call_soon_threadsafe(self._loop.stop)
