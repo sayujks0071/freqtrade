@@ -5,8 +5,8 @@
 from datetime import datetime
 import os
 
-import numpy as np  # noqa
-import pandas as pd  # noqa
+import numpy as np
+import pandas as pd
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy, IntParameter

@@ -3,7 +3,7 @@ import json
 import os
 import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 
 GITHUB_API = "https://api.github.com/search/repositories"

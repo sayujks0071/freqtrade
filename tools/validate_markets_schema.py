@@ -136,7 +136,7 @@ def main():
     # 2. Schema Validation & Eligibility
     valid_symbols, errors = validate_schema_rules(market_list)
 
-    report_lines.append(f"## Schema Validation")
+    report_lines.append("## Schema Validation")
     report_lines.append(f"- Total Markets in Dump: {len(market_list)}")
     report_lines.append(f"- Eligible Markets: {len(valid_symbols)}")
     report_lines.append(f"- Schema Errors: {len(errors)}")
@@ -169,7 +169,7 @@ def main():
 
             removal_ratio = len(removed) / len(prev_symbols) if len(prev_symbols) > 0 else 0.0
 
-            report_lines.append(f"\n## Drift Check")
+            report_lines.append("\n## Drift Check")
             report_lines.append(f"- Previous Whitelist Size: {len(prev_symbols)}")
             report_lines.append(f"- Removed: {len(removed)} ({removal_ratio:.2%})")
             report_lines.append(f"- Added: {len(added)}")
@@ -180,7 +180,7 @@ def main():
                 print(msg)
                 report_lines.append(f"\n**{msg}**")
             else:
-                report_lines.append(f"\n**Drift Check PASSED**")
+                report_lines.append("\n**Drift Check PASSED**")
 
             if removed:
                 report_lines.append("\n### Removed Pairs")
