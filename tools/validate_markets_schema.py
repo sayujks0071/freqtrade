@@ -258,13 +258,7 @@ def main():
     status = "FAIL" if errors else "PASS"
 
     write_report(
-        args.out_report,
-        status,
-        len(data),
-        eligible_count,
-        whitelist_count,
-        errors,
-        drift_stats
+        args.out_report, status, len(data), eligible_count, whitelist_count, errors, drift_stats
     )
 
     if errors:
