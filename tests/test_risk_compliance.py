@@ -1,7 +1,10 @@
 import ast
-import pytest
 from pathlib import Path
+
+import pytest
+
 from freqtrade.configuration.load_config import load_config_file
+
 
 # Paths
 # Assuming tests/test_risk_compliance.py is in tests/
@@ -10,6 +13,7 @@ ROOT_DIR = Path(__file__).parents[1]
 USER_DATA = ROOT_DIR / "user_data"
 CONFIGS_DIR = USER_DATA / "configs"
 STRATEGIES_DIR = USER_DATA / "strategies"
+
 
 def get_config_files():
     files = []
@@ -30,12 +34,14 @@ def get_config_files():
 
     return files
 
+
 def get_strategy_files():
     if not STRATEGIES_DIR.exists():
         return []
     # Exclude __init__.py and _base directory (which is likely not a file but let's be safe)
     files = list(STRATEGIES_DIR.glob("*.py"))
     return [f for f in files if f.name != "__init__.py"]
+
 
 @pytest.mark.parametrize("config_file", get_config_files())
 def test_max_open_trades_compliance(config_file):
@@ -50,9 +56,10 @@ def test_max_open_trades_compliance(config_file):
         max_open_trades = config["max_open_trades"]
         # Handle unlimited (float('inf')) or -1 which maps to inf
         if max_open_trades == -1 or max_open_trades == float("inf"):
-             pytest.fail(f"{config_file.name}: max_open_trades is unlimited, which is > 5")
+            pytest.fail(f"{config_file.name}: max_open_trades is unlimited, which is > 5")
 
         assert max_open_trades <= 5, f"{config_file.name}: max_open_trades={max_open_trades} is > 5"
+
 
 @pytest.mark.parametrize("strategy_file", get_strategy_files())
 def test_stoploss_compliance(strategy_file):
@@ -60,7 +67,8 @@ def test_stoploss_compliance(strategy_file):
     Ensure stoploss is never strictly looser than -10% (-0.10) for any strategy.
     Stoploss must be >= -0.10.
     """
-    with open(strategy_file, "r") as f:
+    # Use Path.open() as recommended by Ruff (PTH123) and remove "r" mode (UP015)
+    with strategy_file.open() as f:
         tree = ast.parse(f.read())
 
     stoploss_found = False
@@ -76,7 +84,9 @@ def test_stoploss_compliance(strategy_file):
                             value_node = item.value
 
                             # Handle negative numbers: -0.10 is UnaryOp(USub, Constant(0.10))
-                            if isinstance(value_node, ast.UnaryOp) and isinstance(value_node.op, ast.USub):
+                            if isinstance(value_node, ast.UnaryOp) and isinstance(
+                                value_node.op, ast.USub
+                            ):
                                 operand = value_node.operand
                                 if isinstance(operand, ast.Constant):
                                     val = operand.value
@@ -87,15 +97,17 @@ def test_stoploss_compliance(strategy_file):
                                     # e.g. -0.05 >= -0.10 (Pass)
                                     # e.g. -0.20 < -0.10 (Fail)
 
-                                    assert actual_stoploss >= -0.10, \
-                                        f"{strategy_file.name}: stoploss {actual_stoploss} is strictly looser than -0.10"
+                                    assert actual_stoploss >= -0.10, (
+                                        f"{strategy_file.name}: stoploss {actual_stoploss} "
+                                        "is strictly looser than -0.10"
+                                    )
                                     stoploss_found = True
 
-                            # Handle positive numbers (unlikely for stoploss but possible if someone messed up)
+                            # Handle positive numbers (unlikely for stoploss but possible
+                            # if someone messed up)
                             elif isinstance(value_node, ast.Constant):
-                                val = value_node.value
-                                # If positive, it's definitely > -0.10, but logically wrong for stoploss usually.
-                                # But compliant with ">= -0.10".
+                                # If positive, it's definitely > -0.10, but logically wrong for
+                                # stoploss usually. But compliant with ">= -0.10".
                                 stoploss_found = True
 
     if not stoploss_found:
