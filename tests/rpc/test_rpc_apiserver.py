@@ -429,6 +429,11 @@ def test_api_run(default_conf, mocker, caplog):
 
     assert server_mock.call_count == 1
     assert apiserver._config == default_conf
+    assert log_has(
+        "Using random JWT secret key. Please configure 'jwt_secret_key' in "
+        "config.json to persist sessions.",
+        caplog,
+    )
     apiserver.start_api()
     assert server_mock.call_count == 2
     assert server_inst_mock.run_in_thread.call_count == 2
@@ -474,7 +479,6 @@ def test_api_run(default_conf, mocker, caplog):
         "Please make sure that this is intentional!",
         caplog,
     )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
 
     server_mock.reset_mock()
     apiserver._standalone = True
