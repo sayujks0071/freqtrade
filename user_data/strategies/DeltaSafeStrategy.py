@@ -5,7 +5,8 @@ Version: 1.0
 Supported Timeframes: 1h
 
 Supported Pair Format:
-  - Delta contract symbols (e.g., BTCUSDT) vs Freqtrade/CCXT futures pair format (base/quote:settle like BTC/USDT:USDT)
+  - Delta contract symbols (e.g., BTCUSDT) vs Freqtrade/CCXT futures pair format
+    (base/quote:settle like BTC/USDT:USDT)
 
 Timezone Rule:
   - All timestamps logged as UTC ISO-8601
