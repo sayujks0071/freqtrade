@@ -18,9 +18,7 @@ def fetch_data():
         exchange = ccxt.gateio()
         ohlcv = exchange.fetch_ohlcv("BTC/USDT", "4h", limit=1000)
 
-    df = pd.DataFrame(
-        ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
-    )
+    df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
     return df
 
