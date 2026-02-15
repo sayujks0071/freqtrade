@@ -2,6 +2,7 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
+
 import sys
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
+
 
 # Import the mixin
 # Freqtrade adds user_data/strategies to sys.path
@@ -27,6 +29,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     - Inherits IStrategy for Freqtrade logic
     - Logic runs on closed candles.
     """
+
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -71,31 +74,19 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         # But good to skip processing if not needed
         # self.assert_pair_in_whitelist(metadata["pair"]) # Can't call here easily without warnings
 
-        dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)),
-            "enter_long"
-        ] = 1
+        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
 
         # Short signal
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)),
-            "enter_short"
-        ] = 1
+        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "enter_short"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Long exit
-        dataframe.loc[
-            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)),
-            "exit_long"
-        ] = 1
+        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
 
         # Short exit
-        dataframe.loc[
-            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)),
-            "exit_short"
-        ] = 1
+        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "exit_short"] = 1
 
         return dataframe
 

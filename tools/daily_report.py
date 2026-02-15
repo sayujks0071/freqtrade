@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -51,27 +51,24 @@ def generate_report():
         return
 
     # Preprocessing
-    if 'close_date' in df.columns:
-        df['close_date'] = pd.to_datetime(df['close_date'])
+    if "close_date" in df.columns:
+        df["close_date"] = pd.to_datetime(df["close_date"])
 
     # Filter for last 24h
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Handle timezone naive/aware mismatch
-    if df['close_date'].dt.tz is None:
+    if df["close_date"].dt.tz is None:
         # Assume UTC if naive, as Freqtrade uses UTC
-        df['close_date'] = df['close_date'].dt.tz_localize('UTC')
+        df["close_date"] = df["close_date"].dt.tz_localize("UTC")
     else:
-        df['close_date'] = df['close_date'].dt.tz_convert('UTC')
+        df["close_date"] = df["close_date"].dt.tz_convert("UTC")
 
     start_time = now - timedelta(days=1)
 
     # Filter closed trades
     # 'is_open' is usually 0 (False) or 1 (True)
-    closed_trades = df[
-        (df['is_open'] == 0) &
-        (df['close_date'] >= start_time)
-    ].copy()
+    closed_trades = df[(df["is_open"] == 0) & (df["close_date"] >= start_time)].copy()
 
     date_str = now.strftime("%Y-%m-%d")
     report_file = f"user_data/reports/daily_summary_{date_str}.md"

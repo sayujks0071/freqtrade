@@ -2,12 +2,11 @@
 AuditedStrategyMixin Module.
 Provides mixin for strategy audit logging and safety.
 """
+
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from freqtrade.strategy import IStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +41,13 @@ class AuditedStrategyMixin:
             pass
 
     def log_signal(
-        self,
-        pair: str,
-        side: str,
-        reason: str,
-        indicators: dict[str, Any] | None = None
+        self, pair: str, side: str, reason: str, indicators: dict[str, Any] | None = None
     ):
         """
         Log a structured audit signal.
         Format: AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
         """
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
         # Filter indicators to avoid huge logs if passed full dict
         ind_str = str(indicators) if indicators else "{}"
 
@@ -69,7 +64,7 @@ class AuditedStrategyMixin:
         current_time: datetime,
         entry_tag: str,
         side: str,
-        **kwargs
+        **kwargs,
     ) -> bool:
         """
         Log entry signal and validate whitelist.
@@ -85,7 +80,7 @@ class AuditedStrategyMixin:
                 if not dataframe.empty:
                     last_candle = dataframe.iloc[-1].to_dict()
                     # Filter relevant indicators (e.g. rsi, macd, close)
-                    keys = ['close', 'rsi', 'macd', 'volume', 'bb_lower', 'bb_upper']
+                    keys = ["close", "rsi", "macd", "volume", "bb_lower", "bb_upper"]
                     indicators = {k: v for k, v in last_candle.items() if k in keys}
             except Exception:
                 # Log exception but don't crash
@@ -104,7 +99,7 @@ class AuditedStrategyMixin:
         time_in_force: str,
         exit_reason: str,
         current_time: datetime,
-        **kwargs
+        **kwargs,
     ) -> bool:
         """
         Log exit signal.

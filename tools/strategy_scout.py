@@ -49,7 +49,9 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
+                    print(
+                        f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading."
+                    )
                     return False
             return True
         except Exception as e:
@@ -376,9 +378,7 @@ class StrategyScout:
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
     parser.add_argument(
-        "--token",
-        help="GitHub API Token",
-        default=os.environ.get("GITHUB_TOKEN")
+        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
     )
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
