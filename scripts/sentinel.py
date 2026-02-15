@@ -16,6 +16,7 @@ from pathlib import Path
 import ccxt
 import requests
 
+
 # Adjust path to import ft_client
 # Assuming script is in scripts/ and ft_client is in ft_client/ relative to repo root
 project_root = Path(__file__).resolve().parent.parent
@@ -46,9 +47,7 @@ logger = logging.getLogger("sentinel")
 
 
 class Sentinel:
-    def __init__(
-        self, config_path, interval=300, dry_run=False, one_shot=False, panic_sell=False
-    ):
+    def __init__(self, config_path, interval=300, dry_run=False, one_shot=False, panic_sell=False):
         self.config_path = Path(config_path)
         if not self.config_path.exists():
             logger.warning(
@@ -168,9 +167,7 @@ class Sentinel:
         now_ts = datetime.now().timestamp()
 
         # Add current balance
-        self.state["balance_history"].append(
-            {"timestamp": now_ts, "balance": current_balance}
-        )
+        self.state["balance_history"].append({"timestamp": now_ts, "balance": current_balance})
 
         # Prune old history (> 1 hour = 3600 seconds)
         cutoff = now_ts - 3600
@@ -239,14 +236,11 @@ class Sentinel:
                 # 'total' is the estimated total value in stake currency
                 current_balance = balance_data.get("total", 0.0)
                 self.log(
-                    f"Current Balance: {current_balance:.2f} "
-                    f"{balance_data.get('stake', 'Units')}"
+                    f"Current Balance: {current_balance:.2f} {balance_data.get('stake', 'Units')}"
                 )
                 return current_balance
             else:
-                self.log(
-                    "Failed to fetch balance data (API returned None).", level=logging.ERROR
-                )
+                self.log("Failed to fetch balance data (API returned None).", level=logging.ERROR)
         except Exception as e:
             self.log(f"Error fetching balance from API: {e}", level=logging.ERROR)
             # If API is down, we can't check drawdown, but we CAN check BTC crash via CCXT
@@ -295,9 +289,7 @@ class Sentinel:
         return False
 
     def loop(self):
-        self.log(
-            f"Sentinel started. Interval: {self.interval}s. Dry Run: {self.dry_run}"
-        )
+        self.log(f"Sentinel started. Interval: {self.interval}s. Dry Run: {self.dry_run}")
         while True:
             try:
                 should_stop = self.run_check_cycle()
@@ -318,12 +310,8 @@ class Sentinel:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Freqtrade Sentinel")
-    parser.add_argument(
-        "-c", "--config", help="Config file", default="config.json"
-    )
-    parser.add_argument(
-        "--interval", help="Check interval in seconds", type=int, default=300
-    )
+    parser.add_argument("-c", "--config", help="Config file", default="config.json")
+    parser.add_argument("--interval", help="Check interval in seconds", type=int, default=300)
     parser.add_argument("--oneshot", help="Run once and exit", action="store_true")
     parser.add_argument("--dryrun", help="Dry run (no actions)", action="store_true")
     parser.add_argument(
@@ -334,7 +322,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    sentinel = Sentinel(
-        args.config, args.interval, args.dryrun, args.oneshot, args.panic_sell
-    )
+    sentinel = Sentinel(args.config, args.interval, args.dryrun, args.oneshot, args.panic_sell)
     sentinel.loop()
