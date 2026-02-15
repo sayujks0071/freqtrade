@@ -1049,8 +1049,11 @@ def test_pandas_warning_direct(ohlcv_history, function, raises, recwarn):
     else:
         # Ignore asyncio deprecation warnings on Windows
         warnings = [
-            w for w in recwarn.list
-            if not str(w.message).startswith("'asyncio.WindowsSelectorEventLoopPolicy' is deprecated")
+            w
+            for w in recwarn.list
+            if not str(w.message).startswith(
+                "'asyncio.WindowsSelectorEventLoopPolicy' is deprecated"
+            )
         ]
         assert len(warnings) == 0, f"warnings: {[str(w.message) for w in warnings]}"
 
@@ -1062,7 +1065,10 @@ def test_pandas_warning_through_analyze_pair(ohlcv_history, mocker, recwarn):
     _STRATEGY.analyze_pair("ETH/BTC")
     # Ignore asyncio deprecation warnings on Windows
     warnings = [
-        w for w in recwarn.list
-        if not str(w.message).startswith("'asyncio.WindowsSelectorEventLoopPolicy' is deprecated")
+        w
+        for w in recwarn.list
+        if not str(w.message).startswith(
+            "'asyncio.WindowsSelectorEventLoopPolicy' is deprecated"
+        )
     ]
     assert len(warnings) == 0, f"warnings: {[str(w.message) for w in warnings]}"
