@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+
 # Configuration from Environment
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
@@ -136,21 +137,6 @@ def validate_numeric_fields(m, symbol, errors):
             errors.append(f"Low volume for {symbol}: {vol}")
 
 
-def validate_environment(data, env_name, errors):
-    # Confirm the dump corresponds to the intended DELTA_ENV
-    # by checking for a recognizable base URL / exchange id if available in metadata
-    # Freqtrade list-markets dump might not have metadata about the exchange instance easily.
-    # If the dump is a list of markets, we can't check global metadata.
-    # But sometimes the dump is `{"markets": [...], "exchange_id": ...}` if custom?
-    # If standard freqtrade dump, it's just a list or dict of markets.
-    # We can check if any market has 'info' with exchange specific urls?
-    # Or just warn if we can't verify.
-    # For Delta, maybe check if symbols look like testnet symbols?
-    # Delta Testnet symbols might be same as Prod.
-    # If we can't verify, log warning.
-    pass  # Cannot reliably check with standard dump without extra metadata.
-
-
 def validate_drift(candidate_symbols, prev_whitelist_path):
     prev_path_obj = Path(prev_whitelist_path)
     if not prev_whitelist_path or not prev_path_obj.exists():
@@ -182,11 +168,6 @@ def validate_drift(candidate_symbols, prev_whitelist_path):
 
     print(f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})")
 
-    if removal_ratio > MAX_REMOVAL_RATIO:
-        # We don't fail here immediately, we return the error to be reported
-        # But we want to fail the validation eventually
-        pass
-
     return list(added), list(removed), removal_ratio
 
 
@@ -199,25 +180,14 @@ def write_report(path, report_content):
         warn(f"Could not write report: {e}")
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Validate market schema and drift.")
-    parser.add_argument("--markets", required=True, help="Path to markets JSON dump")
-    parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON")
-    parser.add_argument("--env", help="Delta environment (e.g. india_prod)")
-    parser.add_argument("--out-report", required=True, help="Path to output Markdown report")
-
-    args = parser.parse_args()
-
-    print(f"Validating {args.markets}...")
-
+def load_markets(markets_path):
     try:
-        with Path(args.markets).open() as f:
+        with Path(markets_path).open() as f:
             data = json.load(f)
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
     # Handle different dump formats
-    markets_list = []
     if isinstance(data, list):
         markets_list = data
     elif isinstance(data, dict) and "markets" in data:
@@ -231,15 +201,17 @@ def main():
             markets_list = list(data.values())
         else:
             # Fallback
-            markets_list = [data] # Unexpected
+            markets_list = [data]  # Unexpected
+    else:
+        markets_list = []
 
     if not isinstance(markets_list, list):
         fail("Could not parse markets list from JSON")
 
-    # Validation A & B
-    if len(markets_list) < MIN_MARKETS:
-        fail(f"Market count {len(markets_list)} < MIN_MARKETS ({MIN_MARKETS})")
+    return markets_list
 
+
+def validate_markets(markets_list):
     candidate_symbols = set()
     eligible_count = 0
     errors = []
@@ -247,23 +219,19 @@ def main():
     # Validation C & D
     for i, m in enumerate(markets_list):
         if not isinstance(m, dict):
-             errors.append(f"Item {i} is not a dictionary")
-             continue
-
-        # Check eligibility first?
-        # Requirement says: "For each market that will be eligible for whitelist: ... Check required fields"
-        # So we check eligibility first. But to check eligibility we need symbol and active.
-        # validate_market_structure checks symbol and active presence.
+            errors.append(f"Item {i} is not a dictionary")
+            continue
 
         # We'll do a basic structure check first to get symbol
         symbol = m.get("symbol")
         if not symbol:
-             # If symbol missing, we can't check eligibility easily, but we should report it if it's supposed to be a market
-             # But maybe we only care about eligible ones?
-             # Requirement A: "Non-empty markets count". We checked that.
-             # Requirement C: "For each market that will be eligible..."
-             # If symbol is missing, it can't be eligible.
-             continue
+            # If symbol missing, we can't check eligibility easily,
+            # but we should report it if it's supposed to be a market
+            # But maybe we only care about eligible ones?
+            # Requirement A: "Non-empty markets count". We checked that.
+            # Requirement C: "For each market that will be eligible..."
+            # If symbol is missing, it can't be eligible.
+            continue
 
         if is_eligible(m):
             eligible_count += 1
@@ -278,25 +246,13 @@ def main():
                     errors.append(f"Duplicate symbol '{validated_symbol}'")
                 candidate_symbols.add(validated_symbol)
 
-    # Validation E: Environment Sanity
-    # We can't easily check environment from the dump unless we have metadata.
-    # But if we see symbols that are definitely testnet (like TEST-BTC?), we could check.
-    # Delta testnet symbols look normal.
-    # So we skip explicit environment check on dump content for now, assume args.env is correct source.
+    return candidate_symbols, eligible_count, errors
 
-    # Validation F: Drift
-    added, removed, removal_ratio = validate_drift(candidate_symbols, args.prev_whitelist)
 
-    if removal_ratio > MAX_REMOVAL_RATIO:
-        errors.append(
-            f"Large delist drift: {removal_ratio:.2%} > MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO:.2%})"
-        )
-
-    # Generate Report
-    status = "PASS" if not errors else "FAIL"
-
+def generate_report_content(args, markets_list, eligible_count, candidate_symbols,
+                            added, removed, removal_ratio, errors, status):
     report_lines = [
-        f"# Markets Schema Validation Report",
+        "# Markets Schema Validation Report",
         f"Date: {datetime.now(UTC).isoformat()}",
         f"Status: {status}",
         f"Environment: {args.env}",
@@ -331,7 +287,44 @@ def main():
         if len(errors) > 50:
             report_lines.append(f"...and {len(errors) - 50} more")
 
-    report_content = "\n".join(report_lines)
+    return "\n".join(report_lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Validate market schema and drift.")
+    parser.add_argument("--markets", required=True, help="Path to markets JSON dump")
+    parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON")
+    parser.add_argument("--env", help="Delta environment (e.g. india_prod)")
+    parser.add_argument("--out-report", required=True, help="Path to output Markdown report")
+
+    args = parser.parse_args()
+
+    print(f"Validating {args.markets}...")
+
+    markets_list = load_markets(args.markets)
+
+    # Validation A & B
+    if len(markets_list) < MIN_MARKETS:
+        fail(f"Market count {len(markets_list)} < MIN_MARKETS ({MIN_MARKETS})")
+
+    candidate_symbols, eligible_count, errors = validate_markets(markets_list)
+
+    # Validation F: Drift
+    added, removed, removal_ratio = validate_drift(candidate_symbols, args.prev_whitelist)
+
+    if removal_ratio > MAX_REMOVAL_RATIO:
+        errors.append(
+            f"Large delist drift: {removal_ratio:.2%} > "
+            f"MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO:.2%})"
+        )
+
+    # Generate Report
+    status = "PASS" if not errors else "FAIL"
+    report_content = generate_report_content(
+        args, markets_list, eligible_count, candidate_symbols,
+        added, removed, removal_ratio, errors, status
+    )
+
     write_report(args.out_report, report_content)
 
     if errors:
