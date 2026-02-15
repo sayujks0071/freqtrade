@@ -1,0 +1,31 @@
+{
+  "strategy_name": "MomentumVolumeTrend",
+  "params": {
+    "max_open_trades": {
+      "max_open_trades": 3
+    },
+    "buy": {
+      "buy_adx_min": 24,
+      "buy_rsi_max": 71,
+      "buy_rsi_min": 52,
+      "buy_volume_factor": 1.7
+    },
+    "roi": {
+      "0": 0.223,
+      "24": 0.061,
+      "37": 0.023,
+      "52": 0
+    },
+    "stoploss": {
+      "stoploss": -0.305
+    },
+    "trailing": {
+      "trailing_stop": true,
+      "trailing_stop_positive": 0.215,
+      "trailing_stop_positive_offset": 0.294,
+      "trailing_only_offset_is_reached": false
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-02-01 10:55:56.916787+00:00"
+}
