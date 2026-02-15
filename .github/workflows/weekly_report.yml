@@ -14,19 +14,13 @@ jobs:
 
     steps:
     - name: Checkout repository
-      # Using v4 (latest stable at time of writing) to avoid confusion with v6 which might be a pre-release or specific to a fork,
-      # although existing workflows use v6 tags. To be safe and standard, I'll stick to widely known stable versions or the project's convention.
-      # The project uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      # I will use the same SHA as in ci.yml to be consistent.
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Fetch full history for git log analysis
         persist-credentials: true # Explicitly allow credential persistence for git push
 
     - name: Set up Python
-      # The project uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
-      # I will use the same SHA as in ci.yml to be consistent.
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 

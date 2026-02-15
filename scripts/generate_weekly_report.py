@@ -132,9 +132,7 @@ def main():
     parser.add_argument(
         "--output", type=str, default="WEEKLY_REPORT.md", help="Output markdown file"
     )
-    parser.add_argument(
-        "--push", action="store_true", help="Commit and push the report to remote"
-    )
+    parser.add_argument("--push", action="store_true", help="Commit and push the report to remote")
     args = parser.parse_args()
 
     # 1. Parse git log
@@ -168,7 +166,7 @@ def main():
             subprocess.run(
                 ["git", "commit", "-m", "docs: update weekly strategy report"], check=False
             )
-            subprocess.run(["git", "push"], check=True)
+            subprocess.run(["git", "push", "origin", "HEAD:develop"], check=True)
             print("Report pushed successfully.")
         except subprocess.CalledProcessError as e:
             print(f"Error during git operations: {e}")
