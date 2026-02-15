@@ -74,9 +74,9 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
 
         dataframe.loc[
             (
-                (dataframe["twitter_volume"] > 2.0) &  # High "Social Volume"
-                (dataframe["whale_movement"] > 0.02) &  # Large "Whale Move"
-                (dataframe["close"] > dataframe["ema_50"])  # Uptrend
+                (dataframe["twitter_volume"] > 2.0)  # High "Social Volume"
+                & (dataframe["whale_movement"] > 0.02)  # Large "Whale Move"
+                & (dataframe["close"] > dataframe["ema_50"])  # Uptrend
             ),
             "enter_long",
         ] = 1
@@ -86,8 +86,8 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe["twitter_volume"] < 1.0) &  # Hype died down
-                (dataframe["close"] < dataframe["ema_50"])  # Trend broken
+                (dataframe["twitter_volume"] < 1.0)  # Hype died down
+                & (dataframe["close"] < dataframe["ema_50"])  # Trend broken
             ),
             "exit_long",
         ] = 1
