@@ -48,6 +48,16 @@ This script will:
 
 If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
 
+### Configuration Knobs (Validation)
+
+You can customize the validation strictness in `.env`:
+
+-   `MIN_MARKETS` (default: 20): Minimum number of markets required in the dump.
+-   `MAX_REMOVAL_RATIO` (default: 0.25): Fail if >25% of whitelisted pairs are removed.
+-   `STRICT_VOLUME` (default: false): If true, fail on low volume markets.
+-   `FILTER_MODE`: Strategy to select pairs (`perps_usdt`, `all_futures`, `allowlist_regex`).
+-   `ALLOWLIST_REGEX`: Regex pattern to use if `FILTER_MODE=allowlist_regex`.
+
 ### 4. Start Dry-Run
 
 Start the bot in Dry-Run mode (simulated trading with live data):
