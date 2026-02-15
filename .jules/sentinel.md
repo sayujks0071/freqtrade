@@ -1,0 +1,4 @@
+## 2026-02-15 - Hardcoded Default JWT Secret
+**Vulnerability:** The API server used a hardcoded string "super-secret" as a fallback JWT secret key if the user configuration was missing the `jwt_secret_key` setting. This could allow attackers to forge tokens if they knew the default.
+**Learning:** Reliance on users to override insecure defaults is a common failure mode. "Secure by default" principles require that the system be secure out-of-the-box without manual configuration.
+**Prevention:** Instead of falling back to a weak constant, the system now automatically generates a cryptographically secure random key (`secrets.token_urlsafe(32)`) on startup if one is missing. This ensures security even with default configuration, at the cost of session invalidation on restart (which is an acceptable trade-off for security).

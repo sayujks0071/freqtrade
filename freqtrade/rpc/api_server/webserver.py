@@ -1,4 +1,5 @@
 import logging
+import secrets
 from ipaddress import ip_address
 from typing import Any
 
@@ -130,6 +131,9 @@ class ApiServer(RPCHandler):
         ApiServer.__initialized = True
 
         api_config = self._config["api_server"]
+        if "jwt_secret_key" not in api_config:
+            api_config["jwt_secret_key"] = secrets.token_urlsafe(32)
+            logger.info("Generated a random `jwt_secret_key`.")
 
         self.app = FastAPI(
             title="Freqtrade API",
@@ -301,8 +305,9 @@ class ApiServer(RPCHandler):
                 "Please make sure that this is intentional!"
             )
 
-        if self._config["api_server"].get("jwt_secret_key", "super-secret") in (
-            "super-secret, somethingrandom"
+        if self._config["api_server"]["jwt_secret_key"] in (
+            "super-secret",
+            "somethingrandom",
         ):
             logger.warning(
                 "SECURITY WARNING - `jwt_secret_key` seems to be default."

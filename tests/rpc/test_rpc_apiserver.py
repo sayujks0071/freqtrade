@@ -229,7 +229,7 @@ def test_api_ws_auth(botclient):
     with client.websocket_connect(url(good_token)):
         pass
 
-    jwt_secret = ftbot.config["api_server"].get("jwt_secret_key", "super-secret")
+    jwt_secret = ftbot.config["api_server"]["jwt_secret_key"]
     jwt_token = create_token({"identity": {"u": "Freqtrade"}}, jwt_secret)
     with client.websocket_connect(url(jwt_token)):
         pass
@@ -450,6 +450,7 @@ def test_api_run(default_conf, mocker, caplog):
                 "listen_ip_address": "0.0.0.0",
                 "listen_port": 8089,
                 "password": "",
+                "jwt_secret_key": "somethingrandom",
             }
         }
     )
