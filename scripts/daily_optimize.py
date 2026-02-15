@@ -118,6 +118,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -188,6 +190,18 @@ def extract_hyperopt_params(output: str) -> dict:
     Finds the last JSON object in the output which typically contains the best parameters.
     """
     lines = output.splitlines()
+
+    # Strategy 1: Look for single line JSON (common with --print-json)
+    for line in reversed(lines):
+        if line.strip().startswith("{") and line.strip().endswith("}"):
+            try:
+                params = json.loads(line)
+                if "params" in params or "minimal_roi" in params:
+                    return params
+            except json.JSONDecodeError:
+                pass
+
+    # Strategy 2: Look for multi-line JSON
     json_str = ""
     started = False
 
@@ -240,6 +254,9 @@ Examples:
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
+    parser.add_argument(
+        "--quick", action="store_true", help="Run quick optimization (1 epoch) for testing"
+    )
 
     args = parser.parse_args()
 
@@ -282,6 +299,11 @@ Examples:
     print(f"Current Drawdown: {current_drawdown}")
 
     # 2. Hyperopt Execution
+    if args.quick:
+        print("Quick mode enabled: Setting epochs to 1.")
+        global EPOCHS
+        EPOCHS = 1
+
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
     backup_json = strategy_json.with_suffix(".json.bak")
     created_new = False
@@ -294,6 +316,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -331,6 +355,8 @@ Examples:
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
     if new_params:
         print(f"Applying new parameters to {strategy_json}")
+        # Add strategy name to parameters file
+        new_params["strategy_name"] = worst_strategy
         with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
     else:
@@ -348,7 +374,8 @@ Examples:
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
+    # Freqtrade automatically picks up the .json file if it exists in the strategy directory
+    new_backtest_data = run_backtest_job(worst_strategy, extra_config=None)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
