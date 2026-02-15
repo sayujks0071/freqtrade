@@ -34,13 +34,16 @@ Author: Elite Trading Strategist
 Version: 1.0.0
 """
 
-from freqtrade.strategy import IStrategy, IntParameter, DecimalParameter
-from pandas import DataFrame
-import talib.abstract as ta
-import numpy as np
-from datetime import datetime
-from freqtrade.persistence import Trade
 import logging
+from datetime import datetime
+from functools import reduce
+
+import talib.abstract as ta
+from pandas import DataFrame
+
+from freqtrade.persistence import Trade
+from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy
+
 
 logger = logging.getLogger(__name__)
 
@@ -135,17 +138,15 @@ class MomentumVolumeTrend(IStrategy):
         dataframe["bb_upper"] = bollinger["upperband"]
         dataframe["bb_middle"] = bollinger["middleband"]
         dataframe["bb_lower"] = bollinger["lowerband"]
-        dataframe["bb_width"] = (
-            dataframe["bb_upper"] - dataframe["bb_lower"]
-        ) / dataframe["bb_middle"]
+        dataframe["bb_width"] = (dataframe["bb_upper"] - dataframe["bb_lower"]) / dataframe[
+            "bb_middle"
+        ]
 
         # Higher timeframe trend (simulated via longer EMA)
         dataframe["ema_100"] = ta.EMA(dataframe, timeperiod=100)
 
         # MACD histogram slope (momentum acceleration)
-        dataframe["macd_hist_slope"] = dataframe["macdhist"] - dataframe[
-            "macdhist"
-        ].shift(1)
+        dataframe["macd_hist_slope"] = dataframe["macdhist"] - dataframe["macdhist"].shift(1)
 
         return dataframe
 
@@ -234,7 +235,7 @@ class MomentumVolumeTrend(IStrategy):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -266,8 +267,9 @@ class MomentumVolumeTrend(IStrategy):
         current_time: datetime,
         current_rate: float,
         current_profit: float,
+        after_fill: bool,
         **kwargs,
-    ) -> float:
+    ) -> float | None:
         """
         Dynamic stop loss based on ATR
         """
@@ -288,7 +290,7 @@ class MomentumVolumeTrend(IStrategy):
         current_rate: float,
         proposed_leverage: float,
         max_leverage: float,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> float:
@@ -296,10 +298,3 @@ class MomentumVolumeTrend(IStrategy):
         No leverage for this strategy (spot trading only)
         """
         return 1.0
-
-
-def reduce(func, iterable):
-    """Helper function to combine multiple conditions"""
-    from functools import reduce as _reduce
-
-    return _reduce(func, iterable)

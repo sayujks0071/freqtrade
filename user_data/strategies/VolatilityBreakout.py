@@ -28,11 +28,14 @@ Author: Elite Trading Strategist
 Version: 1.0.0
 """
 
-from freqtrade.strategy import IStrategy, IntParameter, DecimalParameter
-from pandas import DataFrame
-import talib.abstract as ta
-import numpy as np
 import logging
+from functools import reduce
+
+import talib.abstract as ta
+from pandas import DataFrame
+
+from freqtrade.strategy import DecimalParameter, IStrategy
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +67,7 @@ class VolatilityBreakout(IStrategy):
     use_exit_signal = True
 
     # Hyperopt
-    buy_bb_width_min = DecimalParameter(
-        0.02, 0.06, decimals=3, default=0.035, space="buy"
-    )
+    buy_bb_width_min = DecimalParameter(0.02, 0.06, decimals=3, default=0.035, space="buy")
     buy_volume_factor = DecimalParameter(1.8, 2.5, decimals=1, default=2.0, space="buy")
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -79,12 +80,10 @@ class VolatilityBreakout(IStrategy):
         dataframe["bb_lower"] = bollinger["lowerband"]
 
         # BB Width (volatility measure)
-        dataframe["bb_width"] = (
-            dataframe["bb_upper"] - dataframe["bb_lower"]
-        ) / dataframe["bb_middle"]
-        dataframe["bb_width_expanding"] = dataframe["bb_width"] > dataframe[
-            "bb_width"
-        ].shift(1)
+        dataframe["bb_width"] = (dataframe["bb_upper"] - dataframe["bb_lower"]) / dataframe[
+            "bb_middle"
+        ]
+        dataframe["bb_width_expanding"] = dataframe["bb_width"] > dataframe["bb_width"].shift(1)
 
         # Price action
         dataframe["high_20"] = dataframe["high"].rolling(window=20).max()
@@ -155,14 +154,8 @@ class VolatilityBreakout(IStrategy):
         current_rate: float,
         proposed_leverage: float,
         max_leverage: float,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> float:
         return 1.0
-
-
-def reduce(func, iterable):
-    from functools import reduce as _reduce
-
-    return _reduce(func, iterable)

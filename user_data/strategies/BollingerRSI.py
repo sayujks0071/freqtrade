@@ -26,10 +26,14 @@ Author: Elite Trading Strategist
 Version: 1.0.0
 """
 
-from freqtrade.strategy import IStrategy, IntParameter, DecimalParameter
-from pandas import DataFrame
-import talib.abstract as ta
 import logging
+from functools import reduce
+
+import talib.abstract as ta
+from pandas import DataFrame
+
+from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +87,9 @@ class BollingerRSI(IStrategy):
         dataframe["volume_mean"] = dataframe["volume"].rolling(window=20).mean()
 
         # Distance from bands
-        dataframe["bb_lower_pct"] = (
-            dataframe["close"] - dataframe["bb_lower"]
-        ) / dataframe["close"]
+        dataframe["bb_lower_pct"] = (dataframe["close"] - dataframe["bb_lower"]) / dataframe[
+            "close"
+        ]
 
         return dataframe
 
@@ -98,9 +102,7 @@ class BollingerRSI(IStrategy):
         conditions.append(dataframe["rsi"] < self.buy_rsi_max.value)
 
         # At or below lower Bollinger Band
-        conditions.append(
-            dataframe["close"] <= (dataframe["bb_lower"] * self.buy_bb_offset.value)
-        )
+        conditions.append(dataframe["close"] <= (dataframe["bb_lower"] * self.buy_bb_offset.value))
 
         # Still in uptrend
         conditions.append(dataframe["close"] > dataframe["ema_200"])
@@ -136,14 +138,8 @@ class BollingerRSI(IStrategy):
         current_rate: float,
         proposed_leverage: float,
         max_leverage: float,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> float:
         return 1.0
-
-
-def reduce(func, iterable):
-    from functools import reduce as _reduce
-
-    return _reduce(func, iterable)
