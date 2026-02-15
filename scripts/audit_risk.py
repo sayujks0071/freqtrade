@@ -27,8 +27,10 @@ def check_config_files():
                 max_open_trades = data.get("max_open_trades")
                 if max_open_trades is not None:
                     if max_open_trades > 5:
-                        print(f"VIOLATION: {config_file} has max_open_trades = "
-                              f"{max_open_trades} (> 5)")
+                        print(
+                            f"VIOLATION: {config_file} has max_open_trades = "
+                            f"{max_open_trades} (> 5)"
+                        )
                         all_compliant = False
                     else:
                         print(f"OK: {config_file} has max_open_trades = {max_open_trades}")
@@ -75,8 +77,10 @@ def check_single_strategy(strategy_file):
                         stoploss_found = True
                         # strictly looser than -10% means < -0.10 (e.g. -0.20)
                         if stoploss_value < -0.10:
-                            print(f"VIOLATION: {strategy_file} has stoploss = "
-                                  f"{stoploss_value} (< -0.10)")
+                            print(
+                                f"VIOLATION: {strategy_file} has stoploss = "
+                                f"{stoploss_value} (< -0.10)"
+                            )
                             compliant = False
                         else:
                             print(f"OK: {strategy_file} has stoploss = {stoploss_value}")
