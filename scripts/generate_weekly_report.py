@@ -85,8 +85,7 @@ def parse_optimization_log(filepath="optimization_log.txt"):
                 stuck_candidates[current_strategy] = stuck_candidates.get(current_strategy, 0) + 1
             elif "Evaluation PASSED" in line:
                 # If it passed, it's not stuck anymore. Remove from candidates.
-                if current_strategy in stuck_candidates:
-                    del stuck_candidates[current_strategy]
+                stuck_candidates.pop(current_strategy, None)
 
     return stuck_candidates
 
