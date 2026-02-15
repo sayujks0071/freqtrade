@@ -7,6 +7,7 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -129,19 +130,21 @@ class StrategyScout:
                     continue
 
             # 2. Recency
+            age_days = 9999
             if pushed_at:
-                pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                age_days = (datetime.datetime.now() - pushed_dt).days
-                if age_days < 30:
-                    score += 5
-                elif age_days < 90:
-                    score += 3
-                elif age_days < 365:
-                    score += 1
-                else:
-                    score -= 2  # Stale
-            else:
-                age_days = 9999
+                try:
+                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
+                    age_days = (datetime.datetime.now() - pushed_dt).days
+                    if age_days < 30:
+                        score += 5
+                    elif age_days < 90:
+                        score += 3
+                    elif age_days < 365:
+                        score += 1
+                    else:
+                        score -= 2  # Stale
+                except ValueError:
+                    pass
 
             # 3. Description / Documentation
             description = repo.get("description", "") or ""
@@ -175,7 +178,7 @@ class StrategyScout:
                         potential = [
                             f
                             for f in contents
-                            if f["name"].endswith(".py") and f["name"] != "__init__.py"
+                            if f["name"].endswith(".py") and f["name"] != "__init__.py" and f["size"] > 200
                         ]
                         if potential:
                             strategies = potential
@@ -205,6 +208,10 @@ class StrategyScout:
                         repo["scout_score"] += 2
                     if "can_short" in content:
                         repo["scout_notes"].append("Futures/Shorts mentioned")
+
+                    if "AuditedStrategyMixin" in content:
+                        repo["scout_score"] += 5
+                        repo["scout_notes"].append("Uses AuditedStrategyMixin!")
 
                     # Negative heuristics
                     if "martingale" in content.lower():
@@ -241,6 +248,7 @@ class StrategyScout:
                 repo["scout_score"] -= 5
 
             inspected_count += 1
+            time.sleep(1) # Polite delay
 
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)

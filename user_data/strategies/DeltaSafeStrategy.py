@@ -2,22 +2,34 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
-
-import sys
-from pathlib import Path
+import logging
+from functools import reduce
 
 import talib.abstract as ta
 from pandas import DataFrame
+from technical.util import resample_to_interval, resampled_merge
 
 from freqtrade.strategy import IStrategy
 
+# Import the mixin
+# Freqtrade adds user_data/strategies to sys.path
+try:
+    from _base.AuditedStrategyMixin import AuditedStrategyMixin
+except ImportError:
+    # Fallback for local testing or different path structure
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent / "_base"))
+    from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
 
-# Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
-
-class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
+    """
+    DeltaSafeStrategy:
+    - Inherits AuditedStrategyMixin for safety (audit logs, whitelist check)
+    - Inherits IStrategy for Freqtrade logic
+    - Logic runs on closed candles.
+    """
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -30,7 +42,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     timeframe = "1h"
 
     # Run "populate_indicators" only for new candle
-    # Logic runs on closed candle only
     process_only_new_candles = True
 
     # These values can be overridden in the "ask_strategy" section in the config.
@@ -55,37 +66,49 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["volume"] = dataframe["volume"] # Ensure volume exists
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
-            return dataframe
+        # Check whitelist first (optional, as mixin handles trade entry check)
+        # But good to skip processing if not needed
+        # self.assert_pair_in_whitelist(metadata["pair"]) # Can't call here easily without warnings log spam
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        dataframe.loc[
+            (
+                (dataframe["rsi"] < 30) &
+                (dataframe["volume"] > 0)
+            ),
+            "enter_long"] = 1
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
+        # Short signal
+        dataframe.loc[
+            (
+                (dataframe["rsi"] > 70) &
+                (dataframe["volume"] > 0)
+            ),
+            "enter_short"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        # Long exit
+        dataframe.loc[
+            (
+                (dataframe["rsi"] > 70) &
+                (dataframe["volume"] > 0)
+            ),
+            "exit_long"] = 1
+
+        # Short exit
+        dataframe.loc[
+            (
+                (dataframe["rsi"] < 30) &
+                (dataframe["volume"] > 0)
+            ),
+            "exit_short"] = 1
+
         return dataframe
 
-    def confirm_trade_entry(
-        self,
-        pair: str,
-        order_type: str,
-        amount: float,
-        rate: float,
-        time_in_force: str,
-        current_time,
-        entry_tag,
-        side: str,
-        **kwargs,
-    ) -> bool:
-        """
-        Called right before placing a trade.
-        """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
-        return True
+    # We do NOT implement confirm_trade_entry here, so the Mixin's version is used.
+    # Mixin handles logging and whitelist verification.

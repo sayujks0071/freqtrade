@@ -1,91 +1,128 @@
 #!/bin/bash
 set -e
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$DIR/common.sh"
 
-# Ensure root
-cd "$(dirname "$0")/.."
-
-DELTA_ENV=${DELTA_ENV:-india_testnet}
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
-REPORTS_DIR="user_data/reports"
-PAIRLISTS_DIR="user_data/pairlists"
-MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
+MARKETS_FILE="user_data/reports/markets_${TIMESTAMP}.json"
+WHITELIST_JSON="user_data/pairlists/whitelist.delta.json" # Symlink target or main file
+WHITELIST_TXT="user_data/pairlists/whitelist.delta.txt"
+PREV_MARKETS=$(ls -t user_data/reports/markets_*.json 2>/dev/null | head -n 1)
 
-mkdir -p $REPORTS_DIR
-mkdir -p $PAIRLISTS_DIR
+echo "Fetching markets from Delta ($DELTA_ENV)..."
 
-# Find latest previous dump
-PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
+# Fetch full market dump using Python/CCXT for schema validation
+python3 -c "
+import ccxt
+import json
+import os
+import sys
 
-echo "Fetching markets for $DELTA_ENV..."
+try:
+    exchange_id = 'delta'
+    exchange_class = getattr(ccxt, exchange_id)
+    exchange = exchange_class({
+        'apiKey': os.environ.get('DELTA_API_KEY'),
+        'secret': os.environ.get('DELTA_API_SECRET'),
+        'enableRateLimit': True,
+    })
 
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
+    # Set environment based on DELTA_ENV
+    env = os.environ.get('DELTA_ENV', 'india_testnet')
+    if env == 'india_prod':
+        exchange.urls['api'] = 'https://api.india.delta.exchange'
+    elif env == 'global_prod':
+        exchange.urls['api'] = 'https://api.delta.exchange'
+    elif env == 'india_testnet':
+        exchange.urls['api'] = 'https://cdn-ind.testnet.deltaex.org'
 
-# We use a temporary file for the docker output because of potential log noise
-TEMP_OUTPUT=$(mktemp)
+    # Override base URL if provided
+    base_url = os.environ.get('DELTA_BASE_URL')
+    if base_url:
+        exchange.urls['api'] = base_url
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
+    print(f'Fetching futures markets from {exchange.urls["api"]}...')
+    markets = exchange.load_markets()
 
-docker compose run --rm freqtrade list-markets \
-    --config /freqtrade/user_data/configs/config.delta.dryrun.json \
-    --print-json > $TEMP_OUTPUT
+    # Filter for futures/swap only if needed, or dump all
+    # The prompt says 'futures'. Delta is mostly futures.
+    # We dump everything for validation.
 
-# Check if successful
-if [ $? -ne 0 ]; then
-    echo "Failed to fetch markets"
-    rm $TEMP_OUTPUT
+    # Convert to list of dicts for JSON dump
+    market_list = list(markets.values())
+
+    with open('$MARKETS_FILE', 'w') as f:
+        json.dump(market_list, f, indent=4)
+
+    print(f'Saved {len(market_list)} markets to $MARKETS_FILE')
+
+except Exception as e:
+    print(f'Error fetching markets: {e}')
+    sys.exit(1)
+"
+
+if [ ! -f "$MARKETS_FILE" ]; then
+    echo "Failed to generate markets file."
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
-
-mv $TEMP_OUTPUT $MARKETS_FILE
-
-echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
-
-echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
-WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
-
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
-
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
-
-echo "Whitelist updated at $WHITELIST_JSON"
-
-# Drift Report (Diff)
-if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+echo "Validating Markets Schema..."
+# Run schema validator
+# Pass previous markets file for drift check if exists
+if [ -z "$PREV_MARKETS" ]; then
+    python3 tools/validate_markets_schema.py "$MARKETS_FILE"
+else
+    python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_MARKETS"
 fi
 
-# Clean up old dumps (keep last 7)
-ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+# Check exit code
+if [ $? -ne 0 ]; then
+    echo "Schema Validation FAILED. Aborting whitelist update."
+    # Move failed dump to reports/markets_failed_<timestamp>.json
+    mv "$MARKETS_FILE" "user_data/reports/markets_failed_${TIMESTAMP}.json"
+    exit 1
+fi
 
-echo "Done."
+echo "Generating Whitelist..."
+# Generate whitelist based on FILTER_MODE
+WHITELIST_ENV_JSON="user_data/pairlists/whitelist.delta.${DELTA_ENV}.json"
+WHITELIST_ENV_TXT="user_data/pairlists/whitelist.delta.${DELTA_ENV}.txt"
+
+python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_ENV_JSON"
+
+# Extract just the list for txt file
+python3 -c "
+import json
+with open('$WHITELIST_ENV_JSON', 'r') as f:
+    data = json.load(f)
+    print('\n'.join(data['exchange']['pair_whitelist']))
+" > "$WHITELIST_ENV_TXT"
+
+echo "Generated whitelist at $WHITELIST_ENV_JSON"
+echo "Generated whitelist txt at $WHITELIST_ENV_TXT"
+
+# Update the main whitelist symlink/copy for bot usage
+cp "$WHITELIST_ENV_JSON" "$WHITELIST_JSON"
+echo "Updated $WHITELIST_JSON"
+
+# Generate Diff Report
+DIFF_REPORT="user_data/reports/whitelist_diff_${TIMESTAMP}.md"
+echo "# Whitelist Diff Report ($TIMESTAMP)" > "$DIFF_REPORT"
+if [ -n "$PREV_MARKETS" ]; then
+    # Simple diff of whitelist txt (if previous txt exists)
+    PREV_TXT=$(ls -t user_data/pairlists/whitelist.delta.*.txt 2>/dev/null | grep -v "$WHITELIST_ENV_TXT" | head -n 1)
+    if [ -n "$PREV_TXT" ]; then
+        echo "## Changes vs $PREV_TXT" >> "$DIFF_REPORT"
+        diff -u "$PREV_TXT" "$WHITELIST_ENV_TXT" >> "$DIFF_REPORT" || true
+    else
+        echo "No previous whitelist txt found to compare." >> "$DIFF_REPORT"
+    fi
+else
+    echo "No previous markets found to compare." >> "$DIFF_REPORT"
+fi
+
+# Cleanup old dumps (keep last 7)
+echo "Cleaning up old dumps..."
+ls -t user_data/reports/markets_*.json | tail -n +8 | xargs -r rm --
+
+echo "Update Complete."
