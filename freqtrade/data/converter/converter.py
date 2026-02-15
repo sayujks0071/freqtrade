@@ -302,6 +302,8 @@ def reduce_dataframe_footprint(df: DataFrame) -> DataFrame:
         df = df.astype(df_dtypes)
 
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f"Memory usage after optimization is: {df.memory_usage().sum() / 1024**2:.2f} MB")
+        logger.debug(
+            f"Memory usage after optimization is: {df.memory_usage().sum() / 1024**2:.2f} MB"
+        )
 
     return df
