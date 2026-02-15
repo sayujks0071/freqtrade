@@ -175,7 +175,10 @@ class StrategyScout:
                         potential = [
                             f
                             for f in contents
-                            if f["name"].endswith(".py") and f["name"] != "__init__.py"
+                            if f["name"].endswith(".py")
+                            and f["name"] != "__init__.py"
+                            and f.get("type") == "file"
+                            and f.get("size", 0) > 200
                         ]
                         if potential:
                             strategies = potential
@@ -213,7 +216,7 @@ class StrategyScout:
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
-    def deep_inspect(self, limit=15):
+    def deep_inspect(self, limit=30):
         print(f"Deep inspecting top {limit} candidates...")
         inspected_count = 0
 
@@ -335,7 +338,12 @@ class StrategyScout:
                     downloaded = 0
                     for file_info in contents:
                         fname = file_info.get("name", "")
-                        if not fname.endswith(".py") or fname == "__init__.py":
+                        if (
+                            not fname.endswith(".py")
+                            or fname == "__init__.py"
+                            or file_info.get("type") != "file"
+                            or file_info.get("size", 0) <= 200
+                        ):
                             continue
 
                         if downloaded >= 3:
