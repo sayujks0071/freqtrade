@@ -178,7 +178,9 @@ class StrategyScout:
                         potential = [
                             f
                             for f in contents
-                            if f["name"].endswith(".py") and f["name"] != "__init__.py" and f["size"] > 200
+                            if f["name"].endswith(".py")
+                            and f["name"] != "__init__.py"
+                            and f["size"] > 200
                         ]
                         if potential:
                             strategies = potential
@@ -248,7 +250,7 @@ class StrategyScout:
                 repo["scout_score"] -= 5
 
             inspected_count += 1
-            time.sleep(1) # Polite delay
+            time.sleep(1)  # Polite delay
 
         # Re-sort after inspection
         self.candidates = sorted(self.candidates, key=lambda x: x["scout_score"], reverse=True)
@@ -373,7 +375,11 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
+    parser.add_argument(
+        "--token",
+        help="GitHub API Token",
+        default=os.environ.get("GITHUB_TOKEN")
+    )
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 

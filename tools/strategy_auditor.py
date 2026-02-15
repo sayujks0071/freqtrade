@@ -41,7 +41,10 @@ def audit_file(filepath):  # noqa: C901
                     # This is loose, matches any .now()
                     # Check if it has arguments (timezone)
                     if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}. Use datetime.now(timezone.utc)")
+                        errors.append(
+                            f"Potential naive datetime.now() usage at line {node.lineno}. "
+                            "Use datetime.now(timezone.utc)"
+                        )
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
     has_class = False
@@ -57,7 +60,10 @@ def audit_file(filepath):  # noqa: C901
                 # Warn if it inherits directly from IStrategy but not Mixin
                 # Specifically for strategies intended to be audited
                 if "AuditedStrategyMixin" not in source:
-                    errors.append(f"Class {node.name} inherits IStrategy but not AuditedStrategyMixin (or import missing)")
+                    errors.append(
+                        f"Class {node.name} inherits IStrategy but not "
+                        "AuditedStrategyMixin (or import missing)"
+                    )
 
     # Check 5: "closed candle only" note
     if "closed candle" not in source.lower():

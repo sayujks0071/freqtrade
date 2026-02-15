@@ -2,7 +2,7 @@ name: Delta Markets Refresh
 
 on:
   schedule:
-    # 06:30 IST = 01:00 UTC
+    # 06:30 Indian Standard Time = 01:00 UTC
     - cron: '0 1 * * *'
   workflow_dispatch:
     inputs:

@@ -2,12 +2,11 @@
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
 """
-import logging
-from functools import reduce
+import sys
+from pathlib import Path
 
 import talib.abstract as ta
 from pandas import DataFrame
-from technical.util import resample_to_interval, resampled_merge
 
 from freqtrade.strategy import IStrategy
 
@@ -17,10 +16,8 @@ try:
     from _base.AuditedStrategyMixin import AuditedStrategyMixin
 except ImportError:
     # Fallback for local testing or different path structure
-    import sys
-    from pathlib import Path
     sys.path.append(str(Path(__file__).parent / "_base"))
-    from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+    from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
@@ -66,47 +63,39 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
-        dataframe["volume"] = dataframe["volume"] # Ensure volume exists
+        dataframe["volume"] = dataframe["volume"]  # Ensure volume exists
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Check whitelist first (optional, as mixin handles trade entry check)
         # But good to skip processing if not needed
-        # self.assert_pair_in_whitelist(metadata["pair"]) # Can't call here easily without warnings log spam
+        # self.assert_pair_in_whitelist(metadata["pair"]) # Can't call here easily without warnings
 
         dataframe.loc[
-            (
-                (dataframe["rsi"] < 30) &
-                (dataframe["volume"] > 0)
-            ),
-            "enter_long"] = 1
+            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)),
+            "enter_long"
+        ] = 1
 
         # Short signal
         dataframe.loc[
-            (
-                (dataframe["rsi"] > 70) &
-                (dataframe["volume"] > 0)
-            ),
-            "enter_short"] = 1
+            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)),
+            "enter_short"
+        ] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Long exit
         dataframe.loc[
-            (
-                (dataframe["rsi"] > 70) &
-                (dataframe["volume"] > 0)
-            ),
-            "exit_long"] = 1
+            ((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)),
+            "exit_long"
+        ] = 1
 
         # Short exit
         dataframe.loc[
-            (
-                (dataframe["rsi"] < 30) &
-                (dataframe["volume"] > 0)
-            ),
-            "exit_short"] = 1
+            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)),
+            "exit_short"
+        ] = 1
 
         return dataframe
 

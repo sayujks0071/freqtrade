@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -62,7 +62,7 @@ def generate_report():
         # Assume UTC if naive, as Freqtrade uses UTC
         df['close_date'] = df['close_date'].dt.tz_localize('UTC')
     else:
-         df['close_date'] = df['close_date'].dt.tz_convert('UTC')
+        df['close_date'] = df['close_date'].dt.tz_convert('UTC')
 
     start_time = now - timedelta(days=1)
 
