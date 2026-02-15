@@ -249,8 +249,17 @@ def validate_markets(markets_list):
     return candidate_symbols, eligible_count, errors
 
 
-def generate_report_content(args, markets_list, eligible_count, candidate_symbols,
-                            added, removed, removal_ratio, errors, status):
+def generate_report_content(
+    args,
+    markets_list,
+    eligible_count,
+    candidate_symbols,
+    added,
+    removed,
+    removal_ratio,
+    errors,
+    status,
+):
     report_lines = [
         "# Markets Schema Validation Report",
         f"Date: {datetime.now(UTC).isoformat()}",
@@ -314,15 +323,21 @@ def main():
 
     if removal_ratio > MAX_REMOVAL_RATIO:
         errors.append(
-            f"Large delist drift: {removal_ratio:.2%} > "
-            f"MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO:.2%})"
+            f"Large delist drift: {removal_ratio:.2%} > MAX_REMOVAL_RATIO ({MAX_REMOVAL_RATIO:.2%})"
         )
 
     # Generate Report
     status = "PASS" if not errors else "FAIL"
     report_content = generate_report_content(
-        args, markets_list, eligible_count, candidate_symbols,
-        added, removed, removal_ratio, errors, status
+        args,
+        markets_list,
+        eligible_count,
+        candidate_symbols,
+        added,
+        removed,
+        removal_ratio,
+        errors,
+        status,
     )
 
     write_report(args.out_report, report_content)
