@@ -41,7 +41,10 @@ def audit_file(filepath):  # noqa: C901
                     # This is loose, matches any .now()
                     # Check if it has arguments (timezone)
                     if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
+                        errors.append(
+                            f"Potential naive datetime.now() usage at line {node.lineno}. "
+                            "Use datetime.now(timezone.utc)"
+                        )
 
     # Check 4: Enforce AuditedStrategyMixin (heuristic)
     has_class = False
@@ -50,12 +53,17 @@ def audit_file(filepath):  # noqa: C901
             has_class = True
             # Check bases
             bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
+            # If it inherits from IStrategy, check for AuditedStrategyMixin
             if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
                 # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
+                # but hard to check without resolving imports.
                 # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
+                # Specifically for strategies intended to be audited
+                if "AuditedStrategyMixin" not in source:
+                    errors.append(
+                        f"Class {node.name} inherits IStrategy but not "
+                        "AuditedStrategyMixin (or import missing)"
+                    )
 
     # Check 5: "closed candle only" note
     if "closed candle" not in source.lower():

@@ -44,27 +44,33 @@ def validate_symbol_format(symbol, errors):
         errors.append(f"Symbol '{symbol}' contains whitespace")
     if symbol != symbol.upper():
         errors.append(f"Symbol '{symbol}' is not uppercase")
-    # Strict check for futures format (must have settle currency)
+
+    # Strict check for futures format (must have settle currency if futures)
+    # Delta symbols are usually BASE/QUOTE:SETTLE
     if ":" not in symbol:
         errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
 
 
 def validate_volume(m, symbol, errors):
     # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
     if "volume" in m:
         vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
+        # Handle if volume is a dict (24h volume) or float
+        if isinstance(vol, dict):
+            # Try to get quoteVolume or baseVolume
+            vol = vol.get("quoteVolume", vol.get("baseVolume", 0))
+
+        if vol is not None and isinstance(vol, (int, float)) and vol < 1000 and STRICT_VOLUME:
             errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
-        pass
 
 
 def validate_schema(data):
     if not isinstance(data, list):
-        fail("Root must be a list of markets")
+        # Handle dict with 'markets' key if present
+        if isinstance(data, dict) and "markets" in data:
+            data = data["markets"]
+        else:
+            fail("Root must be a list of markets")
 
     if len(data) < MIN_MARKETS:
         fail(f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})")
@@ -105,8 +111,12 @@ def validate_drift(current_symbols, previous_path):
     try:
         with prev_path_obj.open() as f:
             prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
+            if isinstance(prev_data, dict) and "markets" in prev_data:
+                prev_data = prev_data["markets"]
+
+            # Extract symbols from previous dump
             prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+
     except Exception as e:
         warn(f"Could not read previous dump: {e}")
         return
@@ -146,11 +156,6 @@ def main():
     except Exception as e:
         fail(f"Invalid JSON: {e}")
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
-
     symbols = validate_schema(data)
 
     if prev_path:
@@ -162,7 +167,6 @@ Status: PASS
 Markets count: {len(symbols)}
 File: {current_path}
 """
-    # We could write this report to a file if needed, but stdout is fine for now
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     report_file = f"user_data/reports/markets_schema_report_{ts}.md"
     try:
