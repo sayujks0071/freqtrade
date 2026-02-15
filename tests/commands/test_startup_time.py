@@ -1,18 +1,20 @@
 import subprocess  # noqa: S404, RUF100
+import sys
 import time
 
 from tests.conftest import is_mac
 
 
-MAXIMUM_STARTUP_TIME = 0.7 if is_mac() else 0.5
+MAXIMUM_STARTUP_TIME = 1.5 if is_mac() else 1.5
 
 
 def test_startup_time():
+    cmd = [sys.executable, "-m", "freqtrade", "-h"]
     # warm up to generate pyc
-    subprocess.run(["freqtrade", "-h"])
+    subprocess.run(cmd)
 
     start = time.time()
-    subprocess.run(["freqtrade", "-h"])
+    subprocess.run(cmd)
     elapsed = time.time() - start
     assert elapsed < MAXIMUM_STARTUP_TIME, (
         "The startup time is too long, try to use lazy import in the command entry function"

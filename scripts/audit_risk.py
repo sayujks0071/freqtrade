@@ -45,12 +45,12 @@ def check_config_files():
 def get_stoploss_from_node(node, strategy_file):
     if isinstance(node.value, ast.Constant):  # Python 3.8+
         return node.value.value
-    elif isinstance(node.value, ast.Num):  # Python < 3.8
+    elif sys.version_info < (3, 8) and isinstance(node.value, ast.Num):  # Python < 3.8
         return node.value.n
     elif isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub):
         if isinstance(node.value.operand, ast.Constant):
             return -node.value.operand.value
-        elif isinstance(node.value.operand, ast.Num):
+        elif sys.version_info < (3, 8) and isinstance(node.value.operand, ast.Num):
             return -node.value.operand.n
 
     print(f"WARN: Could not parse stoploss value in {strategy_file}")
