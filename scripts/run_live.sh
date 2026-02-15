@@ -1,44 +1,41 @@
 #!/bin/bash
+set -e
+
+# Get the directory of the script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
-export FREQTRADE_CONFIG_FILE="config.delta.live.json"
+echo "=== STARTING FREQTRADE IN LIVE TRADING MODE ON DELTA ($DELTA_ENV) ==="
+echo "!!! WARNING: THIS WILL USE REAL FUNDS !!!"
+echo "!!! MAKE SURE YOU KNOW WHAT YOU ARE DOING !!!"
 
-echo "!!! WARNING: STARTING LIVE TRADING !!!"
-echo "Are you sure? (y/N)"
-read -r response
-if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
+read -p "Are you sure you want to trade REAL money? (y/N) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]
 then
     echo "Aborted."
     exit 1
 fi
 
-echo "Starting Freqtrade in LIVE mode..."
-docker compose up -d
-
-echo "Container started."
-echo "View logs: docker compose logs -f"
-set -e
-
-# Ensure we are in the root
-cd "$(dirname "$0")/.."
-
-# Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Please run update_markets_and_whitelist.sh first or bootstrap."
-    exit 1
-fi
-
-echo "WARNING: Switching to LIVE TRADING config..."
-read -p "Are you sure you want to trade real money? (y/n) " -n 1 -r
+# Confirm again
+read -p "Confirm again: START LIVE TRADING? (y/N) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]
 then
+    echo "Aborted."
     exit 1
 fi
 
-cp user_data/configs/config.delta.live.json user_data/config.json
+# Run Validation Steps
+echo "Running pre-flight validation..."
+"$DIR/validate_exchange.sh"
 
-echo "Starting Freqtrade in Docker (LIVE)..."
-docker compose up -d --remove-orphans
-docker compose logs -f
+# Set Config File for Docker Compose
+export FREQTRADE_CONFIG_FILE="config.delta.live.json"
+
+echo "Starting Container in LIVE MODE..."
+docker compose up -d
+
+echo "=== Freqtrade LIVE Trading Started ==="
+echo "UI: http://localhost:8080"
+echo "Logs: docker compose logs -f"
