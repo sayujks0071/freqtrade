@@ -23,12 +23,13 @@ No Repainting:
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 import talib.abstract as ta
 from pandas import DataFrame
 
+from freqtrade.persistence import Trade
 from freqtrade.strategy import IStrategy
 
 
@@ -88,7 +89,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             # Check for futures format: BASE/QUOTE:SETTLE
             # Simple check: must contain ':' and '/'
             if "/" not in pair or ":" not in pair:
-                raise ValueError(f"AUDIT_ERROR | Invalid pair format: {pair}. Expected BASE/QUOTE:SETTLE.")
+                raise ValueError(
+                    f"AUDIT_ERROR | Invalid pair format: {pair}. Expected BASE/QUOTE:SETTLE."
+                )
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
@@ -101,10 +104,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
         # Long entry logic
         # RSI < 30 and Volume > 0
-        is_oversold = (dataframe["rsi"] < 30)
-        has_volume = (dataframe["volume"] > 0)
+        is_oversold = dataframe["rsi"] < 30
+        has_volume = dataframe["volume"] > 0
 
-        long_condition = (is_oversold & has_volume)
+        long_condition = is_oversold & has_volume
         dataframe.loc[long_condition, "enter_long"] = 1
 
         return dataframe
@@ -112,10 +115,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Long exit logic
         # RSI > 70 and Volume > 0
-        is_overbought = (dataframe["rsi"] > 70)
-        has_volume = (dataframe["volume"] > 0)
+        is_overbought = dataframe["rsi"] > 70
+        has_volume = dataframe["volume"] > 0
 
-        long_exit_condition = (is_overbought & has_volume)
+        long_exit_condition = is_overbought & has_volume
         dataframe.loc[long_exit_condition, "exit_long"] = 1
 
         return dataframe
@@ -128,7 +131,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str,
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -148,7 +151,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                 indicators = {
                     "rsi": last_row.get("rsi"),
                     "volume": last_row.get("volume"),
-                    "close": last_row.get("close")
+                    "close": last_row.get("close"),
                 }
 
         self.log_signal(
@@ -156,19 +159,19 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason=entry_tag or "Signal Confirmed",
             ts_utc=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True
 
     def confirm_trade_exit(
         self,
         pair: str,
-        trade,
+        trade: Trade,
         order_type: str,
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time: datetime,
         **kwargs,
     ) -> bool:
@@ -184,7 +187,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
                 indicators = {
                     "rsi": last_row.get("rsi"),
                     "volume": last_row.get("volume"),
-                    "close": last_row.get("close")
+                    "close": last_row.get("close"),
                 }
 
         # Determine side (long/short) being exited
@@ -193,8 +196,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         self.log_signal(
             pair=pair,
             side=f"exit_{side}",
-            reason=sell_reason,
+            reason=exit_reason,
             ts_utc=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True

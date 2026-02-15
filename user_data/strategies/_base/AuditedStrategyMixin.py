@@ -38,10 +38,7 @@ class AuditedStrategyMixin:
         # Ensure timestamp is ISO format
         ts_str = ts_utc.isoformat() if isinstance(ts_utc, datetime) else str(ts_utc)
 
-        msg = (
-            f"AUDIT_SIGNAL | {ts_str} | {pair} | "
-            f"{side} | {reason} | {indicators_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_str} | {pair} | {side} | {reason} | {indicators_str}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:
