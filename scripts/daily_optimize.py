@@ -184,29 +184,30 @@ def get_current_branch():
     return None
 
 
-def extract_hyperopt_params(output: str) -> dict:
-    """
-    Extracts the JSON parameters from the hyperopt output.
-    Finds the last JSON object in the output which typically contains the best parameters.
-    """
-    lines = output.splitlines()
+def _is_valid_params(params: dict) -> bool:
+    """Checks if the parsed JSON looks like a valid strategy config."""
+    return "params" in params or "minimal_roi" in params
 
-    # Strategy 1: Look for single line JSON (common with --print-json)
+
+def _extract_single_line_json(lines: list[str]) -> dict | None:
+    """Strategy 1: Look for single line JSON (common with --print-json)."""
     for line in reversed(lines):
         if line.strip().startswith("{") and line.strip().endswith("}"):
             try:
                 params = json.loads(line)
-                if "params" in params or "minimal_roi" in params:
+                if _is_valid_params(params):
                     return params
             except json.JSONDecodeError:
                 pass
+    return None
 
-    # Strategy 2: Look for multi-line JSON
+
+def _extract_multi_line_json(lines: list[str]) -> dict | None:
+    """Strategy 2: Look for multi-line JSON block."""
     json_str = ""
     started = False
 
     # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
     for line in reversed(lines):
         if line.strip() == "}":
             started = True
@@ -215,12 +216,30 @@ def extract_hyperopt_params(output: str) -> dict:
             if line.strip() == "{":
                 try:
                     params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
-                    if "params" in params or "minimal_roi" in params:
+                    if _is_valid_params(params):
                         return params
                 except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                    continue
+    return None
+
+
+def extract_hyperopt_params(output: str) -> dict:
+    """
+    Extracts the JSON parameters from the hyperopt output.
+    Finds the last JSON object in the output which typically contains the best parameters.
+    """
+    lines = output.splitlines()
+
+    # Try Strategy 1
+    params = _extract_single_line_json(lines)
+    if params:
+        return params
+
+    # Try Strategy 2
+    params = _extract_multi_line_json(lines)
+    if params:
+        return params
+
     return {}
 
 
