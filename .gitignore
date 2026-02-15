@@ -117,3 +117,5 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+!user_data/configs/config.delta.dryrun.json
+!user_data/configs/config.delta.live.json

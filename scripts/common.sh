@@ -1,21 +1,22 @@
 #!/bin/bash
 
-# Load .env
-if [ -f .env ]; then
-    # echo "Loading .env..."
+# Ensure we are in the root directory relative to the script location
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR="$(dirname "$DIR")"
+
+# Load .env from root if exists
+if [ -f "$ROOT_DIR/.env" ]; then
     set -a
-    . .env
+    source "$ROOT_DIR/.env"
     set +a
-else
-    echo "No .env file found. Proceeding with environment variables..."
 fi
 
-if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
-fi
+# Default to india_prod if not set
+DELTA_ENV=${DELTA_ENV:-india_prod}
+DELTA_API_KEY=${DELTA_API_KEY:-}
+DELTA_API_SECRET=${DELTA_API_SECRET:-}
 
-# Determine Base URL
+# Determine API URL based on Environment
 case "$DELTA_ENV" in
     india_prod)
         BASE_URL="https://api.india.delta.exchange"
@@ -28,31 +29,27 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
-        echo "Unknown DELTA_ENV: $DELTA_ENV"
-        echo "Supported: india_prod, global_prod, india_testnet"
+        echo "Error: Unknown DELTA_ENV: $DELTA_ENV"
+        echo "Supported values: india_prod, global_prod, india_testnet"
         exit 1
         ;;
 esac
 
-# Override if set
+# Allow manual override via DELTA_BASE_URL
 if [ -n "$DELTA_BASE_URL" ]; then
     BASE_URL="$DELTA_BASE_URL"
 fi
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
+echo "Configuration: ENV=$DELTA_ENV | API URL=$BASE_URL"
 
-# Export Freqtrade Variables
+# Export Freqtrade-compatible environment variables
+# These override ccxt config inside the container if mapped correctly
 export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
 export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
 
-# CCXT Config for URLs
+# CCXT URL Overrides
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
-
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
-fi
