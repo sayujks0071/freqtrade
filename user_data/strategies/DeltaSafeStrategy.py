@@ -39,7 +39,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     ignore_roi_if_entry_signal = False
 
     # Number of candles the strategy requires before producing valid signals
-    startup_candle_count: int = 30
+    startup_candle_count: int = 50
 
     # Optional order type mapping.
     order_types = {
@@ -55,13 +55,24 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+
+        # ADX
+        dataframe["adx"] = ta.ADX(dataframe)
+
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        dataframe.loc[
+            (
+                (dataframe["rsi"] < 30)
+                & (dataframe["adx"] < 30)
+                & (dataframe["volume"] > 0)
+            ),
+            "enter_long",
+        ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.

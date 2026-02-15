@@ -1,0 +1,122 @@
+{
+    "$schema": "https://schema.freqtrade.io/schema.json",
+    "max_open_trades": 3,
+    "stake_currency": "USDT",
+    "stake_amount": "unlimited",
+    "tradable_balance_ratio": 0.99,
+    "fiat_display_currency": "USD",
+    "dry_run": true,
+    "dry_run_wallet": 1000,
+    "cancel_open_orders_on_exit": false,
+    "trading_mode": "spot",
+    "margin_mode": "",
+    "unfilledtimeout": {
+        "entry": 10,
+        "exit": 10,
+        "exit_timeout_count": 0,
+        "unit": "minutes"
+    },
+    "entry_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1,
+        "price_last_balance": 0.0,
+        "check_depth_of_market": {
+            "enabled": false,
+            "bids_to_ask_delta": 1
+        }
+    },
+    "exit_pricing": {
+        "price_side": "same",
+        "use_order_book": true,
+        "order_book_top": 1
+    },
+    "exchange": {
+        "name": "binance",
+        "key": "",
+        "secret": "",
+        "ccxt_config": {},
+        "ccxt_async_config": {},
+        "pair_whitelist": [],
+        "pair_blacklist": [
+            "BNB/.*"
+        ]
+    },
+    "pairlists": [
+        {
+            "method": "VolumePairList",
+            "number_assets": 20,
+            "sort_key": "quoteVolume",
+            "min_value": 0,
+            "refresh_period": 1800
+        }
+    ],
+    "telegram": {
+        "enabled": false,
+        "token": "",
+        "chat_id": ""
+    },
+    "webhook": {
+        "enabled": true,
+        "url": "http://host.docker.internal:18790/freqtrade",
+        "webhookentry": {
+            "value1": "{pair}",
+            "value2": "{stake_amount}",
+            "value3": "{current_rate}",
+            "value4": "entry"
+        },
+        "webhookentrycancel": {
+            "value1": "{pair}",
+            "value2": "Entry cancelled",
+            "value3": "{current_rate}",
+            "value4": "entry_cancel"
+        },
+        "webhookentryfill": {
+            "value1": "{pair}",
+            "value2": "{stake_amount}",
+            "value3": "{open_rate}",
+            "value4": "entry_fill"
+        },
+        "webhookexit": {
+            "value1": "{pair}",
+            "value2": "{profit_amount}",
+            "value3": "{profit_ratio}",
+            "value4": "exit"
+        },
+        "webhookexitcancel": {
+            "value1": "{pair}",
+            "value2": "Exit cancelled",
+            "value3": "{current_rate}",
+            "value4": "exit_cancel"
+        },
+        "webhookexitfill": {
+            "value1": "{pair}",
+            "value2": "{profit_amount}",
+            "value3": "{profit_ratio}",
+            "value4": "exit_fill"
+        },
+        "webhookstatus": {
+            "value1": "{status}",
+            "value2": "{open_trades}",
+            "value3": "status"
+        }
+    },
+    "api_server": {
+        "enabled": true,
+        "listen_ip_address": "0.0.0.0",
+        "listen_port": 8080,
+        "verbosity": "error",
+        "enable_openapi": false,
+        "jwt_secret_key": "5fd3106d8af1e3dbcb4817663ae5ffe88ca3bb83b1d0730c59a3164f8830627d",
+        "ws_token": "vYoPxC3MT6zJDewHK_ijfyMa3ZWYimX6vQ",
+        "CORS_origins": [],
+        "username": "freqtrader",
+        "password": "freqpass123"
+    },
+    "bot_name": "freqtrade",
+    "initial_state": "running",
+    "force_entry_enable": false,
+    "internals": {
+        "process_throttle_secs": 5
+    }
+}
