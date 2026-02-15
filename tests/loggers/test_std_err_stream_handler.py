@@ -1,6 +1,6 @@
 import logging
 import sys
-from unittest.mock import MagicMock
+
 import pytest
 
 from freqtrade.loggers.std_err_stream_handler import FTStdErrStreamHandler
@@ -20,7 +20,7 @@ def test_FTStdErrStreamHandler(mocker):
         lineno=10,
         msg="Test message",
         args=(),
-        exc_info=None
+        exc_info=None,
     )
 
     # Test emit
@@ -32,6 +32,7 @@ def test_FTStdErrStreamHandler(mocker):
 
     # Check if flush was called
     mock_stderr.flush.assert_called()
+
 
 def test_FTStdErrStreamHandler_exception(mocker):
     handler = FTStdErrStreamHandler()
@@ -50,11 +51,12 @@ def test_FTStdErrStreamHandler_exception(mocker):
         lineno=10,
         msg="Test message",
         args=(),
-        exc_info=None
+        exc_info=None,
     )
 
     handler.emit(record)
     mock_handle_error.assert_called_with(record)
+
 
 def test_FTStdErrStreamHandler_recursion_error(mocker):
     handler = FTStdErrStreamHandler()
@@ -70,7 +72,7 @@ def test_FTStdErrStreamHandler_recursion_error(mocker):
         lineno=10,
         msg="Test message",
         args=(),
-        exc_info=None
+        exc_info=None,
     )
 
     with pytest.raises(RecursionError):
