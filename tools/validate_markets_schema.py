@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 # Config
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
@@ -88,23 +89,8 @@ def check_drift(prev_whitelist_path, current_pairs, report_lines, errors, warnin
         warnings.append(f"Could not read previous whitelist: {e}")
 
 
-def validate(markets_path, prev_whitelist_path, report_path):
-    report_lines = [f"# Market Validation Report ({datetime.now(timezone.utc).isoformat()})"]
+def filter_markets(markets, report_lines):
     errors = []
-    warnings = []
-
-    markets = load_markets(markets_path)
-
-    if not isinstance(markets, list):
-        errors.append("Markets dump is not a list.")
-        sys.exit(2)
-
-    total_markets = len(markets)
-    report_lines.append(f"- Total Markets in Dump: {total_markets}")
-
-    if total_markets < MIN_MARKETS:
-        errors.append(f"Total markets ({total_markets}) < MIN_MARKETS ({MIN_MARKETS})")
-
     eligible_markets = []
     seen_symbols = set()
 
@@ -125,6 +111,28 @@ def validate(markets_path, prev_whitelist_path, report_path):
             eligible_markets.append(symbol)
 
     report_lines.append(f"- Eligible Markets: {len(eligible_markets)}")
+    return eligible_markets, errors
+
+
+def validate(markets_path, prev_whitelist_path, report_path):
+    report_lines = [f"# Market Validation Report ({datetime.now(timezone.utc).isoformat()})"]
+    errors = []
+    warnings = []
+
+    markets = load_markets(markets_path)
+
+    if not isinstance(markets, list):
+        errors.append("Markets dump is not a list.")
+        sys.exit(2)
+
+    total_markets = len(markets)
+    report_lines.append(f"- Total Markets in Dump: {total_markets}")
+
+    if total_markets < MIN_MARKETS:
+        errors.append(f"Total markets ({total_markets}) < MIN_MARKETS ({MIN_MARKETS})")
+
+    eligible_markets, market_errors = filter_markets(markets, report_lines)
+    errors.extend(market_errors)
 
     # Drift Check
     check_drift(prev_whitelist_path, set(eligible_markets), report_lines, errors, warnings)

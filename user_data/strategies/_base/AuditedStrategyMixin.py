@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 
 from freqtrade.strategy import IStrategy
 
-
 logger = logging.getLogger(__name__)
 
 

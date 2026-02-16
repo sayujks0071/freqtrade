@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 
+
 HEADER_TEMPLATE = '''"""
 Strategy Clarity Enforcement:
 - Symbols: ...

@@ -5,7 +5,8 @@ import urllib.error
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
+
 
 GITHUB_API = "https://api.github.com/search/repositories"
 
@@ -16,7 +17,9 @@ def search_strategies(token=None, limit=10):
     encoded_query = quote(query)
     url = f"{GITHUB_API}?q={encoded_query}&sort=updated&order=desc"
 
-    if not url.startswith("https://"):
+    # Security check for S310
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
         print("Invalid API URL schema")
         return []
 

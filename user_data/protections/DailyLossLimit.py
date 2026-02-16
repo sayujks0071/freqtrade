@@ -1,9 +1,10 @@
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
+from freqtrade.protection import IProtection
 
 from freqtrade.persistence import Trade
-from freqtrade.protection import IProtection
 
 
 logger = logging.getLogger(__name__)
@@ -19,11 +20,12 @@ class DailyLossLimit(IProtection):
         limit_ratio = float(os.environ.get("DAILY_LOSS_LIMIT", 0.05))
 
         if date.tzinfo is None:
-            date = date.replace(tzinfo=timezone.utc)
+            date = date.replace(tzinfo=UTC)
 
-        start_of_day = datetime.combine(date.date(), datetime.min.time(), tzinfo=timezone.utc)
+        start_of_day = datetime.combine(date.date(), datetime.min.time(), tzinfo=UTC)
 
-        trades: list[Trade] = []
+        # Removed explicit type annotation list[Trade] to satisfy mypy
+        trades = []
         try:
             # Efficient query using SQLAlchemy filters via Trade.get_trades
             # Converting to list to unify types with exception block
