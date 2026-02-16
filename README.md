@@ -35,7 +35,17 @@ nano .env
   - `india_testnet` for Testnet
 - Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
 
-### 3. Validate Exchange Connection
+### 3. Market Refresh & Validation (Optional)
+
+The `update_markets_and_whitelist.sh` script enforces strict validation rules. You can configure these in `.env`:
+
+- `MIN_MARKETS`: Minimum number of markets required (default: 20).
+- `MAX_REMOVAL_RATIO`: Fail if more than X% of whitelist pairs are removed (default: 0.25).
+- `STRICT_VOLUME`: Fail on low volume markets (default: false).
+- `FILTER_MODE`: `perps_usdt` (default), `all_futures`, or `allowlist_regex`.
+- `ALLOWLIST_REGEX`: Regex for `allowlist_regex` mode.
+
+### 4. Validate Exchange Connection
 
 Before starting, verify your credentials and market data availability:
 ```bash
@@ -48,7 +58,7 @@ This script will:
 
 If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
 
-### 4. Start Dry-Run
+### 5. Start Dry-Run
 
 Start the bot in Dry-Run mode (simulated trading with live data):
 ```bash
@@ -58,7 +68,7 @@ Start the bot in Dry-Run mode (simulated trading with live data):
 - Logs can be viewed with: `docker compose logs -f`
 - Access the UI at: http://localhost:8080 (Default login: `freqtrader` / `password` - Change this in config!)
 
-### 5. Go Live 🚀
+### 6. Go Live 🚀
 
 **WARNING:** This will trade with REAL funds.
 
