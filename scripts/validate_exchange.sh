@@ -4,26 +4,10 @@ set -e
 # Ensure we are in the repo root
 cd "$(dirname "$0")/.."
 
-# Load environment variables
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-fi
+# Source common environment setup
+source scripts/common.sh
 
 echo "Starting Exchange Validation for Delta ($DELTA_ENV)..."
-
-# Determine API URL based on DELTA_ENV
-# Note: These variables are passed to docker-compose via .env or shell environment
-if [ "$DELTA_ENV" == "india_prod" ]; then
-    export DELTA_BASE_URL="https://api.india.delta.exchange"
-elif [ "$DELTA_ENV" == "global_prod" ]; then
-    export DELTA_BASE_URL="https://api.delta.exchange"
-elif [ "$DELTA_ENV" == "india_testnet" ]; then
-    export DELTA_BASE_URL="https://cdn-ind.testnet.deltaex.org"
-else
-    # Default fallback or custom URL
-    export DELTA_BASE_URL=${DELTA_BASE_URL:-"https://api.delta.exchange"}
-fi
-
 echo "Target Base URL: $DELTA_BASE_URL"
 
 # Step 1: Check if 'delta' exchange is available in ccxt (via freqtrade)

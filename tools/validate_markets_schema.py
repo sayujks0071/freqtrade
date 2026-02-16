@@ -162,6 +162,7 @@ def validate_whitelist(config_path, market_symbols):
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Validate markets schema and whitelist.")
     parser.add_argument("markets", help="Path to markets JSON file")
     parser.add_argument(

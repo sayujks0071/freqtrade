@@ -4,10 +4,8 @@ set -e
 # Ensure root
 cd "$(dirname "$0")/.."
 
-# Load environment variables
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-fi
+# Source common environment setup
+source scripts/common.sh
 
 DELTA_ENV=${DELTA_ENV:-india_testnet}
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
@@ -23,23 +21,8 @@ PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo ""
 
 echo "Fetching markets for $DELTA_ENV..."
 
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-
 # We use a temporary file for the docker output because of potential log noise
 TEMP_OUTPUT=$(mktemp)
-
-# Determine API URL based on DELTA_ENV (same logic as validate_exchange.sh)
-if [ "$DELTA_ENV" == "india_prod" ]; then
-    export DELTA_BASE_URL="https://api.india.delta.exchange"
-elif [ "$DELTA_ENV" == "global_prod" ]; then
-    export DELTA_BASE_URL="https://api.delta.exchange"
-elif [ "$DELTA_ENV" == "india_testnet" ]; then
-    export DELTA_BASE_URL="https://cdn-ind.testnet.deltaex.org"
-else
-    export DELTA_BASE_URL=${DELTA_BASE_URL:-"https://api.delta.exchange"}
-fi
 
 # Export CCXT config URLs for docker
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public=$DELTA_BASE_URL
