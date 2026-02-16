@@ -9,7 +9,6 @@ import json
 import re
 import subprocess
 import sys
-from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -19,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 OPTIMIZATION_LOG = REPO_ROOT / "optimization_log.txt"
 REPORT_FILE = REPO_ROOT / "WEEKLY_REPORT.md"
 
+
 def run_command(cmd, capture=True, check=True):
     # print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True, check=False)
@@ -27,6 +27,7 @@ def run_command(cmd, capture=True, check=True):
         print(result.stderr)
         sys.exit(result.returncode)
     return result
+
 
 def get_git_log(days=7):
     """
@@ -41,6 +42,7 @@ def get_git_log(days=7):
     ]
     result = run_command(cmd)
     return result.stdout.splitlines()
+
 
 def parse_optimization_log(days=7):
     """
@@ -63,6 +65,7 @@ def parse_optimization_log(days=7):
                 continue
     return entries
 
+
 def parse_git_updates(log_lines):
     """
     Parse git log lines for optimization commits.
@@ -84,6 +87,7 @@ def parse_git_updates(log_lines):
             })
     return updates
 
+
 def identify_stuck_strategies(log_entries, successful_updates):
     """
     Identify strategies that were attempted but not successfully updated.
@@ -100,13 +104,17 @@ def identify_stuck_strategies(log_entries, successful_updates):
             # Check if it failed multiple times?
             # For now, if it was attempted and not updated, it's stuck or failed.
             # We can count failures.
-            failures = [e for e in log_entries if e["strategy"] == strategy and not e.get("success", False)]
+            failures = [
+                e for e in log_entries
+                if e["strategy"] == strategy and not e.get("success", False)
+            ]
             if failures:
                 stuck.append({
                     "strategy": strategy,
                     "attempts": len(failures)
                 })
     return stuck
+
 
 def generate_report(updates, stuck, total_roi):
     """
@@ -139,11 +147,25 @@ def generate_report(updates, stuck, total_roi):
 
     return "\n".join(report)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Optimization Report")
-    parser.add_argument("--dry-run", action="store_true", help="Print report to stdout instead of file")
-    parser.add_argument("--push", action="store_true", help="Commit and push the report")
-    parser.add_argument("--branch", type=str, default="develop", help="Target branch to push to (default: develop)")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print report to stdout instead of file"
+    )
+    parser.add_argument(
+        "--push",
+        action="store_true",
+        help="Commit and push the report"
+    )
+    parser.add_argument(
+        "--branch",
+        type=str,
+        default="main",
+        help="Target branch to push to (default: main)"
+    )
     args = parser.parse_args()
 
     # 1. Gather Data
@@ -174,7 +196,7 @@ def main():
     # 4. Commit and Push
     if args.push:
         # Check for changes
-        status = run_command(["git", "status", "--porcelain"], capture=True)
+        run_command(["git", "status", "--porcelain"], capture=True)
         # If file changed or verify if untracked...
         # simpler to just try adding
 
@@ -190,6 +212,7 @@ def main():
             print(f"Report pushed to {args.branch}.")
         else:
             print("No changes to report.")
+
 
 if __name__ == "__main__":
     main()
