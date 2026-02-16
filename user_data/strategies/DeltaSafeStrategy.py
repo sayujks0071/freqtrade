@@ -24,7 +24,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
 
     # Stoploss
-    stoploss = -0.10
+    stoploss = -0.10  # Risk Manager Audited: Must be >= -0.10
 
     # Timeframe
     timeframe = "1h"
