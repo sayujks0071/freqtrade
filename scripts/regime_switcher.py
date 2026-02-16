@@ -100,6 +100,8 @@ def analyze_regime(df):
     # Bull Market: Price > EMA200, ADX > 25 -> Activate MomentumVolumeTrend.
     # Sideways/Choppy: ADX < 20 -> Activate BollingerRSI.
     # Volatile/Crashing: Price < EMA200 -> Activate VolatilityBreakout.
+    # Note: VIX spike detection is omitted due to lack of standard crypto VIX
+    # data in CCXT. We rely on Price < EMA200 for bearish/volatile conditions.
 
     regime = "Unknown"
     strategy = None
