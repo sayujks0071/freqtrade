@@ -4,6 +4,11 @@ set -e
 # Ensure root
 cd "$(dirname "$0")/.."
 
+# Load environment variables
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 DELTA_ENV=${DELTA_ENV:-india_testnet}
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
 REPORTS_DIR="user_data/reports"
@@ -21,22 +26,31 @@ echo "Fetching markets for $DELTA_ENV..."
 # Run freqtrade list-markets via Docker
 # We map the output to a file.
 # Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
 
 # We use a temporary file for the docker output because of potential log noise
 TEMP_OUTPUT=$(mktemp)
 
-# Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
+# Determine API URL based on DELTA_ENV (same logic as validate_exchange.sh)
+if [ "$DELTA_ENV" == "india_prod" ]; then
+    export DELTA_BASE_URL="https://api.india.delta.exchange"
+elif [ "$DELTA_ENV" == "global_prod" ]; then
+    export DELTA_BASE_URL="https://api.delta.exchange"
+elif [ "$DELTA_ENV" == "india_testnet" ]; then
+    export DELTA_BASE_URL="https://cdn-ind.testnet.deltaex.org"
+else
+    export DELTA_BASE_URL=${DELTA_BASE_URL:-"https://api.delta.exchange"}
+fi
 
+# Export CCXT config URLs for docker
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public=$DELTA_BASE_URL
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private=$DELTA_BASE_URL
+
+echo "Using API URL: $DELTA_BASE_URL"
+
+# Command to fetch markets.
 docker compose run --rm freqtrade list-markets \
     --config /freqtrade/user_data/configs/config.delta.dryrun.json \
+    --exchange delta --trading-mode futures \
     --print-json > $TEMP_OUTPUT
 
 # Check if successful
@@ -46,44 +60,64 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
+# Attempt to extract JSON from the output (skip logs)
+# Freqtrade usually outputs JSON last.
+# We look for the first line starting with '[' or '{' and take everything after.
+# If that fails, assume pure JSON.
+# Actually, freqtrade 2023+ output can be noisy.
+# Let's try to parse with python directly.
+python3 -c "
+import sys, json
+content = open('$TEMP_OUTPUT').read()
+try:
+    # Try to find start of JSON
+    start_idx = content.find('[')
+    if start_idx == -1: start_idx = content.find('{')
+    if start_idx != -1:
+        json_str = content[start_idx:]
+        # Verify it's valid JSON
+        json.loads(json_str)
+        print(json_str)
+    else:
+        sys.exit(1)
+except Exception:
+    sys.exit(1)
+" > "$MARKETS_FILE" 2>/dev/null
 
-mv $TEMP_OUTPUT $MARKETS_FILE
+if [ ! -s "$MARKETS_FILE" ]; then
+    echo "Could not extract valid JSON from output. Check logs."
+    cat $TEMP_OUTPUT
+    rm $TEMP_OUTPUT
+    exit 1
+fi
+rm $TEMP_OUTPUT
 
+echo "Markets saved to $MARKETS_FILE"
+
+# Validate Schema and Drift
 echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
+python3 tools/validate_markets_schema.py "$MARKETS_FILE" --prev-whitelist "$PREV_DUMP"
 
 echo "Generating whitelist..."
 WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
 WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
 
+# Set FILTER_MODE env var if needed (default perps_usdt)
+export FILTER_MODE="perps_usdt"
 python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
 
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
+# Generate TXT list (symbols only)
+# Extract symbols from the generated JSON
+python3 -c "
+import json
+with open('$WHITELIST_JSON') as f:
+    data = json.load(f)
+for p in data['exchange']['pair_whitelist']:
+    print(p)
+" > "$WHITELIST_TXT"
 
 echo "Whitelist updated at $WHITELIST_JSON"
-
-# Drift Report (Diff)
-if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
-fi
+echo "Found $(wc -l < $WHITELIST_TXT) pairs."
 
 # Clean up old dumps (keep last 7)
 ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
