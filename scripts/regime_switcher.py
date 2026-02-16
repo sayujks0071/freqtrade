@@ -7,7 +7,7 @@ and updates the strategy configuration.
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -156,7 +156,7 @@ def update_config(strategy_name):
 
 def log_decision(regime, strategy, metrics):
     """Logs the decision to regime_log.md"""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     log_entry = f"""
 ## {timestamp}
