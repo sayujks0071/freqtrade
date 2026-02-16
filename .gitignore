@@ -117,3 +117,9 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+!user_data/configs/config.delta.*.json
+!user_data/pairlists/
+!user_data/strategies/DeltaSafeStrategy.py
+!user_data/strategies/_base/
+!user_data/protections/
+!user_data/reports/risk_profile.md
