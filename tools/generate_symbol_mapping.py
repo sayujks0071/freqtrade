@@ -38,9 +38,9 @@ def generate_mapping(markets_file):
         if not isinstance(market, dict):
             continue
 
-        pair = market.get('symbol', 'N/A')
-        contract = market.get('id', 'N/A')
-        type_ = market.get('type', 'N/A')
+        pair = market.get("symbol", "N/A")
+        contract = market.get("id", "N/A")
+        type_ = market.get("type", "N/A")
 
         # Filter for Delta relevant pairs if needed (e.g. valid pairs only)
         # But report should show what's in the dump.

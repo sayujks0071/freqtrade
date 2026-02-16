@@ -42,10 +42,7 @@ class AuditedStrategyMixin:
 
         indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {indicators_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {indicators_str}"
         logger.info(msg)
 
     def assert_pair_in_whitelist(self, pair: str) -> None:

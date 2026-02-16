@@ -118,7 +118,7 @@ class StrategyAuditor(ast.NodeVisitor):
         end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10
 
         # Simple heuristic: Check if there's any '#' in the source lines of the function
-        func_source = "".join(self.source_lines[start_line - 1:end_line])
+        func_source = "".join(self.source_lines[start_line - 1 : end_line])
         if "#" in func_source:
             has_comment = True
 
