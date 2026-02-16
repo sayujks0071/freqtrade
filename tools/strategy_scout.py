@@ -13,6 +13,7 @@ from typing import Any
 
 import requests
 
+
 # Constants
 GITHUB_API_URL = "https://api.github.com"
 SEARCH_QUERIES = [
@@ -223,13 +224,50 @@ class StrategyScout:
             if resp.status_code == 200:
                 data = resp.json()
                 size = data.get("size", 0)
-                if size > 1000: # > 1KB
+                if size > 1000:  # > 1KB
                     repo["scout_score"] += 2
                     repo["scout_notes"].append("Detailed README")
                 else:
                     repo["scout_notes"].append("Basic README")
         except Exception:
-            pass
+            print(f"Failed to check README for {full_name}")
+
+    def _evaluate_content(self, content: str, repo: dict[str, Any]):
+        """Evaluate strategy content against heuristics."""
+        # Positive heuristics
+        if "stoploss" in content:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has stoploss")
+        if "minimal_roi" in content:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has ROI")
+        if "populate_indicators" in content:
+            repo["scout_score"] += 2
+        if "trailing_stop" in content:
+            repo["scout_score"] += 1
+            repo["scout_notes"].append("Trailing stop")
+        if "use_custom_stoploss" in content:
+            repo["scout_score"] += 1
+            repo["scout_notes"].append("Custom stoploss")
+
+        if "can_short" in content:
+            repo["scout_notes"].append("Futures/Shorts mentioned")
+        if "process_only_new_candles" in content:
+            repo["scout_notes"].append("Optimized (new candles)")
+
+        # Negative heuristics
+        content_lower = content.lower()
+        if "martingale" in content_lower:
+            repo["scout_score"] -= 10
+            repo["scout_notes"].append("Martingale detected (Risk!)")
+
+        if "grid" in content_lower:
+            # Check if risk management is present
+            if "stoploss" not in content or "minimal_roi" not in content:
+                repo["scout_score"] -= 5
+                repo["scout_notes"].append("Grid without clear risk mgmt")
+            else:
+                repo["scout_notes"].append("Grid logic detected")
 
     def _analyze_strategy_content(self, strat_file, repo):
         """Helper to download and analyze strategy content."""
@@ -238,42 +276,7 @@ class StrategyScout:
             if download_url:
                 content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
                 if content_resp.status_code == 200:
-                    content = content_resp.text
-
-                    # Positive heuristics
-                    if "stoploss" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has stoploss")
-                    if "minimal_roi" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-                    if "populate_indicators" in content:
-                        repo["scout_score"] += 2
-                    if "trailing_stop" in content:
-                        repo["scout_score"] += 1
-                        repo["scout_notes"].append("Trailing stop")
-                    if "use_custom_stoploss" in content:
-                        repo["scout_score"] += 1
-                        repo["scout_notes"].append("Custom stoploss")
-
-                    if "can_short" in content:
-                        repo["scout_notes"].append("Futures/Shorts mentioned")
-                    if "process_only_new_candles" in content:
-                        repo["scout_notes"].append("Optimized (new candles)")
-
-                    # Negative heuristics
-                    content_lower = content.lower()
-                    if "martingale" in content_lower:
-                        repo["scout_score"] -= 10
-                        repo["scout_notes"].append("Martingale detected (Risk!)")
-
-                    if "grid" in content_lower:
-                        # Check if risk management is present
-                        if "stoploss" not in content or "minimal_roi" not in content:
-                             repo["scout_score"] -= 5
-                             repo["scout_notes"].append("Grid without clear risk mgmt")
-                        else:
-                             repo["scout_notes"].append("Grid logic detected")
+                    self._evaluate_content(content_resp.text, repo)
 
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
@@ -434,7 +437,10 @@ class StrategyScout:
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
                         f.write("Please check the original repository for full license details.\n")
-                        f.write("This strategy was automatically vendored by Freqtrade Strategy Scout.\n")
+                        f.write(
+                            "This strategy was automatically vendored by "
+                            "Freqtrade Strategy Scout.\n"
+                        )
 
                     count += 1
             except Exception as e:
@@ -443,7 +449,9 @@ class StrategyScout:
 
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Strategy Scout")
-    parser.add_argument("--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN"))
+    parser.add_argument(
+        "--token", help="GitHub API Token", default=os.environ.get("GITHUB_TOKEN")
+    )
     parser.add_argument("--vendor", help="Vendor top strategies", action="store_true")
     args = parser.parse_args()
 
