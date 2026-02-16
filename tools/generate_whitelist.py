@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 
-# Env
+# Env variables for filtering
 FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
 ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
@@ -47,8 +47,12 @@ def main():
         print("Usage: generate_whitelist.py <markets_json>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    try:
+        with Path(sys.argv[1]).open() as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error reading markets file: {e}")
+        sys.exit(1)
 
     if isinstance(data, dict) and "markets" in data:
         data = data["markets"]

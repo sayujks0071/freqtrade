@@ -1,97 +1,78 @@
 #!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$DIR/common.sh"
-
-REPORT_FILE="user_data/reports/markets_$(date +%s).json"
-CONFIG_FILE="/freqtrade/user_data/configs/config.delta.dryrun.json"
-
-echo "Fetching markets from Delta ($DELTA_ENV)..."
-
-# Run list-markets
-# We expect JSON output (list of pair strings)
-docker compose run --rm freqtrade list-markets \
-    --config "$CONFIG_FILE" \
-    --exchange delta \
-    --trading-mode futures \
-    --print-json > "${REPORT_FILE}.tmp"
-
-# Extract JSON array (lines starting with [)
-grep -o '\[.*\]' "${REPORT_FILE}.tmp" > "$REPORT_FILE"
-
-if [ ! -s "$REPORT_FILE" ]; then
-    echo "Error: Failed to fetch markets or parse output."
-    echo "Raw Output:"
-    cat "${REPORT_FILE}.tmp"
-    rm -f "$REPORT_FILE" "${REPORT_FILE}.tmp"
-    exit 1
-fi
-rm "${REPORT_FILE}.tmp"
-
-echo "Markets list saved to $REPORT_FILE"
-
-echo "Validating Whitelist..."
-
-# Python script to check whitelist
-python3 -c "
-import json
-import sys
-import os
-
-try:
-    with open('$REPORT_FILE', 'r') as f:
-        markets = json.load(f) # List of strings
-
-    # Load config to get whitelist
-    # We need to read the local file, not the container path
-    config_file = 'user_data/configs/config.delta.dryrun.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    whitelist = config.get('exchange', {}).get('pair_whitelist', [])
-
-    missing = []
-    for pair in whitelist:
-        if pair not in markets:
-            missing.append(pair)
-
-    if missing:
-        print(f'ERROR: The following whitelist pairs are NOT active or missing on Delta ({os.environ.get("DELTA_ENV")}):')
-        for m in missing:
-            print(f' - {m}')
-        sys.exit(1)
-
-    print(f'SUCCESS: All {len(whitelist)} whitelist pairs are valid.')
-
-except Exception as e:
-    print(f'Error validating: {e}')
-    sys.exit(1)
-"
-
-if [ $? -eq 0 ]; then
-    echo "Validation Passed."
-else
-    echo "Validation Failed."
-    exit 1
-fi
 set -e
+
+# Ensure we are in the repo root
 cd "$(dirname "$0")/.."
 
-echo "Validating Exchange Connection..."
+# Source common environment setup
+source scripts/common.sh
 
-# 1. Confirm Delta is available and fetch markets
-# We use the update script which does fetch + validate schema
-# But we might want to just do a quick check.
-# Let's use the update script to ensure we have fresh markets
-./scripts/update_markets_and_whitelist.sh
+echo "Starting Exchange Validation for Delta ($DELTA_ENV)..."
+echo "Target Base URL: $DELTA_BASE_URL"
 
-# 2. Validate current whitelist against the fetched markets
-# The update script generated a NEW whitelist.
-# If we want to validate an EXISTING whitelist, we should have done it before updating.
-# But usually we validate that the *generated* whitelist is valid (which the script does).
+# Step 1: Check if 'delta' exchange is available in ccxt (via freqtrade)
+echo "1. verifying 'delta' exchange availability..."
+docker compose run --rm freqtrade list-exchanges --print-one-column | grep -q "delta"
+if [ $? -eq 0 ]; then
+    echo "SUCCESS: 'delta' exchange found."
+else
+    echo "FAIL: 'delta' exchange NOT found in freqtrade/ccxt."
+    exit 1
+fi
 
-# The prompt says "validate whitelist pairs exist".
-# If we just regenerated it from the dump, they obviously exist.
-# Maybe the intent is to validate that the pairs in `config.delta.dryrun.json` (if any) exist.
-# Since we use an external whitelist file, and we just updated it, we are good.
+# Step 2: Fetch Markets
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+MARKETS_FILE="user_data/reports/markets_${TIMESTAMP}.json"
+LATEST_MARKETS_FILE="user_data/reports/markets_latest.json"
 
-echo "Validation Complete. Market dump and Whitelist are fresh."
+echo "2. Fetching markets to $MARKETS_FILE..."
+# We use a temporary file to capture output, ensuring we don't get docker logs mixed in if possible.
+# Freqtrade logs to stderr, JSON to stdout.
+docker compose run --rm freqtrade list-markets --exchange delta --trading-mode futures --print-json > "$MARKETS_FILE"
+
+# Basic validation that file is not empty and contains JSON
+if [ ! -s "$MARKETS_FILE" ]; then
+    echo "FAIL: Markets file is empty."
+    exit 1
+fi
+
+# Create a symlink or copy to latest for easy access
+cp "$MARKETS_FILE" "$LATEST_MARKETS_FILE"
+
+# Step 3: Validate Markets Schema and Whitelist
+# We check against the dryrun config by default, or the one specified in ENV
+CONFIG_FILE=${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
+CONFIG_PATH="/freqtrade/user_data/configs/$CONFIG_FILE"
+
+echo "3. Validating markets and whitelist in $CONFIG_FILE..."
+
+docker compose run --rm --entrypoint python3 freqtrade \
+    /freqtrade/tools/validate_markets_schema.py \
+    "/freqtrade/$LATEST_MARKETS_FILE" \
+    --config "$CONFIG_PATH"
+
+# Also validate the generated whitelist file
+WHITELIST_FILE="/freqtrade/user_data/pairlists/whitelist.delta.json"
+echo "Validating generated whitelist in $WHITELIST_FILE..."
+
+docker compose run --rm --entrypoint python3 freqtrade \
+    /freqtrade/tools/validate_markets_schema.py \
+    "/freqtrade/$LATEST_MARKETS_FILE" \
+    --config "$WHITELIST_FILE"
+
+if [ $? -eq 0 ]; then
+    echo "SUCCESS: Validation passed."
+else
+    echo "FAIL: Validation failed."
+    exit 1
+fi
+
+# Check Time Drift
+echo "4. Checking time drift..."
+# Simple check: Compare local time with a time server or just print it.
+# The container time should be UTC.
+docker compose run --rm --entrypoint sh freqtrade -c "date -u"
+echo "Local time: $(date -u)"
+echo "Ensure these match closely."
+
+echo "Validation Complete."

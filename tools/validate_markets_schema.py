@@ -130,13 +130,51 @@ def write_report(path, message):
         f.write(message)
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: validate_markets_schema.py <current_json> [previous_json]")
-        sys.exit(1)
+def validate_whitelist(config_path, market_symbols):
+    if not config_path:
+        return
 
-    current_path = sys.argv[1]
-    prev_path = sys.argv[2] if len(sys.argv) > 2 else None
+    print(f"Validating whitelist from {config_path}...")
+    try:
+        with Path(config_path).open() as f:
+            config = json.load(f)
+    except Exception as e:
+        fail(f"Could not read config file: {e}")
+
+    whitelist = config.get("exchange", {}).get("pair_whitelist", [])
+    if not whitelist:
+        warn("Whitelist is empty in config.")
+        return
+
+    missing = []
+    # Freqtrade list-markets returns symbols in Base/Quote:Settle format (for futures)
+    # or just Base/Quote (spot).
+    # We should normalize/check exactly.
+    for pair in whitelist:
+        if pair not in market_symbols:
+            missing.append(pair)
+
+    if missing:
+        fail(f"Whitelist pairs missing in markets dump: {missing}")
+
+    print(f"Whitelist validation PASS: All {len(whitelist)} pairs found in markets dump.")
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Validate markets schema and whitelist.")
+    parser.add_argument("markets", help="Path to markets JSON file")
+    parser.add_argument(
+        "--prev-whitelist", help="Path to previous whitelist/markets for drift check"
+    )
+    parser.add_argument("--config", help="Path to config file to validate whitelist")
+
+    args = parser.parse_args()
+
+    current_path = args.markets
+    prev_path = args.prev_whitelist
+    config_path = args.config
 
     print(f"Validating {current_path}...")
 
@@ -155,6 +193,9 @@ def main():
 
     if prev_path:
         validate_drift(symbols, prev_path)
+
+    if config_path:
+        validate_whitelist(config_path, symbols)
 
     report = f"""# Markets Schema Validation Report
 Date: {datetime.now(UTC).isoformat()}
