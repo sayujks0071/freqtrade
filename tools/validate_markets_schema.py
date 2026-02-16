@@ -136,7 +136,7 @@ def validate_whitelist(config_path, market_symbols):
 
     print(f"Validating whitelist from {config_path}...")
     try:
-        with open(config_path) as f:
+        with Path(config_path).open() as f:
             config = json.load(f)
     except Exception as e:
         fail(f"Could not read config file: {e}")
@@ -164,7 +164,9 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Validate markets schema and whitelist.")
     parser.add_argument("markets", help="Path to markets JSON file")
-    parser.add_argument("--prev-whitelist", help="Path to previous whitelist/markets for drift check")
+    parser.add_argument(
+        "--prev-whitelist", help="Path to previous whitelist/markets for drift check"
+    )
     parser.add_argument("--config", help="Path to config file to validate whitelist")
 
     args = parser.parse_args()
