@@ -13,7 +13,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
@@ -53,7 +53,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Check whitelist using mixin
         if not self.assert_pair_in_whitelist(metadata["pair"]):
-             return dataframe
+            return dataframe
 
         dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
         return dataframe

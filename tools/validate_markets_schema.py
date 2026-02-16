@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Config
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
@@ -44,17 +45,55 @@ def is_eligible(market):
     return False
 
 
+def load_markets(markets_path):
+    try:
+        with Path(markets_path).open("r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"ERROR: Could not read markets file: {e}")
+        sys.exit(2)
+
+
+def check_drift(prev_whitelist_path, current_pairs, report_lines, errors, warnings):
+    if not prev_whitelist_path or not Path(prev_whitelist_path).exists():
+        report_lines.append("- No previous whitelist found (First Run)")
+        return
+
+    try:
+        with Path(prev_whitelist_path).open("r") as f:
+            prev_data = json.load(f)
+
+        prev_pairs = set()
+        if isinstance(prev_data, dict) and "exchange" in prev_data:
+            prev_pairs = set(prev_data["exchange"].get("pair_whitelist", []))
+        elif isinstance(prev_data, list):
+            prev_pairs = set(prev_data)
+
+        removed = prev_pairs - current_pairs
+        added = current_pairs - prev_pairs
+
+        removal_ratio = len(removed) / len(prev_pairs) if len(prev_pairs) > 0 else 0.0
+
+        report_lines.append(f"- Previous Whitelist Size: {len(prev_pairs)}")
+        report_lines.append(f"- Removed Pairs: {len(removed)} ({removal_ratio:.2%})")
+        report_lines.append(f"- Added Pairs: {len(added)}")
+
+        if removal_ratio > MAX_REMOVAL_RATIO:
+            errors.append(
+                f"Removal ratio {removal_ratio:.2%} > MAX_REMOVAL_RATIO {MAX_REMOVAL_RATIO:.2%}"
+            )
+            report_lines.append("  - BLOCKED: Too many removals!")
+
+    except Exception as e:
+        warnings.append(f"Could not read previous whitelist: {e}")
+
+
 def validate(markets_path, prev_whitelist_path, report_path):
     report_lines = [f"# Market Validation Report ({datetime.now(timezone.utc).isoformat()})"]
     errors = []
     warnings = []
 
-    try:
-        with open(markets_path, "r") as f:
-            markets = json.load(f)
-    except Exception as e:
-        print(f"ERROR: Could not read markets file: {e}")
-        sys.exit(2)
+    markets = load_markets(markets_path)
 
     if not isinstance(markets, list):
         errors.append("Markets dump is not a list.")
@@ -74,13 +113,6 @@ def validate(markets_path, prev_whitelist_path, report_path):
         if not symbol:
             continue  # skip malformed
 
-        # Check required fields for schema
-        required = ["symbol", "base", "quote", "active"]
-        missing = [f for f in required if f not in m]
-        if missing:
-            # Only warn if it's eligible, otherwise ignore
-            pass
-
         if is_eligible(m):
             if symbol.lower() in seen_symbols:
                 errors.append(f"Duplicate symbol found: {symbol}")
@@ -95,38 +127,7 @@ def validate(markets_path, prev_whitelist_path, report_path):
     report_lines.append(f"- Eligible Markets: {len(eligible_markets)}")
 
     # Drift Check
-    if prev_whitelist_path and os.path.exists(prev_whitelist_path):
-        try:
-            with open(prev_whitelist_path, "r") as f:
-                prev_data = json.load(f)
-                # Handle both Freqtrade config format and simple list
-                if isinstance(prev_data, dict) and "exchange" in prev_data:
-                    prev_pairs = set(prev_data["exchange"].get("pair_whitelist", []))
-                elif isinstance(prev_data, list):
-                    prev_pairs = set(prev_data)
-                else:
-                    prev_pairs = set()
-
-            current_pairs = set(eligible_markets)
-            removed = prev_pairs - current_pairs
-            added = current_pairs - prev_pairs
-
-            removal_ratio = len(removed) / len(prev_pairs) if len(prev_pairs) > 0 else 0.0
-
-            report_lines.append(f"- Previous Whitelist Size: {len(prev_pairs)}")
-            report_lines.append(f"- Removed Pairs: {len(removed)} ({removal_ratio:.2%})")
-            report_lines.append(f"- Added Pairs: {len(added)}")
-
-            if removal_ratio > MAX_REMOVAL_RATIO:
-                errors.append(
-                    f"Removal ratio {removal_ratio:.2%} > MAX_REMOVAL_RATIO {MAX_REMOVAL_RATIO:.2%}"
-                )
-                report_lines.append(f"  - BLOCKED: Too many removals!")
-
-        except Exception as e:
-            warnings.append(f"Could not read previous whitelist: {e}")
-    else:
-        report_lines.append("- No previous whitelist found (First Run)")
+    check_drift(prev_whitelist_path, set(eligible_markets), report_lines, errors, warnings)
 
     # Output Report
     report_lines.append("\n## Errors")
@@ -143,7 +144,7 @@ def validate(markets_path, prev_whitelist_path, report_path):
     else:
         report_lines.append("- None")
 
-    with open(report_path, "w") as f:
+    with Path(report_path).open("w") as f:
         f.write("\n".join(report_lines))
 
     if errors:

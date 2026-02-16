@@ -2,7 +2,6 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-import sqlalchemy
 from freqtrade.persistence import Trade
 from freqtrade.protection import IProtection
 
@@ -24,27 +23,33 @@ class DailyLossLimit(IProtection):
 
         start_of_day = datetime.combine(date.date(), datetime.min.time(), tzinfo=timezone.utc)
 
+        trades: list[Trade] = []
         try:
             # Efficient query using SQLAlchemy filters via Trade.get_trades
-            trades = Trade.get_trades([Trade.is_open.is_(False), Trade.close_date >= start_of_day])
+            # Converting to list to unify types with exception block
+            query_res = Trade.get_trades(
+                [Trade.is_open.is_(False), Trade.close_date >= start_of_day]
+            )
+            # Depending on Freqtrade version, this might be a list or ScalarResult
+            trades = list(query_res)
         except Exception as e:
             # Fallback if filters fail (e.g. in older versions or backtesting)
-            # In backtesting, get_trades might return list of dicts or objects depending on mode
             logger.warning(f"Error querying trades with filter, falling back to proxy: {e}")
-            trades = Trade.get_trades_proxy(is_open=False)
-            trades = [t for t in trades if t.close_date and t.close_date >= start_of_day]
+            all_closed = Trade.get_trades_proxy(is_open=False)
+            trades = [t for t in all_closed if t.close_date and t.close_date >= start_of_day]
 
         if not trades:
             return False, date, ""
 
-        total_pnl = sum(t.close_profit * t.stake_amount for t in trades)
+        # Calculate PnL. Ensure close_profit is not None (it shouldn't be for closed trades)
+        total_pnl = sum((t.close_profit or 0.0) * t.stake_amount for t in trades)
 
         stake_currency = self.config.get("stake_currency", "USDT")
         # self.wallets might be None in backtesting sometimes
         if self.wallets:
             total_balance = self.wallets.get_total(stake_currency)
         else:
-            total_balance = 0  # Cannot calculate limit
+            total_balance = 0.0  # Cannot calculate limit
 
         if total_balance == 0:
             return False, date, ""

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import os
-import sys
 import urllib.error
 import urllib.request
 from datetime import datetime
+from pathlib import Path
+from urllib.parse import quote
 
 GITHUB_API = "https://api.github.com/search/repositories"
 
@@ -13,10 +13,12 @@ GITHUB_API = "https://api.github.com/search/repositories"
 def search_strategies(token=None, limit=10):
     query = "freqtrade strategy language:python"
     # URL encode the query
-    from urllib.parse import quote
-
     encoded_query = quote(query)
     url = f"{GITHUB_API}?q={encoded_query}&sort=updated&order=desc"
+
+    if not url.startswith("https://"):
+        print("Invalid API URL schema")
+        return []
 
     headers = {
         "Accept": "application/vnd.github+json",
@@ -59,9 +61,9 @@ def check_license(repo):
 
 def generate_report(strategies, filename):
     # ensure dir exists
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
 
-    with open(filename, "w") as f:
+    with Path(filename).open("w") as f:
         f.write(f"# Strategy Scout Report ({datetime.now().date()})\n\n")
         if not strategies:
             f.write("No strategies found matching criteria.\n")

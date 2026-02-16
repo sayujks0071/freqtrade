@@ -3,6 +3,7 @@ import argparse
 import ast
 import os
 import sys
+from pathlib import Path
 
 HEADER_TEMPLATE = '''"""
 Strategy Clarity Enforcement:
@@ -27,7 +28,7 @@ class StrategyAuditor(ast.NodeVisitor):
 
     def check(self):
         try:
-            with open(self.filename, "r") as f:
+            with Path(self.filename).open() as f:
                 content = f.read()
 
             tree = ast.parse(content)
@@ -46,7 +47,7 @@ class StrategyAuditor(ast.NodeVisitor):
                 self.errors.append("Missing module docstring")
                 if self.fix:
                     print(f"Fixing missing docstring in {self.filename}")
-                    with open(self.filename, "w") as f:
+                    with Path(self.filename).open("w") as f:
                         f.write(HEADER_TEMPLATE + content)
                     # We don't remove error here because re-run is needed to verify
 
@@ -93,12 +94,12 @@ def audit_directory(path, fix=False):
     for root, _, files in os.walk(path):
         for file in files:
             if file.endswith(".py") and file != "__init__.py":
-                filepath = os.path.join(root, file)
-                if "_base" in filepath:
+                filepath = Path(root) / file
+                if "_base" in str(filepath):
                     continue
 
                 print(f"Auditing {filepath}...")
-                auditor = StrategyAuditor(filepath, fix=fix)
+                auditor = StrategyAuditor(str(filepath), fix=fix)
                 auditor.check()
 
                 if auditor.errors:

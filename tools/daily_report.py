@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import sqlite3
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from pathlib import Path
 
 
 def generate_report(db_path, out_path, date_str=None):
     # Ensure output dir exists
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
-    if not os.path.exists(db_path):
+    if not Path(db_path).exists():
         print(f"Database not found: {db_path}")
         # Create empty report
-        with open(out_path, "w") as f:
+        with Path(out_path).open("w") as f:
             f.write(f"# Daily Trading Report ({date_str or 'Today'})\n\nNo database found.")
         return
 
@@ -102,7 +101,7 @@ def generate_report(db_path, out_path, date_str=None):
         for reason, count in sorted(reasons.items(), key=lambda x: x[1], reverse=True):
             report_lines.append(f"- {reason}: {count}")
 
-    with open(out_path, "w") as f:
+    with Path(out_path).open("w") as f:
         f.write("\n".join(report_lines))
 
     print(f"Report saved to {out_path}")
