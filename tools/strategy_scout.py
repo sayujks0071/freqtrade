@@ -6,6 +6,7 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 
 import argparse
 import datetime
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,19 @@ SEARCH_QUERIES = [
     "crypto trading strategy python freqtrade",
 ]
 KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
-REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
+ACCEPTED_LICENSES = {
+    "mit",
+    "apache-2.0",
+    "bsd-2-clause",
+    "bsd-3-clause",
+    "gpl-2.0",
+    "gpl-3.0",
+    "agpl-3.0",
+    "lgpl-2.1",
+    "lgpl-3.0",
+    "mpl-2.0",
+    "unlicense",
+}
 RATE_LIMIT_BUFFER = 5
 TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
@@ -48,7 +61,7 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. Halting or degrading.")
                     return False
             return True
         except Exception as e:
@@ -115,20 +128,36 @@ class StrategyScout:
             full_name = repo["full_name"]
             pushed_at = repo.get("pushed_at")
             license_data = repo.get("license")
+            stars = repo.get("stargazers_count", 0)
 
             # 1. License Check
+            license_key = None
             license_name = "Unknown"
-            if license_data and license_data.get("key") != "other":
+
+            if license_data:
+                license_key = license_data.get("key")
                 license_name = license_data.get("name", "Unknown")
+
+            if license_key in ACCEPTED_LICENSES:
                 score += 5  # Clear license
-            elif license_data and license_data.get("key") == "other":
-                license_name = "Other (Check manually)"
-                score += 1
+            elif full_name in KNOWN_SOURCES:
+                score += 5  # Known trusted source
+                notes.append("Known source")
             else:
-                if full_name not in KNOWN_SOURCES:
+                # Reject "no license" or strict incompatible ones
+                if license_key is None:
+                    # check if we should skip
+                    print(f"Skipping {full_name}: No license")
+                    continue
+                else:
+                    print(f"Skipping {full_name}: License {license_key} not accepted")
                     continue
 
-            # 2. Recency
+            # 2. Stars (Logarithmic scoring)
+            if stars > 0:
+                score += int(math.log10(stars + 1) * 2)
+
+            # 3. Recency
             if pushed_at:
                 pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
                 age_days = (datetime.datetime.now() - pushed_dt).days
@@ -143,7 +172,7 @@ class StrategyScout:
             else:
                 age_days = 9999
 
-            # 3. Description / Documentation
+            # 4. Description / Documentation
             description = repo.get("description", "") or ""
             if "freqtrade" in description.lower():
                 score += 2
@@ -175,7 +204,9 @@ class StrategyScout:
                         potential = [
                             f
                             for f in contents
-                            if f["name"].endswith(".py") and f["name"] != "__init__.py"
+                            if f["name"].endswith(".py")
+                            and f["name"] != "__init__.py"
+                            and f.get("size", 0) > 200  # Filter out symlinks/small files
                         ]
                         if potential:
                             strategies = potential
@@ -185,6 +216,59 @@ class StrategyScout:
                 pass
         return strategies, found_path
 
+    def _check_readme(self, full_name, repo):
+        """Check for README presence and size."""
+        try:
+            url = f"{GITHUB_API_URL}/repos/{full_name}/readme"
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                data = resp.json()
+                size = data.get("size", 0)
+                if size > 1000:  # > 1KB
+                    repo["scout_score"] += 2
+                    repo["scout_notes"].append("Detailed README")
+                else:
+                    repo["scout_notes"].append("Basic README")
+        except Exception:
+            print(f"Failed to check README for {full_name}")
+
+    def _evaluate_content(self, content: str, repo: dict[str, Any]):
+        """Evaluate strategy content against heuristics."""
+        # Positive heuristics
+        if "stoploss" in content:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has stoploss")
+        if "minimal_roi" in content:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has ROI")
+        if "populate_indicators" in content:
+            repo["scout_score"] += 2
+        if "trailing_stop" in content:
+            repo["scout_score"] += 1
+            repo["scout_notes"].append("Trailing stop")
+        if "use_custom_stoploss" in content:
+            repo["scout_score"] += 1
+            repo["scout_notes"].append("Custom stoploss")
+
+        if "can_short" in content:
+            repo["scout_notes"].append("Futures/Shorts mentioned")
+        if "process_only_new_candles" in content:
+            repo["scout_notes"].append("Optimized (new candles)")
+
+        # Negative heuristics
+        content_lower = content.lower()
+        if "martingale" in content_lower:
+            repo["scout_score"] -= 10
+            repo["scout_notes"].append("Martingale detected (Risk!)")
+
+        if "grid" in content_lower:
+            # Check if risk management is present
+            if "stoploss" not in content or "minimal_roi" not in content:
+                repo["scout_score"] -= 5
+                repo["scout_notes"].append("Grid without clear risk mgmt")
+            else:
+                repo["scout_notes"].append("Grid logic detected")
+
     def _analyze_strategy_content(self, strat_file, repo):
         """Helper to download and analyze strategy content."""
         try:
@@ -192,24 +276,8 @@ class StrategyScout:
             if download_url:
                 content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
                 if content_resp.status_code == 200:
-                    content = content_resp.text
+                    self._evaluate_content(content_resp.text, repo)
 
-                    # Check heuristics
-                    if "stoploss" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has stoploss")
-                    if "minimal_roi" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-                    if "populate_indicators" in content:
-                        repo["scout_score"] += 2
-                    if "can_short" in content:
-                        repo["scout_notes"].append("Futures/Shorts mentioned")
-
-                    # Negative heuristics
-                    if "martingale" in content.lower():
-                        repo["scout_score"] -= 10
-                        repo["scout_notes"].append("Martingale detected (Risk!)")
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
 
@@ -227,6 +295,9 @@ class StrategyScout:
 
             full_name = repo["full_name"]
             print(f"Inspecting {full_name}...")
+
+            # Check README
+            self._check_readme(full_name, repo)
 
             strategies, found_path = self._find_strategy_files(full_name)
 
@@ -279,11 +350,19 @@ class StrategyScout:
 
                 f.write("- **Adoption Notes:** ")
                 adoption = []
-                if "Futures/Shorts mentioned" in repo.get("scout_notes", []):
-                    adoption.append("Seems to support futures.")
+                notes_set = set(repo.get("scout_notes", []))
+
+                if "Futures/Shorts mentioned" in notes_set:
+                    adoption.append("Seems to support futures (`can_short`).")
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
-                adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
+
+                if "Has stoploss" in notes_set:
+                    adoption.append("Verify `stoploss` settings.")
+                else:
+                    adoption.append("WARNING: No explicit `stoploss` found.")
+
+                adoption.append("Adjust `leverage` for Delta futures.")
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
@@ -320,7 +399,8 @@ class StrategyScout:
             path = repo.get("strategy_path")
 
             if not path:
-                continue  # Can't vendor if we didn't find the path
+                print(f"Skipping vendoring for {full_name}: Strategy path not found.")
+                continue
 
             print(f"Vendoring from {full_name}...")
 
@@ -357,6 +437,10 @@ class StrategyScout:
                         f.write(f"Source: {repo['html_url']}\n")
                         f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
                         f.write("Please check the original repository for full license details.\n")
+                        f.write(
+                            "This strategy was automatically vendored by "
+                            "Freqtrade Strategy Scout.\n"
+                        )
 
                     count += 1
             except Exception as e:
