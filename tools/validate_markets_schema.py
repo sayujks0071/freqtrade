@@ -4,7 +4,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -226,17 +226,15 @@ def load_markets(path):
 
 
 def write_report(path, status, env, markets_file, total, eligible, drift_result, errors):
-    added_str = (
-        ", ".join(drift_result["added"][:10])
-        + ("..." if len(drift_result["added"]) > 10 else "")
+    added_str = ", ".join(drift_result["added"][:10]) + (
+        "..." if len(drift_result["added"]) > 10 else ""
     )
-    removed_str = (
-        ", ".join(drift_result["removed"][:10])
-        + ("..." if len(drift_result["removed"]) > 10 else "")
+    removed_str = ", ".join(drift_result["removed"][:10]) + (
+        "..." if len(drift_result["removed"]) > 10 else ""
     )
 
     report_content = f"""# Markets Schema Validation Report
-**Date:** {datetime.now(timezone.utc).isoformat()}
+**Date:** {datetime.now(UTC).isoformat()}
 **Status:** {status}
 **Environment:** {env}
 **File:** {markets_file}
@@ -244,12 +242,12 @@ def write_report(path, status, env, markets_file, total, eligible, drift_result,
 ## Statistics
 - Total Markets: {total}
 - Eligible Markets: {eligible}
-- Whitelist Drift Ratio: {drift_result['ratio']:.2f} (Limit: {MAX_REMOVAL_RATIO})
+- Whitelist Drift Ratio: {drift_result["ratio"]:.2f} (Limit: {MAX_REMOVAL_RATIO})
 
 ## Drift Analysis
-- **Added ({len(drift_result['added'])}):** {added_str}
-- **Removed ({len(drift_result['removed'])}):** {removed_str}
-- **Message:** {drift_result['msg']}
+- **Added ({len(drift_result["added"])}):** {added_str}
+- **Removed ({len(drift_result["removed"])}):** {removed_str}
+- **Message:** {drift_result["msg"]}
 
 ## Validation Errors
 """
