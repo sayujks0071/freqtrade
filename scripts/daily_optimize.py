@@ -18,11 +18,26 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+OPTIMIZATION_LOG = Path("optimization_log.txt")
 
 # Optimization Parameters
 EPOCHS = 200
 SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
+
+
+def log_optimization_attempt(strategy: str, success: bool, details: dict):
+    """
+    Logs the optimization attempt to a JSONL file.
+    """
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "strategy": strategy,
+        "success": success,
+        "details": details,
+    }
+    with OPTIMIZATION_LOG.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 def run_command(cmd, capture=True):
@@ -376,6 +391,16 @@ Examples:
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
+    # Log the attempt
+    log_details = {
+        "current_sharpe": current_sharpe,
+        "new_sharpe": new_sharpe,
+        "current_drawdown": current_drawdown,
+        "new_drawdown": new_drawdown,
+        "roi_improvement_pct": avg_profit_pct,
+    }
+    log_optimization_attempt(worst_strategy, sharpe_improved and drawdown_improved, log_details)
+
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
@@ -395,6 +420,8 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            # Also add the log file
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -438,6 +465,27 @@ Examples:
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        # Commit the log file even if optimization failed
+        if not args.dry_run:
+            # Determine target branch
+            target_branch = args.branch if args.branch else "main"
+
+            msg = f"chore: log failed optimization for {worst_strategy}"
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG)])
+            run_command(["git", "commit", "-m", msg])
+
+            # Push the log update
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+
+            if args.yes:
+                run_command(push_cmd, capture=True)
+            else:
+                print("Log updated locally. Use --yes to auto-push.")
 
 
 if __name__ == "__main__":
