@@ -5,10 +5,10 @@ Analyzes BTC/USDT market data to detect regime (Bull, Sideways, Volatile)
 and updates the strategy configuration.
 """
 
-import sys
 import json
-from pathlib import Path
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 try:
     import ccxt
@@ -38,8 +38,7 @@ def get_market_data():
         exchange = getattr(ccxt, EXCHANGE_ID)()
         ohlcv = exchange.fetch_ohlcv(PAIR, timeframe=TIMEFRAME, limit=LIMIT)
         df = pd.DataFrame(
-            ohlcv,
-            columns=["timestamp", "open", "high", "low", "close", "volume"]
+            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
         )
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
@@ -50,12 +49,9 @@ def get_market_data():
             print("Attempting fallback to gateio...")
             exchange = ccxt.gateio()
             # Gate.io uses BTC/USDT
-            ohlcv = exchange.fetch_ohlcv(
-                "BTC/USDT", timeframe=TIMEFRAME, limit=LIMIT
-            )
+            ohlcv = exchange.fetch_ohlcv("BTC/USDT", timeframe=TIMEFRAME, limit=LIMIT)
             df = pd.DataFrame(
-                ohlcv,
-                columns=["timestamp", "open", "high", "low", "close", "volume"]
+                ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
             )
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             return df
@@ -90,11 +86,7 @@ def analyze_regime(df):
     ema200 = last_row["ema200"]
     adx = last_row["adx"]
 
-    metrics = {
-        "price": price,
-        "ema200": ema200,
-        "adx": adx
-    }
+    metrics = {"price": price, "ema200": ema200, "adx": adx}
 
     # Logic
     # Bull Market: Price > EMA200, ADX > 25 -> Activate MomentumVolumeTrend.
@@ -133,7 +125,7 @@ def update_config(strategy_name):
 
     # Load base or existing config
     if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, "r") as f:
+        with CONFIG_FILE.open("r") as f:
             try:
                 config = json.load(f)
             except json.JSONDecodeError:
@@ -141,7 +133,7 @@ def update_config(strategy_name):
                 config = {}
 
     if not config and BASE_CONFIG_FILE.exists():
-        with open(BASE_CONFIG_FILE, "r") as f:
+        with BASE_CONFIG_FILE.open("r") as f:
             config = json.load(f)
             # Ensure not dry_run if this is production?
             # The prompt implies switching config_production.json.
@@ -159,25 +151,26 @@ def update_config(strategy_name):
     # Ensure the directory exists
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(CONFIG_FILE, "w") as f:
+    with CONFIG_FILE.open("w") as f:
         json.dump(config, f, indent=4)
 
 
 def log_decision(regime, strategy, metrics):
     """Logs the decision to regime_log.md"""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    # noqa: UP017 - Suppress Ruff UP017 (prefer datetime.UTC) for compatibility
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017
 
     log_entry = f"""
 ## {timestamp}
 - **Regime:** {regime}
 - **Strategy:** {strategy}
 - **Metrics:**
-  - Price: {metrics.get('price', 0):.2f}
-  - EMA200: {metrics.get('ema200', 0):.2f}
-  - ADX: {metrics.get('adx', 0):.2f}
+  - Price: {metrics.get("price", 0):.2f}
+  - EMA200: {metrics.get("ema200", 0):.2f}
+  - ADX: {metrics.get("adx", 0):.2f}
 ---
 """
-    with open(LOG_FILE, "a") as f:
+    with LOG_FILE.open("a") as f:
         f.write(log_entry)
 
 
@@ -193,8 +186,10 @@ def main():
     if strategy:
         print(f"Detected Regime: {regime}")
         print(f"Switching to Strategy: {strategy}")
-        print(f"Metrics: Price={metrics.get('price'):.2f}, "
-              f"EMA200={metrics.get('ema200'):.2f}, ADX={metrics.get('adx'):.2f}")
+        print(
+            f"Metrics: Price={metrics.get('price'):.2f}, "
+            f"EMA200={metrics.get('ema200'):.2f}, ADX={metrics.get('adx'):.2f}"
+        )
         update_config(strategy)
         log_decision(regime, strategy, metrics)
         print("Config updated and logged.")
