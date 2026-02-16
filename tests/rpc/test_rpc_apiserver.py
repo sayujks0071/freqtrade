@@ -457,7 +457,7 @@ def test_api_run(default_conf, mocker, caplog):
                 "listen_ip_address": "0.0.0.0",
                 "listen_port": 8089,
                 "password": "",
-                    "jwt_secret_key": "test_secret_key",
+                "jwt_secret_key": "test_secret_key",
             }
         }
     )
