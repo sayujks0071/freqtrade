@@ -1,14 +1,16 @@
-from datetime import datetime, timedelta, timezone
-from freqtrade.protection import IProtection
-from freqtrade.persistence import Trade
 import logging
 import os
+from datetime import datetime, timedelta, timezone
+
 import sqlalchemy
+from freqtrade.persistence import Trade
+from freqtrade.protection import IProtection
+
 
 logger = logging.getLogger(__name__)
 
-class DailyLossLimit(IProtection):
 
+class DailyLossLimit(IProtection):
     @property
     def protection_name(self):
         return "DailyLossLimit"
@@ -24,10 +26,7 @@ class DailyLossLimit(IProtection):
 
         try:
             # Efficient query using SQLAlchemy filters via Trade.get_trades
-            trades = Trade.get_trades([
-                Trade.is_open.is_(False),
-                Trade.close_date >= start_of_day
-            ])
+            trades = Trade.get_trades([Trade.is_open.is_(False), Trade.close_date >= start_of_day])
         except Exception as e:
             # Fallback if filters fail (e.g. in older versions or backtesting)
             # In backtesting, get_trades might return list of dicts or objects depending on mode
@@ -40,12 +39,12 @@ class DailyLossLimit(IProtection):
 
         total_pnl = sum(t.close_profit * t.stake_amount for t in trades)
 
-        stake_currency = self.config.get('stake_currency', 'USDT')
+        stake_currency = self.config.get("stake_currency", "USDT")
         # self.wallets might be None in backtesting sometimes
         if self.wallets:
             total_balance = self.wallets.get_total(stake_currency)
         else:
-            total_balance = 0 # Cannot calculate limit
+            total_balance = 0  # Cannot calculate limit
 
         if total_balance == 0:
             return False, date, ""
@@ -56,7 +55,9 @@ class DailyLossLimit(IProtection):
 
             if loss_ratio > limit_ratio:
                 next_day = start_of_day + timedelta(days=1)
-                logger.warning(f"Daily Loss Limit hit! PnL: {total_pnl:.2f}, Ratio: {loss_ratio:.2%}")
+                logger.warning(
+                    f"Daily Loss Limit hit! PnL: {total_pnl:.2f}, Ratio: {loss_ratio:.2%}"
+                )
                 # Return True (stop), until next_day, reason
                 return True, next_day, "Daily Loss Limit Reached"
 

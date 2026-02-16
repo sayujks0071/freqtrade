@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-import ast
-import sys
-import os
 import argparse
-import re
+import ast
+import os
+import sys
 
 HEADER_TEMPLATE = '''"""
 Strategy Clarity Enforcement:
@@ -15,6 +14,7 @@ Strategy Clarity Enforcement:
 """
 '''
 
+
 class StrategyAuditor(ast.NodeVisitor):
     def __init__(self, filename, fix=False):
         self.filename = filename
@@ -23,11 +23,11 @@ class StrategyAuditor(ast.NodeVisitor):
         self.has_mixin = False
         self.has_docstring = False
         self.imports = set()
-        self.forbidden_calls = ['print', 'sleep', 'requests', 'urllib']
+        self.forbidden_calls = ["print", "sleep", "requests", "urllib"]
 
     def check(self):
         try:
-            with open(self.filename, 'r') as f:
+            with open(self.filename, "r") as f:
                 content = f.read()
 
             tree = ast.parse(content)
@@ -46,7 +46,7 @@ class StrategyAuditor(ast.NodeVisitor):
                 self.errors.append("Missing module docstring")
                 if self.fix:
                     print(f"Fixing missing docstring in {self.filename}")
-                    with open(self.filename, 'w') as f:
+                    with open(self.filename, "w") as f:
                         f.write(HEADER_TEMPLATE + content)
                     # We don't remove error here because re-run is needed to verify
 
@@ -55,18 +55,18 @@ class StrategyAuditor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node):
         for base in node.bases:
-            if isinstance(base, ast.Name) and base.id == 'AuditedStrategyMixin':
+            if isinstance(base, ast.Name) and base.id == "AuditedStrategyMixin":
                 self.has_mixin = True
         self.generic_visit(node)
 
     def visit_Import(self, node):
         for alias in node.names:
             self.imports.add(alias.name)
-            if alias.name in ['requests', 'urllib', 'http']:
+            if alias.name in ["requests", "urllib", "http"]:
                 self.errors.append(f"Forbidden import: {alias.name}")
 
     def visit_ImportFrom(self, node):
-        if node.module in ['requests', 'urllib', 'http']:
+        if node.module in ["requests", "urllib", "http"]:
             self.errors.append(f"Forbidden import from: {node.module}")
 
     def visit_Call(self, node):
@@ -75,21 +75,26 @@ class StrategyAuditor(ast.NodeVisitor):
                 self.errors.append(f"Forbidden call: {node.func.id}")
         elif isinstance(node.func, ast.Attribute):
             if node.func.attr in self.forbidden_calls:
-                 self.errors.append(f"Forbidden call: {node.func.attr}")
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == 'datetime' and node.func.attr == 'now':
+                self.errors.append(f"Forbidden call: {node.func.attr}")
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "datetime"
+                and node.func.attr == "now"
+            ):
                 if not node.args and not node.keywords:
                     # Check if tz is passed
                     self.errors.append("datetime.now() called without arguments (must be UTC)")
 
         self.generic_visit(node)
 
+
 def audit_directory(path, fix=False):
     failed = False
     for root, _, files in os.walk(path):
         for file in files:
-            if file.endswith('.py') and file != '__init__.py':
+            if file.endswith(".py") and file != "__init__.py":
                 filepath = os.path.join(root, file)
-                if '_base' in filepath:
+                if "_base" in filepath:
                     continue
 
                 print(f"Auditing {filepath}...")
@@ -104,6 +109,7 @@ def audit_directory(path, fix=False):
                 else:
                     print(f"PASSED: {filepath}")
     return failed
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -3,7 +3,9 @@ Audited Strategy Mixin
 """
 import logging
 from datetime import datetime, timezone
+
 from freqtrade.strategy import IStrategy
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +15,12 @@ class AuditedStrategyMixin(IStrategy):
     Must be inherited by all strategies.
     """
 
-    def log_signal(self, pair: str, side: str, reason: str, indicators: dict = None):
+    def log_signal(self, pair: str, side: str, reason: str, indicators: dict | None = None):
         """
         Logs a structured audit signal.
         """
-        ts = datetime.now(timezone.utc).isoformat()
+        # Use datetime.UTC instead of timezone.utc for Python 3.11+ compliance (UP017)
+        ts = datetime.now(datetime.UTC).isoformat()
         ind_str = str(indicators) if indicators else "{}"
         # Format: AUDIT_SIGNAL | UTC | PAIR | SIDE | REASON | INDICATORS
         log_msg = f"AUDIT_SIGNAL | {ts} | {pair} | {side} | {reason} | {ind_str}"

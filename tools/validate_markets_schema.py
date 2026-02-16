@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-import json
 import argparse
-import sys
-import re
+import json
 import os
+import re
+import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 # Config
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
@@ -14,34 +13,36 @@ STRICT_VOLUME = os.environ.get("STRICT_VOLUME", "false").lower() == "true"
 FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
 ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
+
 def is_eligible(market):
     """
     Determines if a market is eligible for the whitelist based on FILTER_MODE.
     """
-    symbol = market.get('symbol', '')
-    if not market.get('active'):
+    symbol = market.get("symbol", "")
+    if not market.get("active"):
         return False
 
     # Basic Futures check (CCXT structure)
-    if not (market.get('linear') or market.get('contract')):
+    if not (market.get("linear") or market.get("contract")):
         return False
 
     # Symbol format check: BASE/QUOTE:SETTLE
-    if ':' not in symbol:
+    if ":" not in symbol:
         return False
 
-    if FILTER_MODE == 'perps_usdt':
+    if FILTER_MODE == "perps_usdt":
         return (
-            market.get('quote') == 'USDT' and
-            market.get('settle') == 'USDT' and
-            market.get('contract') is True
+            market.get("quote") == "USDT"
+            and market.get("settle") == "USDT"
+            and market.get("contract") is True
         )
-    elif FILTER_MODE == 'all_futures':
-        return market.get('contract') is True
-    elif FILTER_MODE == 'allowlist_regex':
+    elif FILTER_MODE == "all_futures":
+        return market.get("contract") is True
+    elif FILTER_MODE == "allowlist_regex":
         return re.match(ALLOWLIST_REGEX, symbol) is not None
 
     return False
+
 
 def validate(markets_path, prev_whitelist_path, report_path):
     report_lines = [f"# Market Validation Report ({datetime.now(timezone.utc).isoformat()})"]
@@ -49,7 +50,7 @@ def validate(markets_path, prev_whitelist_path, report_path):
     warnings = []
 
     try:
-        with open(markets_path, 'r') as f:
+        with open(markets_path, "r") as f:
             markets = json.load(f)
     except Exception as e:
         print(f"ERROR: Could not read markets file: {e}")
@@ -69,16 +70,16 @@ def validate(markets_path, prev_whitelist_path, report_path):
     seen_symbols = set()
 
     for m in markets:
-        symbol = m.get('symbol')
+        symbol = m.get("symbol")
         if not symbol:
-            continue # skip malformed
+            continue  # skip malformed
 
         # Check required fields for schema
-        required = ['symbol', 'base', 'quote', 'active']
+        required = ["symbol", "base", "quote", "active"]
         missing = [f for f in required if f not in m]
         if missing:
             # Only warn if it's eligible, otherwise ignore
-             pass
+            pass
 
         if is_eligible(m):
             if symbol.lower() in seen_symbols:
@@ -86,8 +87,8 @@ def validate(markets_path, prev_whitelist_path, report_path):
             seen_symbols.add(symbol.lower())
 
             # Strict format check
-            if not re.match(r'^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$', symbol):
-                 errors.append(f"Invalid symbol format: {symbol}")
+            if not re.match(r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$", symbol):
+                errors.append(f"Invalid symbol format: {symbol}")
 
             eligible_markets.append(symbol)
 
@@ -96,11 +97,11 @@ def validate(markets_path, prev_whitelist_path, report_path):
     # Drift Check
     if prev_whitelist_path and os.path.exists(prev_whitelist_path):
         try:
-            with open(prev_whitelist_path, 'r') as f:
+            with open(prev_whitelist_path, "r") as f:
                 prev_data = json.load(f)
                 # Handle both Freqtrade config format and simple list
-                if isinstance(prev_data, dict) and 'exchange' in prev_data:
-                    prev_pairs = set(prev_data['exchange'].get('pair_whitelist', []))
+                if isinstance(prev_data, dict) and "exchange" in prev_data:
+                    prev_pairs = set(prev_data["exchange"].get("pair_whitelist", []))
                 elif isinstance(prev_data, list):
                     prev_pairs = set(prev_data)
                 else:
@@ -117,7 +118,9 @@ def validate(markets_path, prev_whitelist_path, report_path):
             report_lines.append(f"- Added Pairs: {len(added)}")
 
             if removal_ratio > MAX_REMOVAL_RATIO:
-                errors.append(f"Removal ratio {removal_ratio:.2%} > MAX_REMOVAL_RATIO {MAX_REMOVAL_RATIO:.2%}")
+                errors.append(
+                    f"Removal ratio {removal_ratio:.2%} > MAX_REMOVAL_RATIO {MAX_REMOVAL_RATIO:.2%}"
+                )
                 report_lines.append(f"  - BLOCKED: Too many removals!")
 
         except Exception as e:
@@ -140,7 +143,7 @@ def validate(markets_path, prev_whitelist_path, report_path):
     else:
         report_lines.append("- None")
 
-    with open(report_path, 'w') as f:
+    with open(report_path, "w") as f:
         f.write("\n".join(report_lines))
 
     if errors:
@@ -149,6 +152,7 @@ def validate(markets_path, prev_whitelist_path, report_path):
     else:
         print("Validation PASSED.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
