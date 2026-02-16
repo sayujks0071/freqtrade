@@ -3,6 +3,7 @@
 Sentinel Script (Circuit Breaker)
 Monitors account drawdown and Bitcoin crash to trigger emergency actions.
 """
+
 import argparse
 import json
 import logging
@@ -20,21 +21,14 @@ import requests
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("user_data/logs/sentinel.log")
-    ],
+    handlers=[logging.StreamHandler(), logging.FileHandler("user_data/logs/sentinel.log")],
 )
 logger = logging.getLogger("Sentinel")
 
 
 class Sentinel:
     def __init__(
-        self,
-        config_path: Path,
-        panic_sell: bool,
-        openclaw_url: str | None,
-        dry_run: bool
+        self, config_path: Path, panic_sell: bool, openclaw_url: str | None, dry_run: bool
     ):
         self.config_path = config_path
         self.panic_sell = panic_sell
@@ -92,9 +86,7 @@ class Sentinel:
             # Login
             login_url = f"{self.api_base}/token/login"
             resp = self.session.post(
-                login_url,
-                auth=(self.api_username, self.api_password),
-                timeout=10
+                login_url, auth=(self.api_username, self.api_password), timeout=10
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -133,7 +125,11 @@ class Sentinel:
         if current_balance is None:
             return False
 
-        now = datetime.now(timezone.utc).timestamp()
+        # Use timezone.utc and suppress UP017 to be compatible with older python if needed,
+        # or to satisfy ruff if we can't switch to datetime.UTC easily without import changes
+        # that might break things.
+        # Actually, adding noqa: UP017 is safe.
+        now = datetime.now(timezone.utc).timestamp()  # noqa: UP017
         self.state.append({"timestamp": now, "balance": current_balance})
 
         # Prune older than 1 hour
@@ -234,9 +230,7 @@ class Sentinel:
                 trade_id = trade["trade_id"]
                 logger.info(f"Force exiting trade {trade_id} ({trade['pair']})...")
                 res = self.session.post(
-                    f"{self.api_base}/forceexit",
-                    json={"tradeid": trade_id},
-                    timeout=10
+                    f"{self.api_base}/forceexit", json={"tradeid": trade_id}, timeout=10
                 )
                 if res.status_code == 200:
                     logger.info(f"Trade {trade_id} exited.")
@@ -250,9 +244,7 @@ class Sentinel:
             try:
                 # Assuming OpenClaw webhook accepts JSON with "message" or "text"
                 requests.post(
-                    self.openclaw_url,
-                    json={"message": message, "text": message},
-                    timeout=10
+                    self.openclaw_url, json={"message": message, "text": message}, timeout=10
                 )
                 logger.info(f"Alert sent to OpenClaw: {self.openclaw_url}")
             except Exception as e:
@@ -297,9 +289,7 @@ def main():
         "--config", type=Path, default=Path("config.json"), help="Path to config file"
     )
     parser.add_argument(
-        "--panic-sell",
-        action="store_true",
-        help="Enable panic sell (liquidation) on trigger"
+        "--panic-sell", action="store_true", help="Enable panic sell (liquidation) on trigger"
     )
     parser.add_argument("--openclaw-url", type=str, help="OpenClaw Webhook URL for alerts")
     parser.add_argument(

@@ -13,7 +13,7 @@ def mock_config(tmp_path):
             "listen_ip_address": "127.0.0.1",
             "listen_port": 8080,
             "username": "user",
-            "password": "password"
+            "password": "password",
         }
     }
     config_file = tmp_path / "config.json"
@@ -127,22 +127,19 @@ def test_trigger_emergency(mock_sentinel):
             "http://openclaw",
             json={
                 "message": "CRITICAL ALERT: Test Reason. Triggering Circuit Breaker.",
-                "text": "CRITICAL ALERT: Test Reason. Triggering Circuit Breaker."
+                "text": "CRITICAL ALERT: Test Reason. Triggering Circuit Breaker.",
             },
-            timeout=10
+            timeout=10,
         )
 
         # Stop called
         mock_sentinel.session.post.assert_any_call(
-            "http://127.0.0.1:8080/api/v1/stop",
-            timeout=10
+            "http://127.0.0.1:8080/api/v1/stop", timeout=10
         )
 
         # Panic sell called (since enabled in fixture)
         mock_sentinel.session.post.assert_any_call(
-            "http://127.0.0.1:8080/api/v1/forceexit",
-            json={"tradeid": 1},
-            timeout=10
+            "http://127.0.0.1:8080/api/v1/forceexit", json={"tradeid": 1}, timeout=10
         )
 
 
