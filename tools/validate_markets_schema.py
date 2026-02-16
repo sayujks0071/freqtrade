@@ -1,178 +1,174 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
-# Configuration
+# Config
 MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
 MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
 STRICT_VOLUME = os.environ.get("STRICT_VOLUME", "false").lower() == "true"
-
-REQUIRED_FIELDS = ["symbol", "base", "quote", "active"]
-
-
-def fail(message):
-    print(f"FAIL: {message}")
-    sys.exit(2)
+FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
+ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
 
-def warn(message):
-    print(f"WARN: {message}")
+def is_eligible(market):
+    """
+    Determines if a market is eligible for the whitelist based on FILTER_MODE.
+    """
+    symbol = market.get("symbol", "")
+    if not market.get("active"):
+        return False
 
+    # Basic Futures check (CCXT structure)
+    if not (market.get("linear") or market.get("contract")):
+        return False
 
-def validate_market_structure(i, m, errors):
-    # Required fields
-    for f in REQUIRED_FIELDS:
-        if f not in m:
-            errors.append(f"Item {i} missing field '{f}'")
-
-    symbol = m.get("symbol", "")
-    if not symbol:
-        errors.append(f"Item {i} has empty symbol")
-        return None
-    return symbol
-
-
-def validate_symbol_format(symbol, errors):
-    # Symbol format: BASE/QUOTE:SETTLE for futures usually
-    # Reject whitespace/lowercase
-    if re.search(r"\s", symbol):
-        errors.append(f"Symbol '{symbol}' contains whitespace")
-    if symbol != symbol.upper():
-        errors.append(f"Symbol '{symbol}' is not uppercase")
-    # Strict check for futures format (must have settle currency)
+    # Symbol format check: BASE/QUOTE:SETTLE
     if ":" not in symbol:
-        errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
+        return False
+
+    if FILTER_MODE == "perps_usdt":
+        return (
+            market.get("quote") == "USDT"
+            and market.get("settle") == "USDT"
+            and market.get("contract") is True
+        )
+    elif FILTER_MODE == "all_futures":
+        return market.get("contract") is True
+    elif FILTER_MODE == "allowlist_regex":
+        return re.match(ALLOWLIST_REGEX, symbol) is not None
+
+    return False
 
 
-def validate_volume(m, symbol, errors):
-    # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
-    if "volume" in m:
-        vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
-            errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
-        pass
+def load_markets(markets_path):
+    try:
+        with Path(markets_path).open("r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"ERROR: Could not read markets file: {e}")
+        sys.exit(2)
 
 
-def validate_schema(data):
-    if not isinstance(data, list):
-        fail("Root must be a list of markets")
+def check_drift(prev_whitelist_path, current_pairs, report_lines, errors, warnings):
+    if not prev_whitelist_path or not Path(prev_whitelist_path).exists():
+        report_lines.append("- No previous whitelist found (First Run)")
+        return
 
-    if len(data) < MIN_MARKETS:
-        fail(f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})")
+    try:
+        with Path(prev_whitelist_path).open("r") as f:
+            prev_data = json.load(f)
 
-    symbols = set()
+        prev_pairs = set()
+        if isinstance(prev_data, dict) and "exchange" in prev_data:
+            prev_pairs = set(prev_data["exchange"].get("pair_whitelist", []))
+        elif isinstance(prev_data, list):
+            prev_pairs = set(prev_data)
+
+        removed = prev_pairs - current_pairs
+        added = current_pairs - prev_pairs
+
+        removal_ratio = len(removed) / len(prev_pairs) if len(prev_pairs) > 0 else 0.0
+
+        report_lines.append(f"- Previous Whitelist Size: {len(prev_pairs)}")
+        report_lines.append(f"- Removed Pairs: {len(removed)} ({removal_ratio:.2%})")
+        report_lines.append(f"- Added Pairs: {len(added)}")
+
+        if removal_ratio > MAX_REMOVAL_RATIO:
+            errors.append(
+                f"Removal ratio {removal_ratio:.2%} > MAX_REMOVAL_RATIO {MAX_REMOVAL_RATIO:.2%}"
+            )
+            report_lines.append("  - BLOCKED: Too many removals!")
+
+    except Exception as e:
+        warnings.append(f"Could not read previous whitelist: {e}")
+
+
+def filter_markets(markets, report_lines):
     errors = []
+    eligible_markets = []
+    seen_symbols = set()
 
-    for i, m in enumerate(data):
-        symbol = validate_market_structure(i, m, errors)
+    for m in markets:
+        symbol = m.get("symbol")
         if not symbol:
-            continue
+            continue  # skip malformed
 
-        validate_symbol_format(symbol, errors)
+        if is_eligible(m):
+            if symbol.lower() in seen_symbols:
+                errors.append(f"Duplicate symbol found: {symbol}")
+            seen_symbols.add(symbol.lower())
 
-        # Uniqueness
-        if symbol in symbols:
-            errors.append(f"Duplicate symbol '{symbol}'")
-        symbols.add(symbol)
+            # Strict format check
+            if not re.match(r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$", symbol):
+                errors.append(f"Invalid symbol format: {symbol}")
 
-        validate_volume(m, symbol, errors)
+            eligible_markets.append(symbol)
+
+    report_lines.append(f"- Eligible Markets: {len(eligible_markets)}")
+    return eligible_markets, errors
+
+
+def validate(markets_path, prev_whitelist_path, report_path):
+    report_lines = [f"# Market Validation Report ({datetime.now(timezone.utc).isoformat()})"]
+    errors = []
+    warnings = []
+
+    markets = load_markets(markets_path)
+
+    if not isinstance(markets, list):
+        errors.append("Markets dump is not a list.")
+        sys.exit(2)
+
+    total_markets = len(markets)
+    report_lines.append(f"- Total Markets in Dump: {total_markets}")
+
+    if total_markets < MIN_MARKETS:
+        errors.append(f"Total markets ({total_markets}) < MIN_MARKETS ({MIN_MARKETS})")
+
+    eligible_markets, market_errors = filter_markets(markets, report_lines)
+    errors.extend(market_errors)
+
+    # Drift Check
+    check_drift(prev_whitelist_path, set(eligible_markets), report_lines, errors, warnings)
+
+    # Output Report
+    report_lines.append("\n## Errors")
+    if errors:
+        for e in errors:
+            report_lines.append(f"- 🔴 {e}")
+    else:
+        report_lines.append("- None")
+
+    report_lines.append("\n## Warnings")
+    if warnings:
+        for w in warnings:
+            report_lines.append(f"- ⚠️ {w}")
+    else:
+        report_lines.append("- None")
+
+    with Path(report_path).open("w") as f:
+        f.write("\n".join(report_lines))
 
     if errors:
-        fail(
-            "Schema errors:\n"
-            + "\n".join(errors[:10])
-            + (f"\n...and {len(errors) - 10} more" if len(errors) > 10 else "")
-        )
-
-    return symbols
-
-
-def validate_drift(current_symbols, previous_path):
-    prev_path_obj = Path(previous_path)
-    if not previous_path or not prev_path_obj.exists():
-        print("No previous dump found. Skipping drift check.")
-        return
-
-    try:
-        with prev_path_obj.open() as f:
-            prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
-    except Exception as e:
-        warn(f"Could not read previous dump: {e}")
-        return
-
-    removed = prev_symbols - current_symbols
-    added = current_symbols - prev_symbols
-
-    removal_ratio = len(removed) / len(prev_symbols) if len(prev_symbols) > 0 else 0.0
-
-    print(f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})")
-
-    if removal_ratio > MAX_REMOVAL_RATIO:
-        fail(
-            f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO "
-            f"({MAX_REMOVAL_RATIO}). Unsafe drift!"
-        )
-
-
-def write_report(path, message):
-    with Path(path).open("w") as f:
-        f.write(message)
-
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: validate_markets_schema.py <current_json> [previous_json]")
-        sys.exit(1)
-
-    current_path = sys.argv[1]
-    prev_path = sys.argv[2] if len(sys.argv) > 2 else None
-
-    print(f"Validating {current_path}...")
-
-    try:
-        with Path(current_path).open() as f:
-            data = json.load(f)
-    except Exception as e:
-        fail(f"Invalid JSON: {e}")
-
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
-
-    symbols = validate_schema(data)
-
-    if prev_path:
-        validate_drift(symbols, prev_path)
-
-    report = f"""# Markets Schema Validation Report
-Date: {datetime.now(UTC).isoformat()}
-Status: PASS
-Markets count: {len(symbols)}
-File: {current_path}
-"""
-    # We could write this report to a file if needed, but stdout is fine for now
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    report_file = f"user_data/reports/markets_schema_report_{ts}.md"
-    try:
-        write_report(report_file, report)
-        print(f"Report written to {report_file}")
-    except Exception as e:
-        warn(f"Could not write report: {e}")
-
-    print("VALIDATION PASS")
+        print("Validation FAILED. See report.")
+        sys.exit(2)
+    else:
+        print("Validation PASSED.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--markets", required=True)
+    parser.add_argument("--prev-whitelist", required=False)
+    parser.add_argument("--env", required=False)
+    parser.add_argument("--out-report", required=True)
+    args = parser.parse_args()
+
+    validate(args.markets, args.prev_whitelist, args.out_report)

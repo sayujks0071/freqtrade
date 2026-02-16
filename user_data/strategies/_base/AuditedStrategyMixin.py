@@ -1,56 +1,62 @@
 """
-AuditedStrategyMixin
-Mixin class for strategies to enforce audit logging and safety checks.
+Audited Strategy Mixin
 """
-
 import logging
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
 
+from freqtrade.strategy import IStrategy
 
 logger = logging.getLogger(__name__)
 
 
-class AuditedStrategyMixin:
+class AuditedStrategyMixin(IStrategy):
     """
-    Mixin for strategies to enforce audit logging and safety checks.
+    Mixin to enforce audit logging and safety checks.
+    Must be inherited by all strategies.
     """
 
-    # Type hint for the config attribute expected from IStrategy
-    config: dict[str, Any]
+    def log_signal(self, pair: str, side: str, reason: str, indicators: dict | None = None):
+        """
+        Logs a structured audit signal.
+        """
+        # Use timezone.utc explicitly
+        ts = datetime.now(timezone.utc).isoformat()
+        ind_str = str(indicators) if indicators else "{}"
+        # Format: AUDIT_SIGNAL | UTC | PAIR | SIDE | REASON | INDICATORS
+        log_msg = f"AUDIT_SIGNAL | {ts} | {pair} | {side} | {reason} | {ind_str}"
+        logger.info(log_msg)
 
-    def log_signal(
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime,
-    ) -> None:
+    def assert_pair_in_whitelist(self, pair: str):
         """
-        Log entry/exit signals to audit log.
+        Verifies that the pair is in the active whitelist.
         """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
-
-    def check_whitelist(self, pair: str) -> bool:
-        """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
+        if self.config["exchange"].get("pair_whitelist"):
             if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
+                logger.warning(f"AUDIT_FAIL: Pair {pair} not in whitelist!")
+                # In backtesting this might be fine if whitelist is dynamic,
+                # but in live this is a safety check.
+                # We don't raise error to avoid crashing bot, but we log warning.
                 return False
         return True
 
-    def normalize_pair(self, pair: str) -> str:
-        """
-        Normalize pair to uppercase.
-        """
-        return pair.upper()
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time: datetime,
+        entry_tag: str | None,
+        side: str,
+        **kwargs,
+    ) -> bool:
+
+        # Check whitelist
+        if not self.assert_pair_in_whitelist(pair):
+            return False
+
+        # Log Audit
+        self.log_signal(pair, side, entry_tag or "unknown", {})
+
+        return True

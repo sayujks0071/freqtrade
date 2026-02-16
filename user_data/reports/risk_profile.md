@@ -1,36 +1,38 @@
-# Risk Profile & Guardrails
+# Risk Profile
 
-## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+## Configuration
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+| Parameter | Value | Description |
+|---|---|---|
+| **Max Open Trades** | 10 | Maximum number of concurrent positions. |
+| **Stake Amount** | Unlimited | Uses all available capital allocated by `tradable_balance_ratio`. |
+| **Tradable Balance** | 99% | Keeps 1% buffer in wallet. |
+| **Leverage** | 1x (Default) | Strategies can override, but capped at exchange max. |
+| **Margin Mode** | Isolated | Limits risk to the position margin. |
 
-## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
+## Daily Loss Limit
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+- **Threshold**: 5% of total balance (Configurable via `DAILY_LOSS_LIMIT` env var).
+- **Action**: Stops entering new trades until the next day (00:00 UTC).
+- **Implementation**: `user_data/protections/DailyLossLimit.py`.
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+## Whitelist Safety
 
-## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+- **Filter Mode**: `perps_usdt` (Default). Only validates USDT-margined perpetuals.
+- **Drift Protection**: Updates are rejected if > 25% of pairs are removed in one day.
+- **Liquidity**: Pairs with low volume (if `STRICT_VOLUME=true`) are excluded.
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+## Strategy Constraints
+
+All strategies must pass the `Strategy Auditor` check:
+- No network calls.
+- No local time usage (must use UTC).
+- Must inherit `AuditedStrategyMixin` and log signals.
+- Must handle `confirm_trade_entry` to check whitelist.
+
+## Manual Intervention
+
+In case of emergency:
+1. **Stop Bot**: `docker compose down` or `docker stop freqtrade`.
+2. **Close Positions**: Use Exchange UI or `freqtrade forceexit`.
+3. **Blacklist**: Add pair to `pair_blacklist` in `config.delta.live.json` and reload (`docker compose restart freqtrade`).

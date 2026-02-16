@@ -1,85 +1,117 @@
 #!/usr/bin/env python3
-import os
+import argparse
 import sqlite3
-import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-import pandas as pd
 
+def generate_report(db_path, out_path, date_str=None):
+    # Ensure output dir exists
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
-# DB Path
-DB_URL = os.environ.get("DB_URL", "user_data/tradesv3.sqlite")
+    if not Path(db_path).exists():
+        print(f"Database not found: {db_path}")
+        # Create empty report
+        with Path(out_path).open("w") as f:
+            f.write(f"# Daily Trading Report ({date_str or 'Today'})\n\nNo database found.")
+        return
 
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
 
-def get_db_connection():
-    if not Path(DB_URL).exists():
-        print(f"Database not found at {DB_URL}")
-        sys.exit(1)
-    return sqlite3.connect(DB_URL)
+    if not date_str:
+        target_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    else:
+        target_date = date_str
 
+    print(f"Generating report for {target_date}...")
 
-def generate_report():
-    conn = get_db_connection()
+    # Trades table schema in Freqtrade V3:
+    # close_date is DATETIME string.
+    # exit_reason (or sell_reason in older versions)
 
-    query = """
-    SELECT * FROM trades
-    WHERE close_date >= datetime('now', '-1 day')
+    # Check if exit_reason or sell_reason exists
+    try:
+        cursor.execute("PRAGMA table_info(trades)")
+        columns = [row["name"] for row in cursor.fetchall()]
+        reason_col = "exit_reason" if "exit_reason" in columns else "sell_reason"
+    except Exception:
+        reason_col = "exit_reason"
+
+    query = f"""
+    SELECT pair, close_profit, close_date, stake_amount, {reason_col}
+    FROM trades
+    WHERE date(close_date) == ?
     AND is_open = 0
     """
 
     try:
-        df = pd.read_sql_query(query, conn)
-    except Exception as e:
-        print(f"Error querying DB: {e}")
-        # Fallback to verify table exists
-        sys.exit(1)
+        cursor.execute(query, (target_date,))
+        rows = cursor.fetchall()
+    except sqlite3.OperationalError as e:
+        print(f"Error querying database: {e}")
+        rows = []
 
     conn.close()
 
-    date_str = datetime.utcnow().strftime("%Y-%m-%d")
-    report_file = f"user_data/reports/daily_summary_{date_str}.md"
+    report_lines = [f"# Daily Trading Report: {target_date}"]
 
-    with Path(report_file).open("w") as f:
-        f.write(f"# Daily Trading Report ({date_str})\n\n")
+    if not rows:
+        report_lines.append("\nNo trades closed today.")
+    else:
+        total_trades = len(rows)
+        wins = [r for r in rows if r["close_profit"] > 0]
+        # win_rate calculation
+        win_rate = len(wins) / total_trades if total_trades > 0 else 0.0
 
-        if df.empty:
-            f.write("No closed trades in the last 24 hours.\n")
-            print(f"Report written to {report_file} (Empty)")
-            return
+        # Calculate totals
+        # close_profit is ratio. PnL = ratio * stake
+        total_profit_ratio = sum(r["close_profit"] for r in rows)
+        avg_return = total_profit_ratio / total_trades if total_trades > 0 else 0.0
 
-        # Metrics
-        total_trades = len(df)
-        wins = df[df["close_profit"] > 0]
-        win_rate = (len(wins) / total_trades) * 100
-        avg_return = df["close_profit"].mean() * 100
-        total_profit_abs = df["close_profit_abs"].sum()
+        total_pnl = sum(r["close_profit"] * r["stake_amount"] for r in rows)
 
-        # Max Drawdown (Approximate from closed trades)
-        # For real max drawdown we need high res data, but we can use cumulative profit min
-        df["cum_profit"] = df["close_profit_abs"].cumsum()
+        report_lines.append("\n## Summary")
+        report_lines.append(f"- **Total Trades**: {total_trades}")
+        report_lines.append(f"- **Win Rate**: {win_rate:.2%}")
+        report_lines.append(f"- **Avg Return**: {avg_return:.2%}")
+        report_lines.append(f"- **Total PnL**: {total_pnl:.4f} (Quote Currency)")
 
-        f.write("## Summary\n")
-        f.write(f"- **Total Trades**: {total_trades}\n")
-        f.write(f"- **Win Rate**: {win_rate:.2f}%\n")
-        f.write(f"- **Avg Return**: {avg_return:.2f}%\n")
-        f.write(f"- **Total Profit**: {total_profit_abs:.4f}\n\n")
+        # Top Pairs
+        pair_pnl = {}
+        for r in rows:
+            pair = r["pair"]
+            pnl = r["close_profit"] * r["stake_amount"]
+            pair_pnl[pair] = pair_pnl.get(pair, 0) + pnl
 
-        f.write("## Top Pairs\n")
-        top_pairs = df["pair"].value_counts().head(5)
-        for pair, count in top_pairs.items():
-            f.write(f"- {pair}: {count} trades\n")
-        f.write("\n")
+        sorted_pairs = sorted(pair_pnl.items(), key=lambda x: x[1], reverse=True)[:5]
 
-        f.write("## Top Exit Reasons\n")
-        top_reasons = df["exit_reason"].value_counts().head(5)
-        for reason, count in top_reasons.items():
-            f.write(f"- {reason}: {count}\n")
+        report_lines.append("\n## Top Pairs (PnL)")
+        for pair, pnl in sorted_pairs:
+            report_lines.append(f"- {pair}: {pnl:.4f}")
 
-        f.write("\n_Generated by Daily Report Tool_")
+        # Exit Reasons
+        reasons = {}
+        for r in rows:
+            reason = r[reason_col]
+            reasons[reason] = reasons.get(reason, 0) + 1
 
-    print(f"Report written to {report_file}")
+        report_lines.append("\n## Exit Reasons")
+        for reason, count in sorted(reasons.items(), key=lambda x: x[1], reverse=True):
+            report_lines.append(f"- {reason}: {count}")
+
+    with Path(out_path).open("w") as f:
+        f.write("\n".join(report_lines))
+
+    print(f"Report saved to {out_path}")
 
 
 if __name__ == "__main__":
-    generate_report()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--db", default="user_data/tradesv3.sqlite")
+    parser.add_argument("--out", default="user_data/reports/daily_summary.md")
+    parser.add_argument("--date", help="YYYY-MM-DD (default: today UTC)", default=None)
+    args = parser.parse_args()
+
+    generate_report(args.db, args.out, args.date)
