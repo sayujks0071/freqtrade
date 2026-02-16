@@ -93,7 +93,7 @@ def create_token(data: dict, secret_key: str, token_type: str = "access") -> str
     elif token_type == "refresh":  # noqa: S105
         expire = datetime.now(UTC) + timedelta(days=30)
     else:
-        raise ValueError()
+        raise ValueError("Invalid token type")
     to_encode.update(
         {
             "exp": expire,
