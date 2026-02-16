@@ -39,10 +39,7 @@ def mock_sentinel(mock_config):
                 # Mock state persistence to avoid file writes
                 with patch("scripts.sentinel.Sentinel.save_state"):
                     sentinel = Sentinel(
-                        mock_config,
-                        panic_sell=True,
-                        openclaw_url="http://openclaw",
-                        dry_run=False
+                        mock_config, panic_sell=True, openclaw_url="http://openclaw", dry_run=False
                     )
                     sentinel.exchange = mock_exchange
                     sentinel.session = mock_session
@@ -62,9 +59,7 @@ def test_login(mock_sentinel):
     mock_sentinel.login()
 
     mock_sentinel.session.post.assert_called_with(
-        "http://127.0.0.1:8080/api/v1/token/login",
-        auth=("user", "password"),
-        timeout=10
+        "http://127.0.0.1:8080/api/v1/token/login", auth=("user", "password"), timeout=10
     )
     assert mock_sentinel.jwt_token == "token123"
 
@@ -133,9 +128,7 @@ def test_trigger_emergency(mock_sentinel):
         )
 
         # Stop called
-        mock_sentinel.session.post.assert_any_call(
-            "http://127.0.0.1:8080/api/v1/stop", timeout=10
-        )
+        mock_sentinel.session.post.assert_any_call("http://127.0.0.1:8080/api/v1/stop", timeout=10)
 
         # Panic sell called (since enabled in fixture)
         mock_sentinel.session.post.assert_any_call(

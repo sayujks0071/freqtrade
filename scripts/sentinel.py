@@ -292,9 +292,7 @@ def main():
         "--panic-sell", action="store_true", help="Enable panic sell (liquidation) on trigger"
     )
     parser.add_argument("--openclaw-url", type=str, help="OpenClaw Webhook URL for alerts")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Dry run mode (no actions taken)"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Dry run mode (no actions taken)")
 
     args = parser.parse_args()
 
