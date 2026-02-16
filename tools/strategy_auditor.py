@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import ast
 import argparse
+import ast
 import sys
 from pathlib import Path
+
 
 REQUIRED_HEADER_FIELDS = [
     "Strategy Name",
@@ -35,6 +36,7 @@ Exit Conditions:
 No Repainting: This strategy strictly acts on closed candles.
 """
 '''
+
 
 class StrategyAuditor(ast.NodeVisitor):
     def __init__(self, filepath, fix=False):
@@ -86,14 +88,18 @@ class StrategyAuditor(ast.NodeVisitor):
         name = Path(self.filepath).stem
         header = HEADER_TEMPLATE.format(name=name)
 
-        # Insert at the beginning
-        self.modified_source = header + "".join(self.source_lines)
+        # Check for shebang
+        if self.source_lines and self.source_lines[0].startswith("#!"):
+            # Insert after shebang
+            self.modified_source = self.source_lines[0] + header + "".join(self.source_lines[1:])
+        else:
+            # Insert at the beginning
+            self.modified_source = header + "".join(self.source_lines)
 
         with Path(self.filepath).open("w", encoding="utf-8") as f:
             f.write(self.modified_source)
 
         print(f"FIXED: Inserted header into {self.filepath}")
-        # Re-read for further checks? The audit will continue on old tree, which is fine for now.
 
     def visit_FunctionDef(self, node):
         if node.name in ["populate_entry_trend", "populate_exit_trend"]:
@@ -101,19 +107,18 @@ class StrategyAuditor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def check_trend_method(self, node):
+        self._check_comments_in_method(node)
+        self._check_boolean_assignments(node)
+
+    def _check_comments_in_method(self, node):
         has_comment = False
 
-        # Check for comments (comments are not in AST, need to check source lines or heuristic)
-        # Actually, `ast` doesn't preserve comments. We can check if there are string literals (docstrings)
-        # or if the function body has any Expr(value=Constant(value=str)) which are often used as comments.
-        # But real comments starting with # are lost.
-        # However, we can use `tokenize` module or just grep lines corresponding to the function.
-
         start_line = node.lineno
-        end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10 # approximate
+        # approximate end line
+        end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10
 
         # Simple heuristic: Check if there's any '#' in the source lines of the function
-        func_source = "".join(self.source_lines[start_line-1:end_line])
+        func_source = "".join(self.source_lines[start_line - 1:end_line])
         if "#" in func_source:
             has_comment = True
 
@@ -125,6 +130,7 @@ class StrategyAuditor(ast.NodeVisitor):
         if not has_comment:
             self.errors.append(f"Method {node.name} missing comments explaining logic")
 
+    def _check_boolean_assignments(self, node):
         # Check for named booleans
         # We look for dataframe.loc[CONDITION, ...] = ...
         # If CONDITION is a BoolOp (and/or) with multiple values, it's complex.
@@ -148,13 +154,14 @@ class StrategyAuditor(ast.NodeVisitor):
 
                             if self.is_complex_condition(condition):
                                 self.errors.append(
-                                    f"Method {node.name} uses complex inline boolean condition at line {child.lineno}. "
-                                    "Use named boolean variables."
+                                    f"Method {node.name} uses complex inline boolean condition "
+                                    f"at line {child.lineno}. Use named boolean variables."
                                 )
 
     def is_dataframe_loc(self, node):
         # We expect node to be ast.Subscript
-        # node.value should be Attribute (df.loc) or Name (df) if users do df[mask] = ...
+        # node.value should be Attribute (df.loc)
+        # or Name (df) if users do df[mask] = ...
         # But Freqtrade standard is df.loc[...]
         if isinstance(node.value, ast.Attribute):
             if node.value.attr == "loc":
@@ -171,7 +178,7 @@ class StrategyAuditor(ast.NodeVisitor):
             if isinstance(node.op, (ast.BitAnd, ast.BitOr)):
                 return True
         if isinstance(node, ast.BoolOp):
-             return True
+            return True
 
         return False
 
@@ -211,6 +218,7 @@ def main():
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

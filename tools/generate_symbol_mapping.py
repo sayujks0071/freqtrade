@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-import json
 import argparse
+import json
 import sys
-from datetime import datetime, UTC
+from datetime import datetime, timezone
+from pathlib import Path
+
 
 def generate_mapping(markets_file):
     try:
-        with open(markets_file, 'r') as f:
+        with Path(markets_file).open("r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
         print(f"Error: File {markets_file} not found.", file=sys.stderr)
@@ -15,8 +17,8 @@ def generate_mapping(markets_file):
         print(f"Error: File {markets_file} is not valid JSON.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"# Delta Symbol Mapping Report")
-    print(f"Generated at: {datetime.now(UTC).isoformat()}")
+    print("# Delta Symbol Mapping Report")
+    print(f"Generated at: {datetime.now(timezone.utc).isoformat()}")  # noqa: UP017
     print(f"Source: {markets_file}")
     print("\n## Symbol Mapping")
     print("| Freqtrade Pair | Delta Contract Symbol | Type |")
@@ -46,18 +48,28 @@ def generate_mapping(markets_file):
         print(f"| `{pair}` | `{contract}` | {type_} |")
 
     print("\n## Explanation")
-    print("- **Freqtrade Pair**: The format used in Freqtrade configuration and strategies (e.g., `BTC/USDT:USDT`).")
-    print("- **Delta Contract Symbol**: The actual contract symbol on Delta Exchange (e.g., `BTCUSDT`).")
+    print(
+        "- **Freqtrade Pair**: The format used in Freqtrade configuration and strategies "
+        "(e.g., `BTC/USDT:USDT`)."
+    )
+    print(
+        "- **Delta Contract Symbol**: The actual contract symbol on Delta Exchange "
+        "(e.g., `BTCUSDT`)."
+    )
     print("- **Type**: Spot or Future.")
     print("\n### Note")
     print("Always use the 'Freqtrade Pair' format in your whitelist and strategy configuration.")
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate symbol mapping report from markets dump.")
+    parser = argparse.ArgumentParser(
+        description="Generate symbol mapping report from markets dump."
+    )
     parser.add_argument("markets_file", help="Path to the markets JSON file")
     args = parser.parse_args()
 
     generate_mapping(args.markets_file)
+
 
 if __name__ == "__main__":
     main()

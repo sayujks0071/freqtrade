@@ -18,13 +18,15 @@ No Repainting: This strategy strictly acts on closed candles.
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
+
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -109,7 +111,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: str | None,
+        entry_tag: Optional[str],  # noqa: UP045
         side: str,
         **kwargs,
     ) -> bool:
@@ -134,6 +136,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason=entry_tag or "Signal Confirmed",
             ts_utc=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True

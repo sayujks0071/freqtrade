@@ -5,10 +5,9 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 import re
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Optional
 
-from pandas import DataFrame
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         ts_utc: datetime,
-        indicators_snapshot: dict[str, Any] | None = None,
+        indicators_snapshot: Optional[dict[str, Any]] = None,  # noqa: UP045
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -39,7 +38,7 @@ class AuditedStrategyMixin:
         if ts_utc.tzinfo is None:
             # Assume UTC if naive, but log warning? Or just replace?
             # Ideally strategies pass aware datetime.
-            ts_utc = ts_utc.replace(tzinfo=UTC)
+            ts_utc = ts_utc.replace(tzinfo=timezone.utc)  # noqa: UP017
 
         indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
@@ -64,7 +63,9 @@ class AuditedStrategyMixin:
         # Check format for Futures: BASE/QUOTE:SETTLE
         # Regex: Anything/Anything:Anything
         if not re.match(r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$", pair):
-            error_msg = f"AUDIT_ERROR | Pair {pair} does not match Futures format (BASE/QUOTE:SETTLE)!"
+            error_msg = (
+                f"AUDIT_ERROR | Pair {pair} does not match Futures format (BASE/QUOTE:SETTLE)!"
+            )
             logger.error(error_msg)
             raise ValueError(error_msg)
 
