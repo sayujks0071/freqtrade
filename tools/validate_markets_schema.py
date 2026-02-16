@@ -274,9 +274,7 @@ def main():
         help="Path to candidate whitelist (not used, generating implicit candidate list)",
     )
     parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON")
-    parser.add_argument(
-        "--env", help="Target Environment (e.g., india_prod)", default="india_prod"
-    )
+    parser.add_argument("--env", help="Target Environment (e.g., india_prod)", default="india_prod")
     parser.add_argument("--out-report", help="Path to output markdown report", required=True)
 
     args = parser.parse_args()
