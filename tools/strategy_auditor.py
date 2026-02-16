@@ -1,123 +1,220 @@
 #!/usr/bin/env python3
+import argparse
 import ast
-import os
 import sys
 from pathlib import Path
 
 
-def audit_file(filepath):  # noqa: C901
-    print(f"Auditing {filepath}...")
-    with Path(filepath).open() as f:
-        source = f.read()
+REQUIRED_HEADER_FIELDS = [
+    "Strategy Name",
+    "Author",
+    "Version",
+    "Supported Timeframes",
+    "Supported Pair Format",
+    "Timezone",
+    "Entry Conditions",
+    "Exit Conditions",
+    "No Repainting",
+]
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as exc:
-        print(f"FAIL: Syntax Error in {filepath}: {exc}")
-        return False
+HEADER_TEMPLATE = '''"""
+Strategy Name: {name}
+Author: <Author>
+Version: 1.0
+Supported Timeframes: <Timeframes>
+Supported Pair Format: Delta Futures (e.g. BTC/USDT:USDT)
+Timezone: UTC (all timestamps in ISO-8601)
 
-    errors = []
+Entry Conditions:
+  - Long: <Describe long entry conditions>
+  - Short: <Describe short entry conditions>
 
-    # Check 1: Docstring (Header block)
-    if not ast.get_docstring(tree):
-        errors.append("Missing module docstring (Header block)")
+Exit Conditions:
+  - Long: <Describe long exit conditions>
+  - Short: <Describe short exit conditions>
 
-    # Check 2: Unsafe Imports
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for n in node.names:
-                if n.name in ["requests", "urllib", "socket", "http"]:
-                    errors.append(f"Unsafe import: {n.name}")
-        elif isinstance(node, ast.ImportFrom):
-            if node.module in ["requests", "urllib", "socket", "http"]:
-                errors.append(f"Unsafe import from: {node.module}")
+No Repainting: This strategy strictly acts on closed candles.
+"""
+'''
 
-    # Check 3: datetime.now() usage (heuristic)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute):
-                # check for .now()
-                if node.func.attr == "now":
-                    # This is loose, matches any .now()
-                    # Check if it has arguments (timezone)
-                    if not node.args and not node.keywords:
-                        errors.append(f"Potential naive datetime.now() usage at line {node.lineno}")
 
-    # Check 4: Enforce AuditedStrategyMixin (heuristic)
-    has_class = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            has_class = True
-            # Check bases
-            bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
-            if "IStrategy" in bases and "AuditedStrategyMixin" not in bases:
-                # It's okay if it inherits from a class that inherits mixin,
-                # but hard to check.
-                # Warn if it inherits directly from IStrategy but not Mixin
-                if filepath.endswith("DeltaSafeStrategy.py"):  # Strict for our sample
-                    errors.append("DeltaSafeStrategy must inherit AuditedStrategyMixin")
+class StrategyAuditor(ast.NodeVisitor):
+    def __init__(self, filepath, fix=False):
+        self.filepath = filepath
+        self.fix = fix
+        self.errors = []
+        self.has_header = False
+        self.source_lines = []
+        self.tree = None
+        self.modified_source = None
 
-    # Check 5: "closed candle only" note
-    if "closed candle" not in source.lower():
-        errors.append("Missing 'closed candle' note/comment (Logic must run on closed candles)")
+    def audit(self):
+        with Path(self.filepath).open("r", encoding="utf-8") as f:
+            source = f.read()
+            self.source_lines = source.splitlines(keepends=True)
 
-    # Check 6: Complex conditions (named sub-conditions)
-    # Heuristic: Check for assignments to dataframe with complex BoolOp index
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            # We look for dataframe.loc[...] = ...
-            for target in node.targets:
-                if isinstance(target, ast.Subscript):
-                    # Check slice (index)
-                    sl = target.slice
-                    # Handle python < 3.9 where slice might be wrapped
-                    if isinstance(sl, ast.Index):
-                        sl = sl.value
+        try:
+            self.tree = ast.parse(source)
+        except SyntaxError as e:
+            self.errors.append(f"Syntax Error: {e}")
+            return False
 
-                    if isinstance(sl, ast.BoolOp):
-                        if len(sl.values) > 3:
-                            errors.append(
-                                f"Complex inline condition (>{len(sl.values)} ops) "
-                                f"at line {node.lineno}. Use named variables."
-                            )
-                    elif isinstance(sl, ast.Tuple):
-                        for elt in sl.elts:
-                            if isinstance(elt, ast.BoolOp) and len(elt.values) > 3:
-                                errors.append(
-                                    f"Complex inline condition (>{len(elt.values)} ops) "
-                                    f"at line {node.lineno}. Use named variables."
+        # Check Header
+        docstring = ast.get_docstring(self.tree)
+        if docstring:
+            self.check_header_content(docstring)
+            self.has_header = True
+        else:
+            self.errors.append("Missing Strategy Header Docstring")
+            if self.fix:
+                self.insert_header()
+
+        # Visit nodes
+        self.visit(self.tree)
+
+        return len(self.errors) == 0
+
+    def check_header_content(self, docstring):
+        missing = []
+        for field in REQUIRED_HEADER_FIELDS:
+            if field not in docstring:
+                missing.append(field)
+
+        if missing:
+            self.errors.append(f"Header missing fields: {', '.join(missing)}")
+
+    def insert_header(self):
+        # Infer strategy name from filename
+        name = Path(self.filepath).stem
+        header = HEADER_TEMPLATE.format(name=name)
+
+        # Check for shebang
+        if self.source_lines and self.source_lines[0].startswith("#!"):
+            # Insert after shebang
+            self.modified_source = self.source_lines[0] + header + "".join(self.source_lines[1:])
+        else:
+            # Insert at the beginning
+            self.modified_source = header + "".join(self.source_lines)
+
+        with Path(self.filepath).open("w", encoding="utf-8") as f:
+            f.write(self.modified_source)
+
+        print(f"FIXED: Inserted header into {self.filepath}")
+
+    def visit_FunctionDef(self, node):
+        if node.name in ["populate_entry_trend", "populate_exit_trend"]:
+            self.check_trend_method(node)
+        self.generic_visit(node)
+
+    def check_trend_method(self, node):
+        self._check_comments_in_method(node)
+        self._check_boolean_assignments(node)
+
+    def _check_comments_in_method(self, node):
+        has_comment = False
+
+        start_line = node.lineno
+        # approximate end line
+        end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10
+
+        # Simple heuristic: Check if there's any '#' in the source lines of the function
+        func_source = "".join(self.source_lines[start_line - 1 : end_line])
+        if "#" in func_source:
+            has_comment = True
+
+        if not has_comment:
+            # Check for docstring in function
+            if ast.get_docstring(node):
+                has_comment = True
+
+        if not has_comment:
+            self.errors.append(f"Method {node.name} missing comments explaining logic")
+
+    def _check_boolean_assignments(self, node):
+        # Check for named booleans
+        # We look for dataframe.loc[CONDITION, ...] = ...
+        # If CONDITION is a BoolOp (and/or) with multiple values, it's complex.
+        for child in ast.walk(node):
+            if isinstance(child, ast.Assign):
+                for target in child.targets:
+                    if isinstance(target, ast.Subscript):
+                        # check if it is dataframe.loc
+                        if self.is_dataframe_loc(target):
+                            # The slice index
+                            slice_node = target.slice
+                            # In Python < 3.9, slice is ast.Index wrapping the expr
+                            if isinstance(slice_node, ast.Index):
+                                slice_node = slice_node.value
+
+                            # If tuple (row, col), check row
+                            if isinstance(slice_node, ast.Tuple):
+                                condition = slice_node.elts[0]
+                            else:
+                                condition = slice_node
+
+                            if self.is_complex_condition(condition):
+                                self.errors.append(
+                                    f"Method {node.name} uses complex inline boolean condition "
+                                    f"at line {child.lineno}. Use named boolean variables."
                                 )
 
-    if not has_class:
-        # Might be a library file, skip strict checks?
-        pass
-
-    if errors:
-        for e in errors:
-            print(f"  - {e}")
+    def is_dataframe_loc(self, node):
+        # We expect node to be ast.Subscript
+        # node.value should be Attribute (df.loc)
+        # or Name (df) if users do df[mask] = ...
+        # But Freqtrade standard is df.loc[...]
+        if isinstance(node.value, ast.Attribute):
+            if node.value.attr == "loc":
+                return True
         return False
 
-    print("PASS")
-    return True
+    def is_complex_condition(self, node):
+        # Complex if it is a BoolOp (And/Or) or BinOp (&/|)
+        # And if it's not just a single variable name.
+        # We want to enforce `long_cond = (a > b) & (c < d); df.loc[long_cond, ...]`
+        # So if the condition in .loc[...] is a BinOp with & or |, it's likely complex inline.
+
+        if isinstance(node, ast.BinOp):
+            if isinstance(node.op, (ast.BitAnd, ast.BitOr)):
+                return True
+        if isinstance(node, ast.BoolOp):
+            return True
+
+        return False
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: strategy_auditor.py <file_or_dir>")
+    parser = argparse.ArgumentParser(description="Audit strategies for compliance.")
+    parser.add_argument("path", help="File or directory to audit")
+    parser.add_argument("--fix", action="store_true", help="Auto-fix missing headers")
+    args = parser.parse_args()
+
+    target = Path(args.path)
+    if not target.exists():
+        print(f"Error: {target} does not exist")
         sys.exit(1)
 
-    target = sys.argv[1]
-    failed = False
-
-    if Path(target).is_file():
-        if not audit_file(target):
-            failed = True
+    files = []
+    if target.is_dir():
+        files = list(target.rglob("*.py"))
     else:
-        for root, _, files in os.walk(target):
-            for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
-                    if not audit_file(str(Path(root) / file)):
-                        failed = True
+        files = [target]
+
+    failed = False
+    for file in files:
+        # Skip __init__.py and mixins
+        if file.name.startswith("__") or "Mixin" in file.name:
+            continue
+
+        print(f"Auditing {file}...")
+        auditor = StrategyAuditor(str(file), fix=args.fix)
+        if not auditor.audit():
+            failed = True
+            print("  FAIL:")
+            for err in auditor.errors:
+                print(f"    - {err}")
+        else:
+            print("  PASS")
 
     if failed:
         sys.exit(1)

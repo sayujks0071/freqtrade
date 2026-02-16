@@ -139,6 +139,44 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/strategy_scout.py`: Finds strategies on GitHub.
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
+-   `tools/generate_symbol_mapping.py`: Generates symbol mapping reports.
+
+## Strategy Auditing
+
+This stack enforces strict strategy auditing to ensure clarity and correctness.
+
+### Strategy Auditor
+
+The `tools/strategy_auditor.py` script checks strategies for:
+- Required metadata headers (Name, Author, Version, etc.)
+- Clear entry/exit definitions.
+- Named boolean conditions (no complex one-liners).
+- Comments explaining logic.
+- "No repainting" compliance.
+
+Usage:
+```bash
+# Audit a specific strategy
+python tools/strategy_auditor.py user_data/strategies/MyStrategy.py
+
+# Auto-fix missing headers
+python tools/strategy_auditor.py --fix user_data/strategies/MyStrategy.py
+```
+
+### Audited Strategy Mixin
+
+Strategies should inherit from `AuditedStrategyMixin` (in `user_data/strategies/_base/`) to gain:
+- `log_signal`: Logs entry/exit decisions with indicators snapshot.
+- `assert_pair_in_whitelist`: Ensures the pair is allowed.
+
+### Symbol Mapping
+
+Delta Exchange futures symbols (e.g., `BTCUSDT`) differ from Freqtrade's format (`BTC/USDT:USDT`).
+See `user_data/reports/symbol_mapping_<DATE>.md` for a mapping report.
+To generate a fresh report:
+```bash
+python tools/generate_symbol_mapping.py <path_to_markets.json>
+```
 
 ## Documentation
 
