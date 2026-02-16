@@ -12,7 +12,6 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -33,10 +32,29 @@ def run_command(cmd, capture=True):
     return result
 
 
-def get_timerange():
+def get_timerange(days=30):
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=days)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+
+
+def ensure_data_exists():
+    """Ensures that data for the configured pairs exists."""
+    print("Ensuring data exists...")
+    # We download data for the last 30 days to be safe for backtesting
+    cmd = [
+        sys.executable,
+        "-m",
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--days",
+        "30",
+        "--timeframe",
+        "1h",
+    ]
+    run_command(cmd, capture=False)
 
 
 def get_latest_backtest_file():
@@ -118,6 +136,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -141,7 +161,9 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
         print(f"Running backtest for {strategy_name_or_list} over {timerange}...")
         cmd.extend(["--strategy", strategy_name_or_list])
 
-    run_command(cmd, capture=True)
+    result = run_command(cmd, capture=True)
+    if result.returncode != 0:
+        return None
 
     latest = get_latest_backtest_file()
     if latest:
@@ -172,16 +194,6 @@ def check_git_status():
     return True
 
 
-def get_current_branch():
-    """Get the current git branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
-    return None
-
-
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
@@ -194,6 +206,16 @@ def extract_hyperopt_params(output: str) -> dict:
     # Iterate backwards to find the last JSON block
     # Freqtrade prints the params in json format at the end when --print-json is used
     for line in reversed(lines):
+        # Check for single-line JSON
+        if line.strip().startswith("{") and line.strip().endswith("}"):
+            try:
+                params = json.loads(line)
+                if "params" in params or "minimal_roi" in params:
+                    return params
+            except json.JSONDecodeError:
+                pass
+
+        # Check for multi-line JSON
         if line.strip() == "}":
             started = True
         if started:
@@ -250,6 +272,9 @@ Examples:
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
+    # Ensure data exists
+    ensure_data_exists()
+
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
 
@@ -294,6 +319,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -320,7 +347,7 @@ Examples:
 
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
-        print(result_hyperopt.stderr)  # Print stderr on failure
+        print(result_hyperopt.stderr)
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -335,11 +362,6 @@ Examples:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
-        # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -348,7 +370,8 @@ Examples:
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
+    # Freqtrade automatically loads {StrategyName}.json if it exists in strategies dir
+    new_backtest_data = run_backtest_job(worst_strategy)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
@@ -370,6 +393,9 @@ Examples:
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
+    # The Gatekeeper Rule:
+    # Only accept the new parameters IF:
+    # New_Sharpe > (Current_Sharpe * 1.05) AND New_Drawdown < Current_Drawdown
     sharpe_improved = new_sharpe > (current_sharpe * 1.05)
     drawdown_improved = new_drawdown < current_drawdown
 
@@ -387,8 +413,13 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+                print(f"  Branch: main")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
+            # In dry-run, we revert changes to avoid dirty state
+            if not created_new:
+                shutil.move(backup_json, strategy_json)
+            else:
+                strategy_json.unlink()
         else:
             # Determine target branch
             target_branch = args.branch if args.branch else "main"
@@ -413,7 +444,6 @@ Examples:
             print(f"\nPushing to {target_branch}...")
 
             push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
             if target_branch == "main":
                 push_cmd.append("HEAD:main")
             else:
@@ -428,8 +458,8 @@ Examples:
                 print(result.stderr)
                 print("Changes are committed locally. You can manually push later.")
 
-        if backup_json.exists():
-            backup_json.unlink()
+            if backup_json.exists():
+                backup_json.unlink()
 
     else:
         print("Evaluation FAILED. Reverting changes.")
