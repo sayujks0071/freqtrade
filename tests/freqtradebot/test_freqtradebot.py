@@ -2948,6 +2948,10 @@ def test_execute_trade_exit_down(
     patch_whitelist(mocker, default_conf_usdt)
     freqtrade = FreqtradeBot(default_conf_usdt)
     patch_get_signal(freqtrade, enter_short=is_short, enter_long=not is_short)
+    mocker.patch(
+        "freqtrade.data.dataprovider.DataProvider.get_analyzed_dataframe",
+        return_value=(DataFrame([{"date": dt_now()}]), 0),
+    )
 
     # Create some test data
     freqtrade.enter_positions()
