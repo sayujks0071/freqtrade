@@ -12,6 +12,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -413,7 +414,7 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: main")
+                print("  Branch: main")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
             # In dry-run, we revert changes to avoid dirty state
             if not created_new:
