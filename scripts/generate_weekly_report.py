@@ -33,13 +33,8 @@ def get_git_log(days=7):
     """
     Get git log messages for the last N days.
     """
-    since_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-    cmd = [
-        "git",
-        "log",
-        f"--since={since_date}",
-        "--pretty=format:%s"
-    ]
+    since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cmd = ["git", "log", f"--since={since_date}", "--pretty=format:%s"]
     result = run_command(cmd)
     return result.stdout.splitlines()
 
@@ -80,11 +75,7 @@ def parse_git_updates(log_lines):
         if match:
             strategy = match.group(1).strip()
             roi = float(match.group(2))
-            updates.append({
-                "strategy": strategy,
-                "roi_improvement": roi,
-                "line": line
-            })
+            updates.append({"strategy": strategy, "roi_improvement": roi, "line": line})
     return updates
 
 
@@ -105,14 +96,10 @@ def identify_stuck_strategies(log_entries, successful_updates):
             # For now, if it was attempted and not updated, it's stuck or failed.
             # We can count failures.
             failures = [
-                e for e in log_entries
-                if e["strategy"] == strategy and not e.get("success", False)
+                e for e in log_entries if e["strategy"] == strategy and not e.get("success", False)
             ]
             if failures:
-                stuck.append({
-                    "strategy": strategy,
-                    "attempts": len(failures)
-                })
+                stuck.append({"strategy": strategy, "attempts": len(failures)})
     return stuck
 
 
@@ -151,20 +138,11 @@ def generate_report(updates, stuck, total_roi):
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Optimization Report")
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print report to stdout instead of file"
+        "--dry-run", action="store_true", help="Print report to stdout instead of file"
     )
+    parser.add_argument("--push", action="store_true", help="Commit and push the report")
     parser.add_argument(
-        "--push",
-        action="store_true",
-        help="Commit and push the report"
-    )
-    parser.add_argument(
-        "--branch",
-        type=str,
-        default="main",
-        help="Target branch to push to (default: main)"
+        "--branch", type=str, default="main", help="Target branch to push to (default: main)"
     )
     args = parser.parse_args()
 
