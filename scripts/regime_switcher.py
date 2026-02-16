@@ -10,6 +10,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 try:
     import ccxt
     import pandas as pd
@@ -37,9 +38,7 @@ def get_market_data():
     try:
         exchange = getattr(ccxt, EXCHANGE_ID)()
         ohlcv = exchange.fetch_ohlcv(PAIR, timeframe=TIMEFRAME, limit=LIMIT)
-        df = pd.DataFrame(
-            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
     except Exception as e:
@@ -157,8 +156,7 @@ def update_config(strategy_name):
 
 def log_decision(regime, strategy, metrics):
     """Logs the decision to regime_log.md"""
-    # noqa: UP017 - Suppress Ruff UP017 (prefer datetime.UTC) for compatibility
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     log_entry = f"""
 ## {timestamp}
