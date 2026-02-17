@@ -1,28 +1,19 @@
 #!/bin/bash
+set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Source common.sh for ENV vars and URL calculation
 source "$DIR/common.sh"
 
+# Set Config File
 export FREQTRADE_CONFIG_FILE="config.delta.dryrun.json"
 
-echo "Starting Freqtrade in DRY-RUN mode..."
+# Validate Exchange and Whitelist
+"$DIR/validate_exchange.sh"
+
+echo "Starting Freqtrade (Dry-Run)..."
 docker compose up -d
 
-echo "Container started."
-echo "View logs: docker compose logs -f"
-set -e
-
-# Ensure we are in the root
-cd "$(dirname "$0")/.."
-
-# Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Running bootstrap..."
-    ./scripts/bootstrap.sh
-fi
-
-echo "Switching to DRY-RUN config..."
-cp user_data/configs/config.delta.dryrun.json user_data/config.json
-
-echo "Starting Freqtrade in Docker..."
-docker compose up -d --remove-orphans
-docker compose logs -f
+echo "Freqtrade is running in dry-run mode."
+echo "Logs: user_data/logs/freqtrade.log"
+echo "UI: http://localhost:8080"
