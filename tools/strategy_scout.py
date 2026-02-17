@@ -7,6 +7,9 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
+import re
+import sys
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +24,10 @@ SEARCH_QUERIES = [
     "FreqAI strategy",
     "crypto trading strategy python freqtrade",
 ]
-KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
+KNOWN_SOURCES = [
+    "freqtrade/freqtrade-strategies",
+    "paulcpk/freqtrade-strategies-that-work",
+]
 REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
 TIMEOUT = 10
@@ -48,7 +54,7 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
+                    print(f"WARNING: Rate limit low. Resets at {reset_time}. Halting or degrading inspection.")
                     return False
             return True
         except Exception as e:
@@ -74,7 +80,7 @@ class StrategyScout:
 
             print(f"Querying: {query}")
             # Sort by stars to get best quality first
-            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 20}
+            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 30}
             try:
                 resp = self.session.get(
                     f"{GITHUB_API_URL}/search/repositories", params=params, timeout=REQUEST_TIMEOUT
@@ -118,15 +124,25 @@ class StrategyScout:
 
             # 1. License Check
             license_name = "Unknown"
-            if license_data and license_data.get("key") != "other":
-                license_name = license_data.get("name", "Unknown")
-                score += 5  # Clear license
-            elif license_data and license_data.get("key") == "other":
-                license_name = "Other (Check manually)"
-                score += 1
-            else:
-                if full_name not in KNOWN_SOURCES:
-                    continue
+            has_license = False
+
+            if license_data:
+                if license_data.get("key") != "other":
+                    license_name = license_data.get("name", "Unknown")
+                    score += 5  # Clear license
+                    has_license = True
+                elif license_data.get("key") == "other":
+                    license_name = "Other (Check manually)"
+                    score += 1
+                    has_license = True
+
+            # Reject "no license" unless it's a known source
+            if not has_license and full_name not in KNOWN_SOURCES:
+                continue
+
+            # Bonus for known sources
+            if full_name in KNOWN_SOURCES:
+                score += 5
 
             # 2. Recency
             if pushed_at:
@@ -205,6 +221,24 @@ class StrategyScout:
                         repo["scout_score"] += 2
                     if "can_short" in content:
                         repo["scout_notes"].append("Futures/Shorts mentioned")
+
+                    # Timeframe parsing
+                    tf_match = re.search(r"timeframe\s*=\s*['\"]([^'\"]+)['\"]", content)
+                    if tf_match:
+                        repo["scout_notes"].append(f"Timeframe: {tf_match.group(1)}")
+
+                    # Indicators detection
+                    indicators = []
+                    if "talib." in content:
+                        indicators.append("talib")
+                    if "qtpylib." in content:
+                        indicators.append("qtpylib")
+                    if "technical." in content:
+                        indicators.append("technical")
+                    if "pandas_ta" in content:
+                        indicators.append("pandas_ta")
+                    if indicators:
+                        repo["scout_notes"].append(f"Indicators: {', '.join(indicators)}")
 
                     # Negative heuristics
                     if "martingale" in content.lower():
@@ -359,8 +393,15 @@ class StrategyScout:
                         f.write("Please check the original repository for full license details.\n")
 
                     count += 1
+                else:
+                    print(f"Error fetching {full_name}: {resp.status_code}")
+                    # Remove empty directory
+                    if vendor_dir.exists() and not any(vendor_dir.iterdir()):
+                        vendor_dir.rmdir()
             except Exception as e:
                 print(f"Error vendoring {full_name}: {e}")
+                if vendor_dir.exists() and not any(vendor_dir.iterdir()):
+                    vendor_dir.rmdir()
 
 
 def main():
