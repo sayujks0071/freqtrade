@@ -14,7 +14,6 @@ No Repainting: True
 """
 
 from datetime import datetime
-from typing import Optional
 
 import talib.abstract as ta
 from pandas import DataFrame
@@ -93,7 +92,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: Optional[str],
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:

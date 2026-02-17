@@ -11,6 +11,7 @@ import os
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -19,8 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def generate_report(db_path, output_file, lookback_days=1):
-    if not os.path.exists(db_path):
+    if not Path(db_path).exists():
         logger.error(f"Database not found at {db_path}")
         return
 
@@ -81,7 +83,9 @@ def generate_report(db_path, output_file, lookback_days=1):
     # Markdown Report
     lines = []
     lines.append(f"# Daily Trading Report ({datetime.now(timezone.utc).date()})")
-    lines.append(f"**Generated**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(
+        f"**Generated**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
     lines.append(f"**Period**: Last {lookback_days} days (Since {start_str} UTC)")
     lines.append("")
 
@@ -102,7 +106,9 @@ def generate_report(db_path, output_file, lookback_days=1):
             pnl_pct = (r[2] * 100) if r[2] is not None else 0.0
             reason = r[7] if r[7] else "N/A"
             close_date = r[6]
-            lines.append(f"| {pair} | {pnl_abs:.4f} | {pnl_pct:.2f}% | {reason} | {close_date} |")
+            lines.append(
+                f"| {pair} | {pnl_abs:.4f} | {pnl_pct:.2f}% | {reason} | {close_date} |"
+            )
         lines.append("")
 
     if open_trades:
@@ -118,7 +124,7 @@ def generate_report(db_path, output_file, lookback_days=1):
         lines.append("")
 
     try:
-        with open(output_file, "w") as f:
+        with Path(output_file).open("w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         logger.info(f"Report generated at {output_file}")
     except Exception as e:
@@ -126,12 +132,15 @@ def generate_report(db_path, output_file, lookback_days=1):
     finally:
         conn.close()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Daily Report")
-    parser.add_argument("--db", default="user_data/tradesv3.sqlite", help="Path to database")
+    parser.add_argument(
+        "--db", default="user_data/tradesv3.sqlite", help="Path to database"
+    )
     parser.add_argument(
         "--out",
-        default=f"user_data/reports/daily_report_{datetime.now().date()}.md",
+        default=f"user_data/reports/daily_report_{datetime.now(timezone.utc).date()}.md",
         help="Output file",
     )
     parser.add_argument("--days", type=int, default=1, help="Lookback days")

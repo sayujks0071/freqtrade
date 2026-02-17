@@ -6,12 +6,10 @@ Audits Freqtrade strategies for compliance, safety, and code quality.
 Uses AST to analyze code structure and enforce rules.
 """
 
-import ast
 import argparse
+import ast
 import logging
-import os
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 # Configure logging
@@ -32,6 +30,7 @@ REQUIRED_HEADER_FIELDS = [
     "Exit Conditions",
     "No Repainting",
 ]
+
 
 class StrategyVisitor(ast.NodeVisitor):
     def __init__(self, filename):
@@ -60,7 +59,9 @@ class StrategyVisitor(ast.NodeVisitor):
                 missing_fields.append(field)
 
         if missing_fields:
-            self.errors.append(f"Docstring missing required fields: {', '.join(missing_fields)}")
+            self.errors.append(
+                f"Docstring missing required fields: {', '.join(missing_fields)}"
+            )
         else:
             self.has_valid_header = True
 
@@ -84,10 +85,14 @@ class StrategyVisitor(ast.NodeVisitor):
         # Check for datetime.now() without UTC
         if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
             # Check if called on datetime.datetime or datetime
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == "datetime":
-                 if not node.args and not node.keywords:
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "datetime"
+            ):
+                if not node.args and not node.keywords:
                     self.errors.append(
-                        f"Line {node.lineno}: datetime.now() called without timezone! Use datetime.now(timezone.utc)."
+                        f"Line {node.lineno}: datetime.now() called without timezone! "
+                        "Use datetime.now(timezone.utc)."
                     )
 
         self.generic_visit(node)
@@ -111,10 +116,12 @@ class StrategyVisitor(ast.NodeVisitor):
             # But we can check for complex BinOp in slice index.
             pass
 
+
 def audit_file(filepath, fix=False):
     logger.info(f"Auditing {filepath}...")
     try:
-        with open(filepath, "r") as f:
+        path = Path(filepath)
+        with path.open("r", encoding="utf-8") as f:
             source = f.read()
 
         tree = ast.parse(source)
@@ -141,7 +148,7 @@ def audit_file(filepath, fix=False):
 
             new_source = "".join(lines)
 
-            with open(filepath, "w") as f:
+            with path.open("w", encoding="utf-8") as f:
                 f.write(new_source)
 
             logger.info(f"Fixed header in {filepath}.")
@@ -149,7 +156,8 @@ def audit_file(filepath, fix=False):
 
         elif fix and visitor.has_docstring and not visitor.has_valid_header:
             logger.warning(
-                "Existing docstring found but invalid. Manual fix required to preserve content."
+                "Existing docstring found but invalid. "
+                "Manual fix required to preserve content."
             )
             # We don't overwrite existing docstring to avoid data loss.
 
@@ -159,11 +167,14 @@ def audit_file(filepath, fix=False):
         logger.error(f"Failed to audit {filepath}: {e}")
         return [f"Exception: {e}"], []
 
+
 def main():
     parser = argparse.ArgumentParser(description="Audit Freqtrade strategies.")
     parser.add_argument("files", nargs="+", help="Strategy files to audit")
     parser.add_argument(
-        "--fix", action="store_true", help="Attempt to fix simple issues (e.g. missing header)"
+        "--fix",
+        action="store_true",
+        help="Attempt to fix simple issues (e.g. missing header)",
     )
     args = parser.parse_args()
 
@@ -186,11 +197,14 @@ def main():
             total_warnings += len(warnings)
 
     if total_errors > 0:
-        logger.error(f"Audit FAILED with {total_errors} errors and {total_warnings} warnings.")
+        logger.error(
+            f"Audit FAILED with {total_errors} errors and {total_warnings} warnings."
+        )
         sys.exit(1)
     else:
         logger.info(f"Audit PASSED with {total_warnings} warnings.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

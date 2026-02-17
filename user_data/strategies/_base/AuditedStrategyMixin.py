@@ -5,11 +5,13 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 import os
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any
 
 from freqtrade.persistence import Trade
-# from freqtrade.strategy import IStrategy # avoiding circular import if possible, but type hint needs it?
+
+# from freqtrade.strategy import IStrategy
+# avoiding circular import if possible, but type hint needs it?
 # Just type checking.
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ class AuditedStrategyMixin:
         direction: str,
         reason: str,
         candle_date: datetime,
-        indicators: Optional[dict] = None,
+        indicators: dict | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log with strict formatting.
@@ -63,7 +65,8 @@ class AuditedStrategyMixin:
         # But config whitelist might be dynamic.
         # Freqtrade handles pair validation, but this is an extra audit check.
         # We check self.config['exchange']['pair_whitelist'] if available.
-        # But strategy runs on pairs in whitelist. So checking config is redundant unless config changes?
+        # But strategy runs on pairs in whitelist. So checking config is redundant
+        # unless config changes?
         # Safe to check.
         whitelist = self.config.get("exchange", {}).get("pair_whitelist", [])
         if whitelist and pair not in whitelist:
@@ -99,7 +102,8 @@ class AuditedStrategyMixin:
 
             # Query trades closed today
             # Use Trade.get_trades helper but filter by close_date manually in python or query
-            # Trade.get_trades returns a query object? No, list of Trade objects usually in recent versions
+            # Trade.get_trades returns a query object? No, list of Trade objects usually
+            # in recent versions
             # OR a query object in older versions.
             # In stable/develop freqtrade: Trade.get_trades(filters).all()
 

@@ -11,7 +11,8 @@ import logging
 import os
 import re
 import sys
-from typing import Any, List
+from pathlib import Path
+from typing import Any
 
 # Configure logging
 logging.basicConfig(
@@ -30,7 +31,7 @@ def parse_args():
 
 def load_json(filepath: str) -> Any:
     try:
-        with open(filepath, "r") as f:
+        with Path(filepath).open("r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         logger.error(f"Failed to load JSON from {filepath}: {e}")
@@ -53,19 +54,21 @@ def is_eligible(market: dict, filter_mode: str, allowlist_regex: str) -> bool:
         return bool(re.match(allowlist_regex, symbol))
 
     # Common checks for perps/futures
-    # Check if it's a futures contract
-    # Freqtrade/CCXT structure varies. Look for 'contract': True or 'future': True, or 'linear'/'inverse'.
+    # Freqtrade/CCXT structure varies.
+    # Look for 'contract': True or 'future': True, or 'linear'/'inverse'.
     is_contract = (
-        market.get("contract", False) or market.get("future", False) or market.get("swap", False)
+        market.get("contract", False)
+        or market.get("future", False)
+        or market.get("swap", False)
     )
     if not is_contract:
         # Some exchanges might not set this explicitly in all versions, checking type
         if market.get("type") not in ["swap", "future"]:
-             return False
+            return False
 
     # Check Quote Currency
     quote = market.get("quote", "")
-    base = market.get("base", "")
+    # base = market.get("base", "") # Unused
     settle = market.get("settle", "")  # Freqtrade adds this or CCXT does
 
     if filter_mode == "perps_usdt":
@@ -110,12 +113,13 @@ def main():
 
     # Write output
     try:
-        with open(args.out, "w") as f:
+        with Path(args.out).open("w", encoding="utf-8") as f:
             json.dump(whitelist, f, indent=4)
         logger.info(f"Generated whitelist with {len(whitelist)} pairs to {args.out}")
     except Exception as e:
         logger.error(f"Failed to write whitelist: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
