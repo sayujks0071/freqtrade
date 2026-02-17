@@ -1,68 +1,120 @@
 #!/usr/bin/env python3
+"""
+generate_whitelist.py
+
+Generates a canonical sorted whitelist from a markets JSON dump based on filtering rules.
+"""
+
+import argparse
 import json
+import logging
 import os
 import re
 import sys
 from pathlib import Path
+from typing import Any
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
-# Env
-FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
-ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate whitelist from markets dump.")
+    parser.add_argument("--markets", required=True, help="Path to markets JSON dump file")
+    parser.add_argument("--out", required=True, help="Path to output whitelist JSON file")
+    return parser.parse_args()
 
 
-def filter_markets(markets):
-    whitelist = []
-    regex = re.compile(ALLOWLIST_REGEX)
+def load_json(filepath: str) -> Any:
+    try:
+        with Path(filepath).open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to load JSON from {filepath}: {e}")
+        sys.exit(1)
 
-    for m in markets:
-        symbol = m["symbol"]
 
-        # Basic active check
-        if not m.get("active", True):
-            continue
+def is_eligible(market: dict[str, Any], filter_mode: str, allowlist_regex: str) -> bool:
+    symbol = market.get("symbol")
+    if not symbol:
+        return False
 
-        # Filter logic
-        if FILTER_MODE == "perps_usdt":
-            # Check if quote is USDT and it's a perp
-            # In ccxt/freqtrade, futures usually have 'linear' type or swap
-            # We rely on symbol string mostly for Freqtrade
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
-        elif FILTER_MODE == "all_futures":
-            whitelist.append(symbol)
-        elif FILTER_MODE == "allowlist_regex":
-            if regex.match(symbol):
-                whitelist.append(symbol)
-        else:
-            # Default to perps_usdt
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
+    # Active check
+    if not market.get("active"):
+        return False
 
-    return sorted(list(set(whitelist)))
+    if filter_mode == "allowlist_regex":
+        if not allowlist_regex:
+            logger.warning("FILTER_MODE is allowlist_regex but ALLOWLIST_REGEX is empty.")
+            return False
+        return bool(re.match(allowlist_regex, symbol))
+
+    # Common checks for perps/futures
+    # Freqtrade/CCXT structure varies.
+    # Look for 'contract': True or 'future': True, or 'linear'/'inverse'.
+    is_contract = market.get("contract", False) or market.get("future", False) or market.get("swap", False)
+    if not is_contract:
+        # Some exchanges might not set this explicitly in all versions, checking type
+        if market.get("type") not in ["swap", "future"]:
+            return False
+
+    # Check Quote Currency
+    quote = market.get("quote", "")
+    # base = market.get("base", "") # Unused
+    settle = market.get("settle", "")  # Freqtrade adds this or CCXT does
+
+    if filter_mode == "perps_usdt":
+        # Expect USDT quote and linear (usually USDT settle)
+        if quote != "USDT":
+            return False
+        # Check settle currency if available (linear)
+        # Some dumps might not have 'settle', assume quote if linear?
+        # Freqtrade usually normalizes this.
+        if settle and settle != "USDT":
+            return False
+        return True
+
+    if filter_mode == "all_futures":
+        return True
+
+    return False
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: generate_whitelist.py <markets_json>")
+    args = parse_args()
+
+    filter_mode = os.environ.get("FILTER_MODE", "perps_usdt")
+    allowlist_regex = os.environ.get("ALLOWLIST_REGEX", "")
+
+    logger.info(f"Generating whitelist with FILTER_MODE={filter_mode}")
+
+    markets_data = load_json(args.markets)
+    markets = []
+    if isinstance(markets_data, dict):
+        markets = list(markets_data.values())
+    elif isinstance(markets_data, list):
+        markets = markets_data
+
+    whitelist = []
+    for m in markets:
+        if is_eligible(m, filter_mode, allowlist_regex):
+            whitelist.append(m["symbol"])
+
+    # Sort alphabetically
+    whitelist.sort()
+
+    # Write output
+    try:
+        with Path(args.out).open("w", encoding="utf-8") as f:
+            json.dump(whitelist, f, indent=4)
+        logger.info(f"Generated whitelist with {len(whitelist)} pairs to {args.out}")
+    except Exception as e:
+        logger.error(f"Failed to write whitelist: {e}")
         sys.exit(1)
-
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
-
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
-
-    whitelist = filter_markets(data)
-
-    # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
-
-    # JSON format for Freqtrade inclusion
-    output_obj = {"exchange": {"pair_whitelist": whitelist}}
-
-    print(json.dumps(output_obj, indent=4))
 
 
 if __name__ == "__main__":

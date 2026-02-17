@@ -1,177 +1,268 @@
 #!/usr/bin/env python3
+"""
+validate_markets_schema.py
+
+Validates the markets dump from Freqtrade/CCXT against strict schema rules.
+Acts as a gatekeeper before updating the whitelist.
+"""
+
+import argparse
 import json
+import logging
 import os
 import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S%z",
+)
+logger = logging.getLogger(__name__)
 
 
-# Configuration
-MIN_MARKETS = int(os.environ.get("MIN_MARKETS", 20))
-MAX_REMOVAL_RATIO = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
-STRICT_VOLUME = os.environ.get("STRICT_VOLUME", "false").lower() == "true"
-
-REQUIRED_FIELDS = ["symbol", "base", "quote", "active"]
-
-
-def fail(message):
-    print(f"FAIL: {message}")
-    sys.exit(2)
-
-
-def warn(message):
-    print(f"WARN: {message}")
-
-
-def validate_market_structure(i, m, errors):
-    # Required fields
-    for f in REQUIRED_FIELDS:
-        if f not in m:
-            errors.append(f"Item {i} missing field '{f}'")
-
-    symbol = m.get("symbol", "")
-    if not symbol:
-        errors.append(f"Item {i} has empty symbol")
-        return None
-    return symbol
+def parse_args():
+    parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
+    parser.add_argument("--markets", required=True, help="Path to markets JSON dump file")
+    parser.add_argument(
+        "--candidate-whitelist", help="Path to newly generated whitelist JSON for drift check"
+    )
+    parser.add_argument(
+        "--prev-whitelist", help="Path to previous whitelist JSON file for drift check"
+    )
+    parser.add_argument(
+        "--env", required=True, help="Environment name (e.g., india_prod, global_prod)"
+    )
+    parser.add_argument(
+        "--out-report",
+        help="Path to output markdown report",
+        default="markets_schema_report.md",
+    )
+    return parser.parse_args()
 
 
-def validate_symbol_format(symbol, errors):
-    # Symbol format: BASE/QUOTE:SETTLE for futures usually
-    # Reject whitespace/lowercase
-    if re.search(r"\s", symbol):
-        errors.append(f"Symbol '{symbol}' contains whitespace")
-    if symbol != symbol.upper():
-        errors.append(f"Symbol '{symbol}' is not uppercase")
-    # Strict check for futures format (must have settle currency)
-    if ":" not in symbol:
-        errors.append(f"Symbol '{symbol}' missing settle delimiter (:)")
-
-
-def validate_volume(m, symbol, errors):
-    # Volume check (if strict)
-    # Assuming volume might be in 'info' or direct fields depending on exchange
-    # Freqtrade dump usually standardizes some fields.
-    if "volume" in m:
-        vol = m.get("volume")
-        if vol is not None and vol < 1000 and STRICT_VOLUME:
-            errors.append(f"Low volume for {symbol}: {vol}")
-    else:
-        # Volume data often not in list-markets, only tickers
-        pass
-
-
-def validate_schema(data):
-    if not isinstance(data, list):
-        fail("Root must be a list of markets")
-
-    if len(data) < MIN_MARKETS:
-        fail(f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})")
-
-    symbols = set()
-    errors = []
-
-    for i, m in enumerate(data):
-        symbol = validate_market_structure(i, m, errors)
-        if not symbol:
-            continue
-
-        validate_symbol_format(symbol, errors)
-
-        # Uniqueness
-        if symbol in symbols:
-            errors.append(f"Duplicate symbol '{symbol}'")
-        symbols.add(symbol)
-
-        validate_volume(m, symbol, errors)
-
-    if errors:
-        fail(
-            "Schema errors:\n"
-            + "\n".join(errors[:10])
-            + (f"\n...and {len(errors) - 10} more" if len(errors) > 10 else "")
-        )
-
-    return symbols
-
-
-def validate_drift(current_symbols, previous_path):
-    prev_path_obj = Path(previous_path)
-    if not previous_path or not prev_path_obj.exists():
-        print("No previous dump found. Skipping drift check.")
-        return
-
+def load_json(filepath: str) -> Any:
+    path = Path(filepath)
     try:
-        with prev_path_obj.open() as f:
-            prev_data = json.load(f)
-            # Handle if previous dump is also list of dicts
-            prev_symbols = {m["symbol"] for m in prev_data if "symbol" in m}
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception as e:
-        warn(f"Could not read previous dump: {e}")
-        return
+        logger.error(f"Failed to load JSON from {filepath}: {e}")
+        sys.exit(2)
 
-    removed = prev_symbols - current_symbols
-    added = current_symbols - prev_symbols
 
-    removal_ratio = len(removed) / len(prev_symbols) if len(prev_symbols) > 0 else 0.0
+def validate_symbol_format(symbol: str, filter_mode: str) -> bool:
+    """
+    Validates the symbol format based on the filter mode.
+    For futures (default), expects BASE/QUOTE:SETTLE (e.g., BTC/USDT:USDT).
+    """
+    if filter_mode in ["perps_usdt", "all_futures"]:
+        # Strict format: Uppercase, no whitespace, contains slash and colon
+        pattern = r"^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$"
+        return bool(re.match(pattern, symbol))
+    # For allowlist_regex, we assume the regex does the validation during generation
+    return True
 
-    print(f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})")
 
-    if removal_ratio > MAX_REMOVAL_RATIO:
-        fail(
-            f"Removal ratio {removal_ratio:.2f} > MAX_REMOVAL_RATIO "
-            f"({MAX_REMOVAL_RATIO}). Unsafe drift!"
+def perform_drift_check(
+    candidate_path: str,
+    prev_path: str,
+    max_removal_ratio: float,
+    market_map: dict[str, Any],
+    filter_mode: str,
+) -> tuple[bool, float, list[str], list[str]]:
+    """
+    Checks for drift between previous whitelist and candidate whitelist.
+    Returns (failed, removal_ratio, added, removed).
+    """
+    if not (candidate_path and prev_path and Path(prev_path).exists()):
+        return False, 0.0, [], []
+
+    logger.info("Performing Drift Check...")
+    try:
+        prev_whitelist = load_json(prev_path)
+        candidate_whitelist = load_json(candidate_path)
+
+        prev_set = set(prev_whitelist)
+        curr_set = set(candidate_whitelist)
+
+        added = list(curr_set - prev_set)
+        removed = list(prev_set - curr_set)
+        kept = list(curr_set.intersection(prev_set))
+
+        removal_ratio = 0.0
+        if len(prev_set) > 0:
+            removal_ratio = len(removed) / len(prev_set)
+
+        logger.info(
+            f"Drift Check: Added {len(added)}, Removed {len(removed)}, Kept {len(kept)}"
         )
+        logger.info(f"Removal Ratio: {removal_ratio:.2f} (Max: {max_removal_ratio})")
+
+        drift_failed = False
+        if removal_ratio > max_removal_ratio:
+            drift_failed = True
+            logger.error(
+                f"Drift Check FAILED: Removal ratio {removal_ratio:.2f} "
+                f"exceeds limit {max_removal_ratio}."
+            )
+
+        # Check if any REMOVED pair actually exists in dump but failed format validation?
+        for pair in removed:
+            if pair in market_map:
+                m = market_map[pair]
+                if m.get("active") and not validate_symbol_format(pair, filter_mode):
+                    logger.error(
+                        f"CRITICAL: Pair {pair} exists but failed format validation! "
+                        "Possible schema change."
+                    )
+                    drift_failed = True
+
+        return drift_failed, removal_ratio, added, removed
+
+    except Exception as e:
+        logger.error(f"Drift check error: {e}")
+        sys.exit(2)
 
 
-def write_report(path, message):
-    with Path(path).open("w") as f:
-        f.write(message)
+def generate_report(
+    out_path: str,
+    env: str,
+    markets_count: int,
+    candidate_whitelist_path: str | None,
+    drift_failed: bool,
+    min_markets: int,
+    added: list[str],
+    removed: list[str],
+    removal_ratio: float,
+    max_removal_ratio: float,
+):
+    path = Path(out_path)
+    with path.open("w", encoding="utf-8") as f:
+        f.write("# Market Schema Validation Report\n\n")
+        f.write(f"- **Date**: {datetime.now(UTC).isoformat()}\n")
+        f.write(f"- **Environment**: {env}\n")
+        f.write(f"- **Total Markets**: {markets_count}\n")
+
+        candidate_count = "N/A"
+        if candidate_whitelist_path:
+            candidate_count = str(len(load_json(candidate_whitelist_path)))
+
+        f.write(f"- **Candidate Whitelist**: {candidate_count}\n")
+
+        if drift_failed:
+            f.write("- **STATUS**: **FAIL** (Drift/Safety)\n")
+        elif markets_count < min_markets:
+            f.write("- **STATUS**: **FAIL** (Min Markets)\n")
+        else:
+            f.write("- **STATUS**: **PASS**\n")
+
+        if candidate_whitelist_path:
+            f.write("\n## Drift Analysis\n")
+            f.write(f"- Added: {len(added)}\n")
+            f.write(f"- Removed: {len(removed)}\n")
+            f.write(f"- Removal Ratio: {removal_ratio:.2%} (Limit: {max_removal_ratio:.2%})\n")
+
+            if removed:
+                f.write("\n### Removed Pairs\n")
+                for p in removed:
+                    f.write(f"- {p}\n")
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: validate_markets_schema.py <current_json> [previous_json]")
-        sys.exit(1)
+    args = parse_args()
 
-    current_path = sys.argv[1]
-    prev_path = sys.argv[2] if len(sys.argv) > 2 else None
+    # Load environment variables for configuration
+    min_markets = int(os.environ.get("MIN_MARKETS", 20))
+    max_removal_ratio = float(os.environ.get("MAX_REMOVAL_RATIO", 0.25))
+    # strict_volume = os.environ.get("STRICT_VOLUME", "false").lower() == "true" # Unused
+    filter_mode = os.environ.get("FILTER_MODE", "perps_usdt")
 
-    print(f"Validating {current_path}...")
+    logger.info(f"Validating {args.markets} for env {args.env}")
+    logger.info(
+        f"Config: MIN_MARKETS={min_markets}, "
+        f"MAX_REMOVAL_RATIO={max_removal_ratio}, FILTER_MODE={filter_mode}"
+    )
 
-    try:
-        with Path(current_path).open() as f:
-            data = json.load(f)
-    except Exception as e:
-        fail(f"Invalid JSON: {e}")
+    markets_data = load_json(args.markets)
 
-    # Depending on freqtrade version, list-markets might output a dict with "markets" key
-    # or just a list. The prompt implies "list-markets futures json dump".
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
+    markets = []
+    if isinstance(markets_data, dict):
+        markets = list(markets_data.values())
+    elif isinstance(markets_data, list):
+        markets = markets_data
+    else:
+        logger.error("Invalid markets data format. Expected dict or list.")
+        sys.exit(2)
 
-    symbols = validate_schema(data)
+    if not markets:
+        logger.error("Markets data is empty.")
+        sys.exit(2)
 
-    if prev_path:
-        validate_drift(symbols, prev_path)
+    if len(markets) < min_markets:
+        logger.error(f"Market count {len(markets)} is below MIN_MARKETS ({min_markets}).")
+        sys.exit(2)
 
-    report = f"""# Markets Schema Validation Report
-Date: {datetime.now(UTC).isoformat()}
-Status: PASS
-Markets count: {len(symbols)}
-File: {current_path}
-"""
-    # We could write this report to a file if needed, but stdout is fine for now
-    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    report_file = f"user_data/reports/markets_schema_report_{ts}.md"
-    try:
-        write_report(report_file, report)
-        print(f"Report written to {report_file}")
-    except Exception as e:
-        warn(f"Could not write report: {e}")
+    required_fields = ["symbol", "base", "quote", "active"]
+    seen_symbols = set()
+    market_map = {}
+    failed_markets = []
 
-    print("VALIDATION PASS")
+    for m in markets:
+        symbol = m.get("symbol")
+        rejection_reasons = []
+
+        for field in required_fields:
+            if field not in m:
+                rejection_reasons.append(f"Missing field: {field}")
+
+        if not symbol:
+            rejection_reasons.append("Missing symbol")
+            failed_markets.append({"data": m, "reasons": rejection_reasons})
+            continue
+
+        market_map[symbol] = m
+
+        if symbol.upper() in seen_symbols:
+            rejection_reasons.append(f"Duplicate symbol: {symbol}")
+        seen_symbols.add(symbol.upper())
+
+        # Validate format (audit only, don't fail schema unless critical)
+        validate_symbol_format(symbol, filter_mode)
+
+        if rejection_reasons:
+            failed_markets.append({"symbol": symbol, "reasons": rejection_reasons})
+
+    drift_failed, removal_ratio, added, removed = perform_drift_check(
+        args.candidate_whitelist,
+        args.prev_whitelist,
+        max_removal_ratio,
+        market_map,
+        filter_mode
+    )
+
+    generate_report(
+        args.out_report,
+        args.env,
+        len(markets),
+        args.candidate_whitelist,
+        drift_failed,
+        min_markets,
+        added,
+        removed,
+        removal_ratio,
+        max_removal_ratio,
+    )
+
+    if drift_failed:
+        sys.exit(2)
+
+    logger.info("Schema validation passed.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":

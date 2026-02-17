@@ -1,13 +1,18 @@
 #!/bin/bash
+# Common setup for scripts
 
-# Load .env
-if [ -f .env ]; then
-    # echo "Loading .env..."
+# Determine the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Load .env file if it exists
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    # echo "Loading .env from $PROJECT_ROOT/.env..."
     set -a
-    . .env
+    . "$PROJECT_ROOT/.env"
     set +a
 else
-    echo "No .env file found. Proceeding with environment variables..."
+    echo "No .env file found at $PROJECT_ROOT/.env. Proceeding with environment variables..."
 fi
 
 if [ -z "$DELTA_ENV" ]; then
@@ -28,7 +33,6 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
         echo "Unknown DELTA_ENV: $DELTA_ENV"
