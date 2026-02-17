@@ -1,8 +1,11 @@
-import pytest
-from freqtrade.rpc.api_server.webserver import ApiServer
-from freqtrade.rpc.api_server.api_auth import create_token, get_user_from_token
 from unittest.mock import MagicMock
+
+import pytest
 from fastapi import HTTPException
+
+from freqtrade.rpc.api_server.api_auth import create_token, get_user_from_token
+from freqtrade.rpc.api_server.webserver import ApiServer
+
 
 def test_jwt_secret_generation(default_conf, mocker):
     # Ensure api_server key exists
@@ -19,7 +22,7 @@ def test_jwt_secret_generation(default_conf, mocker):
 
     # Initialize ApiServer
     ApiServer.shutdown()
-    apiserver = ApiServer(default_conf)
+    ApiServer(default_conf)
 
     # Check that a key was generated
     secret = default_conf["api_server"].get("jwt_secret_key")
