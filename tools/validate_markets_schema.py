@@ -86,26 +86,20 @@ def validate_symbol_format(symbol, errors):
             )
 
 
-def validate_volume_limits(m, symbol, errors):
-    # Check for clearly invalid numeric fields
-    # numeric fields to check: volume, precision, limits
+def check_volume_field(m, symbol, key, errors):
+    if key in m and m[key] is not None:
+        try:
+            val = float(m[key])
+            if val < 0:
+                errors.append(f"{symbol}: Negative {key} {val}")
+            # Check for NaN/Inf
+            if val != val or val == float("inf"):
+                errors.append(f"{symbol}: Invalid {key} {val}")
+        except ValueError:
+            errors.append(f"{symbol}: Non-numeric {key} {m[key]}")
 
-    # Volume
-    # Freqtrade dump usually puts quoteVolume in 'quoteVolume' or just 'volume'
-    # depending on exchange. We check standard ccxt fields if present
-    for key in ["volume", "quoteVolume"]:
-        if key in m and m[key] is not None:
-            try:
-                val = float(m[key])
-                if val < 0:
-                    errors.append(f"{symbol}: Negative {key} {val}")
-                # Check for NaN/Inf
-                if val != val or val == float("inf"):
-                    errors.append(f"{symbol}: Invalid {key} {val}")
-            except ValueError:
-                errors.append(f"{symbol}: Non-numeric {key} {m[key]}")
 
-    # Optionally filter out near-zero volume markets if volume is available
+def check_low_volume(m, symbol, errors):
     vol = m.get("quoteVolume", m.get("volume"))
     if vol is not None:
         try:
@@ -122,6 +116,20 @@ def validate_volume_limits(m, symbol, errors):
             pass
         except Exception as e:
             warn(f"Unexpected error checking volume for {symbol}: {e}")
+
+
+def validate_volume_limits(m, symbol, errors):
+    # Check for clearly invalid numeric fields
+    # numeric fields to check: volume, precision, limits
+
+    # Volume
+    # Freqtrade dump usually puts quoteVolume in 'quoteVolume' or just 'volume'
+    # depending on exchange. We check standard ccxt fields if present
+    for key in ["volume", "quoteVolume"]:
+        check_volume_field(m, symbol, key, errors)
+
+    # Optionally filter out near-zero volume markets if volume is available
+    check_low_volume(m, symbol, errors)
 
 
 def validate_environment_sanity(data, env, errors):
