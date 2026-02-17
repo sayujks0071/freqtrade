@@ -16,24 +16,21 @@ LOG_FILE = Path("optimization_log.txt")
 REPORT_FILE = Path("WEEKLY_REPORT.md")
 DAYS_LOOKBACK = 7
 
+
 def run_command(cmd, capture=True):
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
     return result
 
+
 def get_git_log(days=7):
     """
     Parses git log for 'perf: optimized' messages in the last N days.
     Returns a list of dicts: {'strategy': str, 'roi': float, 'hash': str, 'date': str}
     """
-    since_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-    cmd = [
-        "git", "log",
-        f"--since={since_date}",
-        "--pretty=format:%H|%ad|%s",
-        "--date=short"
-    ]
+    since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cmd = ["git", "log", f"--since={since_date}", "--pretty=format:%H|%ad|%s", "--date=short"]
     result = run_command(cmd)
     commits = []
 
@@ -49,13 +46,11 @@ def get_git_log(days=7):
             if match:
                 strategy = match.group(1)
                 roi = float(match.group(2))
-                commits.append({
-                    "strategy": strategy,
-                    "roi": roi,
-                    "hash": commit_hash,
-                    "date": date
-                })
+                commits.append(
+                    {"strategy": strategy, "roi": roi, "hash": commit_hash, "date": date}
+                )
     return commits
+
 
 def parse_optimization_log(days=7):
     """
@@ -88,15 +83,12 @@ def parse_optimization_log(days=7):
                 strategy = strategy_part.split(": ")[1]
                 status = status_part.split(": ")[1]
 
-                entries.append({
-                    "timestamp": timestamp,
-                    "strategy": strategy,
-                    "status": status
-                })
+                entries.append({"timestamp": timestamp, "strategy": strategy, "status": status})
             except (ValueError, IndexError):
                 continue
 
     return entries
+
 
 def generate_report():
     print(f"Generating report for last {DAYS_LOOKBACK} days...")
@@ -106,7 +98,7 @@ def generate_report():
     log_entries = parse_optimization_log(DAYS_LOOKBACK)
 
     # 2. Analyze Updates
-    updated_strategies = {} # strategy -> total_roi_improvement
+    updated_strategies = {}  # strategy -> total_roi_improvement
     total_roi_improvement = 0.0
 
     for commit in git_updates:
@@ -177,6 +169,7 @@ def generate_report():
 
     return True
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Do not commit or push")
@@ -218,6 +211,7 @@ def main():
             print("Successfully pushed report.")
         else:
             print("Failed to push report.")
+
 
 if __name__ == "__main__":
     main()
