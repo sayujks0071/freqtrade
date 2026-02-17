@@ -10,7 +10,6 @@ from freqtrade.strategy import IStrategy
 # --------------------------------
 # Add your lib to import here
 import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 from datetime import datetime
 from freqtrade.persistence import Trade
 
@@ -59,7 +58,7 @@ class CustomStoplossWithPSAR(IStrategy):
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
                 # calculate new_stoploss relative to current_rate
                 new_stoploss = (current_rate - relative_sl) / current_rate
-                # turn into relative negative offset required by `custom_stoploss` return implementation
+                # turn into relative negative offset required by `custom_stoploss` return implementation  # noqa: E501
                 result = new_stoploss - 1
 
         # print("custom_stoploss() -> {}".format(result))

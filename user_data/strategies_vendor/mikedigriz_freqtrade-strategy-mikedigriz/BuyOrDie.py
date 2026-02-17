@@ -1,9 +1,7 @@
+from pandas import DataFrame
+
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-import numpy as np
-import talib.abstract as ta
 from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame, DatetimeIndex, merge, Series
-from technical.indicators import hull_moving_average
 
 
 class BuyOrDie(IStrategy):

@@ -9,7 +9,7 @@
 - **Strategies Found:** 24
 - **Last Update:** 2026-01-17
 - **Description:** Free trading strategies for Freqtrade bot
-- **Notes:** Has stoploss, Has ROI, Timeframe: 15m, Indicators: talib, qtpylib
+- **Notes:** Has ROI, Has stoploss, Indicators: talib, qtpylib, Timeframe: 15m, Timeframe: 1h, Timeframe: 5m
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 2. [paulcpk/freqtrade-strategies-that-work](https://github.com/paulcpk/freqtrade-strategies-that-work)
@@ -19,7 +19,7 @@
 - **Strategies Found:** 5
 - **Last Update:** 2021-06-14
 - **Description:** Crypto Trading Strategies for the freqtrade.io trading bot
-- **Notes:** Has stoploss, Has ROI, Timeframe: 1h, Indicators: talib, qtpylib
+- **Notes:** Has ROI, Has stoploss, Indicators: talib, qtpylib, Timeframe: 1h
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 3. [iterativv/NostalgiaForInfinity](https://github.com/iterativv/NostalgiaForInfinity)
@@ -38,7 +38,7 @@
 - **Strategies Found:** 1
 - **Last Update:** 2025-12-25
 - **Description:** Reinforcement learning crypto trading strategy built with Freqtrade and Python.
-- **Notes:** Has stoploss, Has ROI, Timeframe: 5m, Indicators: talib
+- **Notes:** Has ROI, Has stoploss, Indicators: talib, Timeframe: 5m
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 5. [mikedigriz/freqtrade-strategy-mikedigriz](https://github.com/mikedigriz/freqtrade-strategy-mikedigriz)
@@ -48,7 +48,7 @@
 - **Strategies Found:** 6
 - **Last Update:** 2024-11-17
 - **Description:** Strategy for crypto trading bot freqtrade and some useful utils
-- **Notes:** Has stoploss, Has ROI, Timeframe: 5m, Indicators: talib, qtpylib, technical
+- **Notes:** Has ROI, Has stoploss, Indicators: qtpylib, technical, Indicators: talib, qtpylib, Indicators: talib, qtpylib, technical, Timeframe: 1m, Timeframe: 5m
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 6. [imsatoshi/GeneTrader](https://github.com/imsatoshi/GeneTrader)
@@ -58,7 +58,7 @@
 - **Strategies Found:** 1
 - **Last Update:** 2026-01-11
 - **Description:** Genetic Algorithm Optimization for Trading Strategies
-- **Notes:** Has stoploss, Has ROI, Timeframe: 5m, Indicators: talib, qtpylib, technical, pandas_ta
+- **Notes:** Has ROI, Has stoploss, Indicators: talib, qtpylib, technical, pandas_ta, Timeframe: 5m
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 7. [jilv220/BB_RPB_TSL](https://github.com/jilv220/BB_RPB_TSL)
@@ -68,7 +68,7 @@
 - **Strategies Found:** 3
 - **Last Update:** 2022-02-21
 - **Description:** A Trading strategy for the Freqtrade crypto bot.
-- **Notes:** Has stoploss, Has ROI, Timeframe: 5m, Indicators: talib, qtpylib, technical, pandas_ta
+- **Notes:** Has ROI, Has stoploss, Indicators: talib, qtpylib, technical, pandas_ta, Timeframe: 5m
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 8. [markdregan/FreqAI-Marcos-Lopez-De-Prado](https://github.com/markdregan/FreqAI-Marcos-Lopez-De-Prado)
@@ -78,7 +78,7 @@
 - **Strategies Found:** 12
 - **Last Update:** 2024-04-15
 - **Description:** Implementation of "Advances in Financial Machine Learning" quant trading strategies in python (building upon Freqtrade / FreqAI open source project)
-- **Notes:** Has stoploss, Has ROI, Futures/Shorts mentioned, Indicators: talib, qtpylib
+- **Notes:** Futures/Shorts mentioned, Has ROI, Has stoploss, Indicators: talib, qtpylib
 - **Adoption Notes:** Seems to support futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 9. [froggleston/cryptofrog-strategies](https://github.com/froggleston/cryptofrog-strategies)
@@ -88,7 +88,7 @@
 - **Strategies Found:** 2
 - **Last Update:** 2022-03-02
 - **Description:** Strategies for freqtrade
-- **Notes:** Has stoploss, Has ROI, Timeframe: 5m, Indicators: talib, qtpylib
+- **Notes:** Has ROI, Has stoploss, Indicators: talib, qtpylib, Timeframe: 5m
 - **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ### 10. [keryc/crypto-bot](https://github.com/keryc/crypto-bot)
@@ -98,14 +98,14 @@
 - **Strategies Found:** 2
 - **Last Update:** 2024-09-20
 - **Description:** Freqtrade Bot with NostalgiaForInfinity Strategy
-- **Notes:** Has stoploss, Has ROI, Timeframe: 5m, Indicators: talib, qtpylib, technical, pandas_ta
-- **Adoption Notes:** Check for `can_short` if trading futures. Verify `stoploss` and `leverage` settings for Delta futures.
+- **Notes:** Futures/Shorts mentioned, Has ROI, Has stoploss, Indicators: talib, qtpylib, Indicators: talib, qtpylib, technical, pandas_ta, Timeframe: 5m
+- **Adoption Notes:** Seems to support futures. Verify `stoploss` and `leverage` settings for Delta futures.
 
 ## Other Candidates
 
 | Rank | Repository | Score | Stars | License |
 |---|---|---|---|---|
 | 11 | [Rikj000/MoniGoMani](https://github.com/Rikj000/MoniGoMani) | 11 | 1025 | GNU General Public License v3.0 |
-| 12 | [rainfu/xcoin](https://github.com/rainfu/xcoin) | 3 | 59 | MIT License |
-| 13 | [davidzr/freqtrade-strategies](https://github.com/davidzr/freqtrade-strategies) | 3 | 541 | GNU General Public License v3.0 |
-| 14 | [freqtrade/berlinguyinca-trading-strategies](https://github.com/freqtrade/berlinguyinca-trading-strategies) | 0 | 51 | MIT License |
+| 12 | [freqtrade/berlinguyinca-trading-strategies](https://github.com/freqtrade/berlinguyinca-trading-strategies) | 0 | 51 | MIT License |
+| 13 | [rainfu/xcoin](https://github.com/rainfu/xcoin) | -2 | 59 | MIT License |
+| 14 | [davidzr/freqtrade-strategies](https://github.com/davidzr/freqtrade-strategies) | -2 | 541 | GNU General Public License v3.0 |

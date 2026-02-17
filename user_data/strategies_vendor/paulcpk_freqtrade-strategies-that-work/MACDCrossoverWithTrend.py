@@ -1,8 +1,9 @@
-from freqtrade.strategy import IStrategy, merge_informative_pair
-from pandas import DataFrame
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy  # noqa
+import talib.abstract as ta
+from pandas import DataFrame
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.strategy import IStrategy
 
 
 class MACDCrossoverWithTrend(IStrategy):
@@ -14,8 +15,10 @@ class MACDCrossoverWithTrend(IStrategy):
     How to use it?
 
     > freqtrade download-data --timeframes 1h --timerange=20180301-20200301
-    > freqtrade backtesting --export trades -s MACDCrossoverWithTrend --timeframe 1h --timerange=20180301-20200301
-    > freqtrade plot-dataframe -s MACDCrossoverWithTrend --indicators1 ema100 --timeframe 1h --timerange=20180301-20200301
+    > freqtrade backtesting --export trades -s MACDCrossoverWithTrend \\
+      --timeframe 1h --timerange=20180301-20200301
+    > freqtrade plot-dataframe -s MACDCrossoverWithTrend --indicators1 ema100 \\
+      --timeframe 1h --timerange=20180301-20200301
 
     """
 

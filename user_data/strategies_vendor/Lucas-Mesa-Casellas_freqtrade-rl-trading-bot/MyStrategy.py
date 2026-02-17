@@ -1,7 +1,8 @@
-from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame
 import talib.abstract as ta
-from freqtrade.strategy import IntParameter, CategoricalParameter
+from pandas import DataFrame
+
+from freqtrade.strategy import IntParameter
+from freqtrade.strategy.interface import IStrategy
 
 
 class MyStrategy(IStrategy):
