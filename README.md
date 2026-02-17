@@ -1,6 +1,6 @@
-# Freqtrade Delta Exchange Stack
+# Delta Exchange Trading Stack (Freqtrade)
 
-This repository contains a production-ready setup for trading on Delta Exchange (Global or India) using Freqtrade.
+This repository contains a production-ready crypto trading stack for Delta Exchange (India + Global), built on Freqtrade.
 
 ## ⚠️ Financial Risk Warning
 
@@ -14,7 +14,7 @@ This software is for educational purposes. Use at your own risk.
 - A Delta Exchange Account (Global or India)
 - API Keys (Trading permissions only, **NO** withdrawal permissions)
 
-## Setup Guide
+## Quick Start
 
 ### 1. Bootstrap
 
@@ -35,18 +35,19 @@ nano .env
   - `india_testnet` for Testnet
 - Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
 
-### 3. Validate Exchange Connection
+### 3. Fetch Markets & Whitelist
 
-Before starting, verify your credentials and market data availability:
 ```bash
-./scripts/validate_exchange.sh
+./scripts/update_markets_and_whitelist.sh
 ```
-This script will:
-1. Fetch available markets from Delta.
-2. Save the market list to `user_data/reports/`.
-3. Verify that the pairs in `user_data/configs/config.delta.dryrun.json` exist and are active.
+This fetches active markets, validates schema, and generates `user_data/pairlists/whitelist.delta.json`.
 
-If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
+**Validation Settings (in `.env`):**
+- `MIN_MARKETS`: Minimum number of markets required (default 20).
+- `MAX_REMOVAL_RATIO`: Max allowed ratio of removed pairs to prevent drift (default 0.25).
+- `STRICT_VOLUME`: If `true`, fails validation on low volume markets (default `false`).
+- `FILTER_MODE`: Selection mode (`perps_usdt`, `all_futures`, `allowlist_regex`).
+- `ALLOWLIST_REGEX`: Regex pattern for `allowlist_regex` mode.
 
 ### 4. Start Dry-Run
 
@@ -71,55 +72,6 @@ Start the bot in Dry-Run mode (simulated trading with live data):
    ```bash
    ./scripts/run_live.sh
    ```
-   Confirm the prompt to start.
-
-## Troubleshooting
-
-- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
-- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
-- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
-- **Time Drift:** Ensure your server time is synced (`ntp`).
-
-## Directory Structure
-
-- `docker-compose.yml`: Main service definition.
-- `user_data/configs/`: Configuration files (dryrun vs live).
-- `scripts/`: Helper scripts for management.
-- `.env`: Secrets (Git-ignored).
-# Delta Exchange Trading Stack (Freqtrade)
-
-This repository is configured as a production-ready crypto trading stack for Delta Exchange (India + Global), built on Freqtrade.
-
-## Quick Start
-
-1.  **Bootstrap**:
-    ```bash
-    ./scripts/bootstrap.sh
-    ```
-    This creates necessary directories and copies `.env.example` to `.env`.
-
-2.  **Configure**:
-    Edit `.env` with your Delta Exchange credentials.
-    - `DELTA_ENV`: `india_prod`, `global_prod`, or `india_testnet`.
-    - `DELTA_API_KEY` / `SECRET`.
-
-3.  **Fetch Markets & Whitelist**:
-    ```bash
-    ./scripts/update_markets_and_whitelist.sh
-    ```
-    This fetches active markets, validates schema, and generates `user_data/pairlists/whitelist.delta.json`.
-
-4.  **Run Dry-Run**:
-    ```bash
-    ./scripts/run_dryrun.sh
-    ```
-    Starts Freqtrade in Docker with `config.delta.dryrun.json`.
-
-5.  **Run Live**:
-    ```bash
-    ./scripts/run_live.sh
-    ```
-    **WARNING**: This uses real money. Ensure you have tested thoroughly.
 
 ## Key Features
 
@@ -140,10 +92,19 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
 
-## Documentation
+## Troubleshooting
 
--   [Risk Profile](user_data/reports/risk_profile.md)
--   [Freqtrade Documentation](https://www.freqtrade.io)
+- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
+- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
+- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
+- **Time Drift:** Ensure your server time is synced (`ntp`).
+
+## Directory Structure
+
+- `docker-compose.yml`: Main service definition.
+- `user_data/configs/`: Configuration files (dryrun vs live).
+- `scripts/`: Helper scripts for management.
+- `.env`: Secrets (Git-ignored).
 
 ---
 

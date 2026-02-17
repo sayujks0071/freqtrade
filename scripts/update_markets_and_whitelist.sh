@@ -4,88 +4,85 @@ set -e
 # Ensure root
 cd "$(dirname "$0")/.."
 
-DELTA_ENV=${DELTA_ENV:-india_testnet}
+# Source common environment setup if available, ensuring env vars are loaded
+if [ -f "scripts/common.sh" ]; then
+    source scripts/common.sh
+else
+    # Fallback if common.sh missing
+    if [ -f .env ]; then
+        export $(grep -v '^#' .env | xargs)
+    fi
+    DELTA_ENV=${DELTA_ENV:-india_testnet}
+fi
+
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
 REPORTS_DIR="user_data/reports"
 PAIRLISTS_DIR="user_data/pairlists"
 MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
+WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
+REPORT_FILE="$REPORTS_DIR/markets_schema_report_${TIMESTAMP}.md"
 
 mkdir -p $REPORTS_DIR
 mkdir -p $PAIRLISTS_DIR
 
-# Find latest previous dump
-PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
-
 echo "Fetching markets for $DELTA_ENV..."
 
-# Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
-if [ -f .env ]; then
-    export $(cat .env | xargs)
-fi
-
-# We use a temporary file for the docker output because of potential log noise
+# Use a temporary file for the raw output
 TEMP_OUTPUT=$(mktemp)
 
 # Command to fetch markets.
-# We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
-
+# We use the dryrun config which should have the exchange configured.
 docker compose run --rm freqtrade list-markets \
     --config /freqtrade/user_data/configs/config.delta.dryrun.json \
     --print-json > $TEMP_OUTPUT
 
-# Check if successful
+# Check if docker command succeeded (basic check)
 if [ $? -ne 0 ]; then
     echo "Failed to fetch markets"
     rm $TEMP_OUTPUT
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
-
-mv $TEMP_OUTPUT $MARKETS_FILE
-
 echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
+# Run the Python validator
+# We allow it to fail (set +e) to handle the exit code manually
+set +e
+python3 tools/validate_markets_schema.py \
+    --markets "$TEMP_OUTPUT" \
+    --prev-whitelist "$WHITELIST_JSON" \
+    --env "$DELTA_ENV" \
+    --out-report "$REPORT_FILE"
 
-echo "Generating whitelist..."
-WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
-WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
+VALID_EXIT_CODE=$?
+set -e
 
-python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
+if [ $VALID_EXIT_CODE -eq 0 ]; then
+    echo "Validation PASS."
 
-# Also generate TXT list (symbols only)
-grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
+    # Move valid dump to final location
+    mv "$TEMP_OUTPUT" "$MARKETS_FILE"
 
-echo "Whitelist updated at $WHITELIST_JSON"
+    echo "Generating whitelist..."
 
-# Drift Report (Diff)
-if [ -n "$PREV_DUMP" ]; then
-    DIFF_FILE="$REPORTS_DIR/whitelist_diff_${TIMESTAMP}.md"
-    echo "# Whitelist Drift Report" > $DIFF_FILE
-    echo "Date: $TIMESTAMP" >> $DIFF_FILE
-    echo "Previous: $PREV_DUMP" >> $DIFF_FILE
-    echo "Current: $MARKETS_FILE" >> $DIFF_FILE
-    echo "" >> $DIFF_FILE
-    echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
-    echo "Generated via update script." >> $DIFF_FILE
+    python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
+
+    # Also generate TXT list (symbols only)
+    WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
+    grep -o '"[^"]*:[^"]*"' "$WHITELIST_JSON" | tr -d '"' > "$WHITELIST_TXT"
+
+    echo "Whitelist updated at $WHITELIST_JSON"
+
+    # Clean up old dumps (keep last 7)
+    ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
+
+    echo "Done."
+else
+    echo "Validation FAIL. See report at $REPORT_FILE"
+
+    # Save the failed dump for debugging
+    FAILED_DUMP="$REPORTS_DIR/markets_${TIMESTAMP}_FAILED.json"
+    mv "$TEMP_OUTPUT" "$FAILED_DUMP"
+    echo "Failed dump saved to $FAILED_DUMP"
+
+    exit 1
 fi
-
-# Clean up old dumps (keep last 7)
-ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
-
-echo "Done."
