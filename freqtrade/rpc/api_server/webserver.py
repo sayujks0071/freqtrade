@@ -1,4 +1,5 @@
 import logging
+import secrets
 from ipaddress import ip_address
 from typing import Any
 
@@ -130,6 +131,14 @@ class ApiServer(RPCHandler):
         ApiServer.__initialized = True
 
         api_config = self._config["api_server"]
+
+        if api_config.get("jwt_secret_key", "super-secret") in ("super-secret", "somethingrandom"):
+            logger.warning(
+                "SECURITY WARNING - `jwt_secret_key` seems to be default. "
+                "Others may be able to log into your bot. "
+                "Generating a random key for this session."
+            )
+            api_config["jwt_secret_key"] = secrets.token_urlsafe(32)
 
         self.app = FastAPI(
             title="Freqtrade API",
