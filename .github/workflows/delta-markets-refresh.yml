@@ -33,17 +33,15 @@ jobs:
     env:
       DELTA_ENV: ${{ github.event.inputs.delta_env || 'india_prod' }}
       FILTER_MODE: ${{ github.event.inputs.filter_mode || 'perps_usdt' }}
-      # Secrets should be used for API access if needed, but list-markets might work without key for public info.
-      # If not, add secrets.
       DELTA_API_KEY: ${{ secrets.DELTA_API_KEY }}
       DELTA_API_SECRET: ${{ secrets.DELTA_API_SECRET }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -72,7 +70,7 @@ jobs:
 
       - name: Upload Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.0
         with:
           name: market-reports-${{ env.DELTA_ENV }}
           path: |
@@ -81,7 +79,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.changes_detected == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@b1ddad2c994a25fbc81a28b3ec0e368bb2021c50 # v6.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update delta whitelist for ${{ env.DELTA_ENV }}"
