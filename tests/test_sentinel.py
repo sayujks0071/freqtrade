@@ -1,15 +1,17 @@
 import json
 import sys
-from datetime import timezone
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
 import pytest
 
+
 # Ensure scripts module can be imported
 sys.path.append(str(Path(__file__).parent.parent))
 
-from scripts.sentinel import Sentinel
+from scripts.sentinel import Sentinel  # noqa: E402, RUF100
+
 
 # Mock config
 MOCK_CONFIG = {
@@ -17,23 +19,24 @@ MOCK_CONFIG = {
         "listen_ip_address": "127.0.0.1",
         "listen_port": 8080,
         "username": "user",
-        "password": "password"
+        "password": "password",
     }
 }
 
 
 @pytest.fixture
 def mock_sentinel():
-    with patch("scripts.sentinel.json.load", return_value=MOCK_CONFIG), \
-         patch("scripts.sentinel.Path.exists", return_value=True), \
-         patch("scripts.sentinel.Path.open", mock_open(read_data=json.dumps(MOCK_CONFIG))), \
-         patch("scripts.sentinel.ccxt.kraken") as mock_kraken:
-
+    with (
+        patch("scripts.sentinel.json.load", return_value=MOCK_CONFIG),
+        patch("scripts.sentinel.Path.exists", return_value=True),
+        patch("scripts.sentinel.Path.open", mock_open(read_data=json.dumps(MOCK_CONFIG))),
+        patch("scripts.sentinel.ccxt.kraken") as mock_kraken,
+    ):
         sentinel = Sentinel("config.json", panic_sell=False, openclaw_url=None)
         sentinel.exchange = mock_kraken.return_value
         # Mock fetch_ohlcv to return valid data by default
         sentinel.exchange.fetch_ohlcv.return_value = []
-        sentinel.exchange.fetch_ticker.return_value = {'last': 100}
+        sentinel.exchange.fetch_ticker.return_value = {"last": 100}
         return sentinel
 
 
@@ -61,9 +64,9 @@ def test_check_btc_crash_no_crash(mock_sentinel):
         [0, 95, 98, 92, 95, 1],
         [0, 95, 97, 94, 96, 1],
         [0, 96, 99, 95, 98, 1],
-        [0, 98, 98, 97, 98, 1]
+        [0, 98, 98, 97, 98, 1],
     ]
-    mock_sentinel.exchange.fetch_ticker.return_value = {'last': 98}
+    mock_sentinel.exchange.fetch_ticker.return_value = {"last": 98}
 
     assert mock_sentinel.check_btc_crash() is False
 
@@ -75,9 +78,9 @@ def test_check_btc_crash_triggered(mock_sentinel):
         [0, 95, 95, 90, 90, 1],
         [0, 90, 90, 85, 85, 1],
         [0, 85, 85, 80, 80, 1],
-        [0, 80, 80, 75, 75, 1]
+        [0, 80, 80, 75, 75, 1],
     ]
-    mock_sentinel.exchange.fetch_ticker.return_value = {'last': 85}
+    mock_sentinel.exchange.fetch_ticker.return_value = {"last": 85}
 
     # Max High = 100. Drop = (85 - 100) / 100 = -0.15
     assert mock_sentinel.check_btc_crash() is True
@@ -99,8 +102,8 @@ def test_check_drawdown_triggered(mock_get, mock_sentinel):
     # Mock datetime to ensure history is kept
     with patch("scripts.sentinel.datetime") as mock_dt:
         mock_dt.now.return_value.timestamp.return_value = 10000
-        # Fallback to timezone.utc if UTC doesn't exist (but it should)
-        mock_dt.UTC = getattr(sys.modules["datetime"], "UTC", None) or timezone.utc
+        # Use datetime.UTC directly for mocking
+        mock_dt.UTC = UTC
 
         # History entry within last hour (10000 - 3600 = 6400)
         mock_sentinel.state = {"balance_history": [{"timestamp": 9000, "balance": 1000}]}
@@ -122,9 +125,7 @@ def test_trigger_emergency(mock_exit, mock_post, mock_sentinel):
 
         # Verify Alert
         mock_post.assert_any_call(
-            "http://webhook",
-            json={"message": "CRITICAL ALERT: Test"},
-            timeout=5
+            "http://webhook", json={"message": "CRITICAL ALERT: Test"}, timeout=5
         )
 
         # Verify Panic Sell
@@ -132,13 +133,11 @@ def test_trigger_emergency(mock_exit, mock_post, mock_sentinel):
             f"{mock_sentinel.api_url}/forceexit",
             headers={},
             json={"tradeid": 1},
-            timeout=5
+            timeout=5,
         )
 
         # Verify Stop
-        mock_post.assert_any_call(
-            f"{mock_sentinel.api_url}/stop", headers={}, timeout=5
-        )
+        mock_post.assert_any_call(f"{mock_sentinel.api_url}/stop", headers={}, timeout=5)
 
         # Verify Exit
         mock_exit.assert_called_with(0)

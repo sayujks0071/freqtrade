@@ -14,7 +14,7 @@ import requests
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("Sentinel")
 
@@ -32,7 +32,7 @@ class Sentinel:
             f"{self.config['api_server']['listen_port']}/api/v1"
         )
         self.auth_token = None
-        self.headers = {}
+        self.headers: dict[str, str] = {}
 
         # Initialize CCXT (Kraken)
         self.exchange = ccxt.kraken()
@@ -66,9 +66,7 @@ class Sentinel:
         password = self.config["api_server"]["password"]
         try:
             resp = requests.post(
-                f"{self.api_url}/token/login",
-                auth=(username, password),
-                timeout=10
+                f"{self.api_url}/token/login", auth=(username, password), timeout=10
             )
             resp.raise_for_status()
             data = resp.json()
@@ -89,7 +87,7 @@ class Sentinel:
                 return False
 
             ticker = self.exchange.fetch_ticker("BTC/USD")
-            current_price = ticker['last']
+            current_price = ticker["last"]
 
             # Use High of the candles in the 4h window as the reference max
             highs = [candle[2] for candle in ohlcv]
@@ -111,9 +109,7 @@ class Sentinel:
     def check_drawdown(self) -> bool:
         """Check if account drawdown > 5% in last 1 hour."""
         try:
-            resp = requests.get(
-                f"{self.api_url}/balance", headers=self.headers, timeout=10
-            )
+            resp = requests.get(f"{self.api_url}/balance", headers=self.headers, timeout=10)
             resp.raise_for_status()
             data = resp.json()
 
@@ -123,15 +119,13 @@ class Sentinel:
                 return False
 
             now = datetime.now(UTC).timestamp()
-            self.state["balance_history"].append({
-                "timestamp": now,
-                "balance": current_balance
-            })
+            self.state["balance_history"].append({"timestamp": now, "balance": current_balance})
 
             # Prune old entries (> 1h)
             one_hour_ago = now - 3600
             self.state["balance_history"] = [
-                entry for entry in self.state["balance_history"]
+                entry
+                for entry in self.state["balance_history"]
                 if entry["timestamp"] >= one_hour_ago
             ]
             self.save_state()
@@ -147,8 +141,7 @@ class Sentinel:
 
             drawdown = (current_balance - max_balance) / max_balance
             logger.info(
-                f"Drawdown Check: Current={current_balance}, "
-                f"Max1h={max_balance}, DD={drawdown:.2%}"
+                f"Drawdown Check: Current={current_balance}, Max1h={max_balance}, DD={drawdown:.2%}"
             )
 
             if drawdown < -0.05:
@@ -169,7 +162,7 @@ class Sentinel:
                 requests.post(
                     self.openclaw_url,
                     json={"message": f"CRITICAL ALERT: {reason}"},
-                    timeout=5
+                    timeout=5,
                 )
                 logger.info("Alert sent to OpenClaw.")
             except Exception as e:
@@ -180,9 +173,7 @@ class Sentinel:
             logger.info("Panic Sell ENABLED. Liquidating all positions...")
             try:
                 # Get open trades
-                resp = requests.get(
-                    f"{self.api_url}/status", headers=self.headers, timeout=10
-                )
+                resp = requests.get(f"{self.api_url}/status", headers=self.headers, timeout=10)
                 trades = resp.json()
                 for trade in trades:
                     trade_id = trade["trade_id"]
@@ -191,7 +182,7 @@ class Sentinel:
                         f"{self.api_url}/forceexit",
                         headers=self.headers,
                         json={"tradeid": trade_id},
-                        timeout=5
+                        timeout=5,
                     )
             except Exception as e:
                 logger.error(f"Failed to liquidate positions: {e}")
@@ -235,12 +226,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         default="user_data/configs/config.delta.live.json",
-        help="Path to config file"
+        help="Path to config file",
     )
     parser.add_argument(
         "--panic-sell",
         action="store_true",
-        help="Enable panic sell (liquidation) on trigger"
+        help="Enable panic sell (liquidation) on trigger",
     )
     parser.add_argument("--openclaw-url", help="Webhook URL for OpenClaw alerts")
 
