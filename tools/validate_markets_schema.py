@@ -116,8 +116,12 @@ def validate_volume_limits(m, symbol, errors):
                     errors.append(msg + " (STRICT_VOLUME=true)")
                 else:
                     warn(msg)
-        except Exception:
+        except (ValueError, TypeError):
+            # Ignore invalid volume format here as it's likely handled by the loop above
+            # or isn't critical enough to crash
             pass
+        except Exception as e:
+            warn(f"Unexpected error checking volume for {symbol}: {e}")
 
 
 def validate_environment_sanity(data, env, errors):
@@ -270,13 +274,9 @@ Previous Whitelist: {args.prev_whitelist or "None"}
     return report_content, status
 
 
-def main():
-    args = parse_args()
-    print(f"Validating {args.markets} for env {args.env}...")
-
-    # Load markets
+def load_markets(path):
     try:
-        with Path(args.markets).open() as f:
+        with Path(path).open() as f:
             data = json.load(f)
     except Exception as e:
         fail(f"Invalid JSON in markets file: {e}")
@@ -291,13 +291,12 @@ def main():
     if len(data) < MIN_MARKETS:
         fail(f"Market count {len(data)} < MIN_MARKETS ({MIN_MARKETS})")
 
-    errors = []
+    return data
 
-    # E) Environment Sanity
-    validate_environment_sanity(data, args.env, errors)
 
-    # Validation loop
+def perform_validation_loop(data, errors):
     symbols = set()
+    regex = re.compile(ALLOWLIST_REGEX)
 
     for i, m in enumerate(data):
         # C) Schema & D) Volume/Limits
@@ -317,15 +316,32 @@ def main():
         elif FILTER_MODE == "all_futures":
             is_eligible = True
         elif FILTER_MODE == "allowlist_regex":
-            if re.match(ALLOWLIST_REGEX, symbol):
+            if regex.match(symbol):
                 is_eligible = True
         else:
+            # Default to perps_usdt
             if symbol.endswith("/USDT:USDT"):
                 is_eligible = True
 
         if is_eligible:
             validate_symbol_format(symbol, errors)
             validate_volume_limits(m, symbol, errors)
+
+
+def main():
+    args = parse_args()
+    print(f"Validating {args.markets} for env {args.env}...")
+
+    # Load markets
+    data = load_markets(args.markets)
+
+    errors = []
+
+    # E) Environment Sanity
+    validate_environment_sanity(data, args.env, errors)
+
+    # Validation loop
+    perform_validation_loop(data, errors)
 
     # F) Drift Safety Gate
     candidate_whitelist = get_candidate_whitelist(data)
@@ -340,7 +356,7 @@ def main():
         validate_drift(candidate_whitelist, args.prev_whitelist, errors)
 
     # Report generation
-    report_content, status = generate_report(args, data, candidate_whitelist, errors)
+    report_content, _ = generate_report(args, data, candidate_whitelist, errors)
     write_report(args.out_report, report_content)
 
     if errors:
