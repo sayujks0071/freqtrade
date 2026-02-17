@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -35,7 +35,7 @@ def run_command(cmd, capture=True):
 
 
 def get_timerange():
-    end_date = datetime.now(timezone.utc)  # noqa: UP017
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=30)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
@@ -422,8 +422,7 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                # noqa: UP017
-                branch_name = f"optimize-{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+                branch_name = f"optimize-{datetime.now(UTC).strftime('%Y%m%d')}"
                 print(f"  Branch: {branch_name}")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
