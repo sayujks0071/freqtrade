@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+BASELINE_FILE = Path("baseline_metrics.json")
 
 # Optimization Parameters
 EPOCHS = 200
@@ -34,7 +35,7 @@ def run_command(cmd, capture=True):
 
 
 def get_timerange():
-    end_date = datetime.now()
+    end_date = datetime.now(timezone.utc)  # noqa: UP017
     start_date = end_date - timedelta(days=30)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
 
@@ -81,14 +82,13 @@ def read_backtest_result(filepath):
     return data
 
 
-def find_worst_strategy(backtest_data):
+def find_worst_strategy_from_backtest(backtest_data):
     strategies = backtest_data.get("strategy", {})
     if not strategies:
-        return None, None, None
+        return None
 
     worst_strategy = None
     min_sharpe = float("inf")
-    worst_stats = None
 
     for strategy_name, stats in strategies.items():
         sharpe = stats.get("sharpe", -float("inf"))
@@ -98,9 +98,43 @@ def find_worst_strategy(backtest_data):
         if sharpe < min_sharpe:
             min_sharpe = sharpe
             worst_strategy = strategy_name
-            worst_stats = stats
 
-    return worst_strategy, min_sharpe, worst_stats
+    return worst_strategy
+
+
+def read_baseline_metrics():
+    if not BASELINE_FILE.exists():
+        return None
+    try:
+        with BASELINE_FILE.open() as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error reading baseline metrics: {e}")
+        return None
+
+
+def get_worst_strategy_from_baseline():
+    data = read_baseline_metrics()
+    if not data or not isinstance(data, list):
+        return None
+
+    worst_strategy = None
+    min_roi = float("inf")
+
+    for entry in data:
+        strategy = entry.get("strategy")
+        roi = entry.get("roi")
+
+        if strategy and roi is not None:
+            try:
+                roi_val = float(roi)
+                if roi_val < min_roi:
+                    min_roi = roi_val
+                    worst_strategy = strategy
+            except ValueError:
+                continue
+
+    return worst_strategy
 
 
 def find_available_strategies():
@@ -118,6 +152,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -170,16 +206,6 @@ def check_git_status():
         return False
 
     return True
-
-
-def get_current_branch():
-    """Get the current git branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
-    return None
 
 
 def extract_hyperopt_params(output: str) -> dict:
@@ -238,7 +264,10 @@ Examples:
         help=("Target branch for pushing changes (default: main)"),
     )
     parser.add_argument(
-        "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompts before pushing",
     )
 
     args = parser.parse_args()
@@ -250,38 +279,47 @@ Examples:
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
-    # 1. Establish Baseline
-    latest_file = get_latest_backtest_file()
+    # 1. Selection Phase
+    worst_strategy = get_worst_strategy_from_baseline()
 
-    backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
+    if worst_strategy:
+        print(f"Selected worst strategy from baseline: {worst_strategy}")
+    else:
+        print("Baseline metrics missing or invalid. Falling back to latest backtest/discovery...")
+        latest_file = get_latest_backtest_file()
+        backtest_data = None
+        if latest_file:
+            backtest_data = read_backtest_result(latest_file)
 
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
-        strategies = find_available_strategies()
-        if not strategies:
-            print("No strategy file found.")
-            sys.exit(1)
-        backtest_data = run_backtest_job(strategies)
+        if not backtest_data:
+            strategies = find_available_strategies()
+            if strategies:
+                backtest_data = run_backtest_job(strategies)
 
-    if not backtest_data:
-        print("Failed to produce backtest baseline.")
-        sys.exit(1)
+        if backtest_data:
+            worst_strategy = find_worst_strategy_from_backtest(backtest_data)
 
-    worst_strategy, current_sharpe, current_stats = find_worst_strategy(backtest_data)
     if not worst_strategy:
-        print("No strategy found in backtest results.")
+        print("No strategy found to optimize.")
         sys.exit(1)
 
+    # 2. Baseline Verification (Get Current Sharpe/Drawdown)
+    print(f"Running baseline backtest for {worst_strategy}...")
+    baseline_result = run_backtest_job(worst_strategy)
+    if not baseline_result:
+        print("Failed to run baseline backtest.")
+        sys.exit(1)
+
+    current_stats = baseline_result["strategy"][worst_strategy]
+    current_sharpe = current_stats.get("sharpe", -float("inf"))
+    if current_sharpe is None:
+        current_sharpe = -float("inf")
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
 
-    print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
     print(f"Current Drawdown: {current_drawdown}")
 
-    # 2. Hyperopt Execution
+    # 3. Hyperopt Execution
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
     backup_json = strategy_json.with_suffix(".json.bak")
     created_new = False
@@ -294,6 +332,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -335,18 +375,13 @@ Examples:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
-        # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
             strategy_json.unlink()
         sys.exit(1)
 
-    # 3. Evaluation (Verification Backtest)
+    # 4. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
 
@@ -387,7 +422,7 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+                print(f"  Branch: optimize-{datetime.now(timezone.utc).strftime('%Y%m%d')}")  # noqa: UP017
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
             # Determine target branch
