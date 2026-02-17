@@ -34,6 +34,11 @@ nano .env
   - `global_prod` for Delta Global (api.delta.exchange)
   - `india_testnet` for Testnet
 - Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
+- Configure Validation Settings (Optional):
+  - `MIN_MARKETS`: Minimum number of markets required (default 20).
+  - `MAX_REMOVAL_RATIO`: Max allowed ratio of removed pairs vs previous whitelist (default 0.25).
+  - `STRICT_VOLUME`: Warn/Fail on low volume markets.
+  - `FILTER_MODE`: Strategy for selecting pairs (`perps_usdt`, `all_futures`, `allowlist_regex`).
 
 ### 3. Validate Exchange Connection
 

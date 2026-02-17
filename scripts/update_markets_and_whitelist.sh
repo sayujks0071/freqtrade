@@ -13,55 +13,49 @@ MARKETS_FILE="$REPORTS_DIR/markets_${TIMESTAMP}.json"
 mkdir -p $REPORTS_DIR
 mkdir -p $PAIRLISTS_DIR
 
-# Find latest previous dump
+# Find latest previous dump (for reference/logging, not strict validation which uses whitelist)
 PREV_DUMP=$(ls -t $REPORTS_DIR/markets_*.json 2>/dev/null | head -n 1 || echo "")
 
 echo "Fetching markets for $DELTA_ENV..."
 
 # Run freqtrade list-markets via Docker
-# We map the output to a file.
-# Note: Ensure .env is loaded or vars passed
 if [ -f .env ]; then
     export $(cat .env | xargs)
 fi
 
-# We use a temporary file for the docker output because of potential log noise
 TEMP_OUTPUT=$(mktemp)
 
 # Command to fetch markets.
 # We explicitly set config to delta dryrun (or any config with exchange delta)
-# or just pass args.
-# We need to ensure we connect to the right exchange environment.
-# Since config.delta.dryrun.json has exchange settings, we use it.
-# But we need to make sure 'list-markets' uses the config credentials/urls.
-
-docker compose run --rm freqtrade list-markets \
+# We suppress stdout except for json to avoid noise
+if ! docker compose run --rm freqtrade list-markets \
     --config /freqtrade/user_data/configs/config.delta.dryrun.json \
-    --print-json > $TEMP_OUTPUT
-
-# Check if successful
-if [ $? -ne 0 ]; then
+    --print-json > $TEMP_OUTPUT; then
     echo "Failed to fetch markets"
     rm $TEMP_OUTPUT
     exit 1
 fi
 
-# Move temp output to final location, filtering if necessary (sometimes logs get mixed)
-# Assuming freqtrade outputs pure JSON on stdout when --print-json is used,
-# but sometimes connection logs appear.
-# We can try to extract JSON.
-# Python oneliner to extract json from potentially noisy output?
-# Or we assume freqtrade is quiet.
-# Let's try to just copy it for now, and the validator will fail if it's not valid JSON.
-
 mv $TEMP_OUTPUT $MARKETS_FILE
 
-echo "Validating schema..."
-python3 tools/validate_markets_schema.py "$MARKETS_FILE" "$PREV_DUMP"
-
-echo "Generating whitelist..."
 WHITELIST_JSON="$PAIRLISTS_DIR/whitelist.delta.json"
 WHITELIST_TXT="$PAIRLISTS_DIR/whitelist.delta.txt"
+SCHEMA_REPORT="$REPORTS_DIR/markets_schema_report_${TIMESTAMP}.md"
+
+echo "Validating schema & drift..."
+# Pass existing whitelist as previous whitelist for drift check
+# If it doesn't exist, validator handles it.
+if ! python3 tools/validate_markets_schema.py \
+    --markets "$MARKETS_FILE" \
+    --env "$DELTA_ENV" \
+    --prev-whitelist "$WHITELIST_JSON" \
+    --out-report "$SCHEMA_REPORT"; then
+    echo "Validation FAILED. Whitelist NOT updated."
+    echo "Report written to $SCHEMA_REPORT"
+    exit 1
+fi
+
+echo "Validation PASSED. Updating whitelist..."
 
 python3 tools/generate_whitelist.py "$MARKETS_FILE" > "$WHITELIST_JSON"
 
@@ -79,9 +73,6 @@ if [ -n "$PREV_DUMP" ]; then
     echo "Current: $MARKETS_FILE" >> $DIFF_FILE
     echo "" >> $DIFF_FILE
     echo "## Changes" >> $DIFF_FILE
-    # Simple diff of symbols could be done here or via python
-    # For now, just a placeholder or simple diff command
-    # diff <(grep ... prev) <(grep ... curr)
     echo "Generated via update script." >> $DIFF_FILE
 fi
 
