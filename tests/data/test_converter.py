@@ -542,6 +542,21 @@ def test_reduce_dataframe_footprint():
     assert df2["close_copy"].dtype == np.float32
 
 
+def test_reduce_dataframe_footprint_no_changes():
+    data = generate_test_data("15m", 40)
+    # Ensure all columns are already float32 to trigger the 'no changes' path
+    for col in data.columns:
+        if col not in ["open", "high", "low", "close", "volume", "date"]:
+            data[col] = data[col].astype(np.float32)
+
+    # We need a way to check if .astype was called.
+    # Since we can't easily mock the internal behavior without dependency injection or patching,
+    # we rely on the fact that if it works correctly, it returns a dataframe with same types.
+
+    df_result = reduce_dataframe_footprint(data)
+    assert_frame_equal(data, df_result)
+
+
 def test_convert_trades_to_ohlcv(testdatadir, tmp_path, caplog):
     pair = "XRP/ETH"
     file1 = tmp_path / "XRP_ETH-1m.feather"
