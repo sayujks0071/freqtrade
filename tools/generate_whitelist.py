@@ -55,7 +55,9 @@ def is_eligible(market: dict, filter_mode: str, allowlist_regex: str) -> bool:
     # Common checks for perps/futures
     # Check if it's a futures contract
     # Freqtrade/CCXT structure varies. Look for 'contract': True or 'future': True, or 'linear'/'inverse'.
-    is_contract = market.get("contract", False) or market.get("future", False) or market.get("swap", False)
+    is_contract = (
+        market.get("contract", False) or market.get("future", False) or market.get("swap", False)
+    )
     if not is_contract:
         # Some exchanges might not set this explicitly in all versions, checking type
         if market.get("type") not in ["swap", "future"]:
@@ -64,7 +66,7 @@ def is_eligible(market: dict, filter_mode: str, allowlist_regex: str) -> bool:
     # Check Quote Currency
     quote = market.get("quote", "")
     base = market.get("base", "")
-    settle = market.get("settle", "") # Freqtrade adds this or CCXT does
+    settle = market.get("settle", "")  # Freqtrade adds this or CCXT does
 
     if filter_mode == "perps_usdt":
         # Expect USDT quote and linear (usually USDT settle)

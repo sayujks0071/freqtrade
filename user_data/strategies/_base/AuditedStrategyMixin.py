@@ -24,7 +24,7 @@ class AuditedStrategyMixin:
     # Type hint for the config attribute expected from IStrategy
     config: dict[str, Any]
     dp: Any  # DataProvider
-    wallets: Any # Wallets
+    wallets: Any  # Wallets
 
     def log_signal(
         self,
@@ -33,7 +33,7 @@ class AuditedStrategyMixin:
         direction: str,
         reason: str,
         candle_date: datetime,
-        indicators: Optional[dict] = None
+        indicators: Optional[dict] = None,
     ) -> None:
         """
         Log entry/exit signals to audit log with strict formatting.
@@ -44,7 +44,9 @@ class AuditedStrategyMixin:
         now_utc = datetime.now(timezone.utc).isoformat()
 
         # Format candle date to ISO string if it's datetime
-        candle_str = candle_date.isoformat() if isinstance(candle_date, datetime) else str(candle_date)
+        candle_str = (
+            candle_date.isoformat() if isinstance(candle_date, datetime) else str(candle_date)
+        )
 
         msg = (
             f"AUDIT_SIGNAL | {now_utc} | {pair} | "
@@ -65,8 +67,10 @@ class AuditedStrategyMixin:
         # Safe to check.
         whitelist = self.config.get("exchange", {}).get("pair_whitelist", [])
         if whitelist and pair not in whitelist:
-             logger.warning(f"AUDIT_WARNING | Pair {pair} not in config whitelist but processing! BLOCKING.")
-             return False
+            logger.warning(
+                f"AUDIT_WARNING | Pair {pair} not in config whitelist but processing! BLOCKING."
+            )
+            return False
         return True
 
     def normalize_pair(self, pair: str) -> str:
@@ -99,7 +103,9 @@ class AuditedStrategyMixin:
             # OR a query object in older versions.
             # In stable/develop freqtrade: Trade.get_trades(filters).all()
 
-            trades = Trade.get_trades([Trade.is_open.is_(False), Trade.close_date >= today_start]).all()
+            trades = Trade.get_trades(
+                [Trade.is_open.is_(False), Trade.close_date >= today_start]
+            ).all()
 
             daily_pnl_abs = 0.0
             for trade in trades:
@@ -111,9 +117,9 @@ class AuditedStrategyMixin:
             total_balance = self.wallets.get_total_stake_amount()
 
             if total_balance <= 0:
-                 # Should have stopped before this, but safety check
-                 logger.error("AUDIT_CRITICAL | Total balance <= 0! Stopping.")
-                 return False
+                # Should have stopped before this, but safety check
+                logger.error("AUDIT_CRITICAL | Total balance <= 0! Stopping.")
+                return False
 
             # Current PnL % relative to balance
             # If balance is 1000, PnL is -50, ratio is -0.05 (-5%)

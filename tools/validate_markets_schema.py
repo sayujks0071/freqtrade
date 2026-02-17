@@ -28,9 +28,15 @@ logger = logging.getLogger(__name__)
 def parse_args():
     parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
     parser.add_argument("--markets", required=True, help="Path to markets JSON dump file")
-    parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON file for drift check")
-    parser.add_argument("--env", required=True, help="Environment name (e.g., india_prod, global_prod)")
-    parser.add_argument("--out-report", help="Path to output markdown report", default="markets_schema_report.md")
+    parser.add_argument(
+        "--prev-whitelist", help="Path to previous whitelist JSON file for drift check"
+    )
+    parser.add_argument(
+        "--env", required=True, help="Environment name (e.g., india_prod, global_prod)"
+    )
+    parser.add_argument(
+        "--out-report", help="Path to output markdown report", default="markets_schema_report.md"
+    )
     return parser.parse_args()
 
 
@@ -74,10 +80,18 @@ def validate_symbol_format(symbol: str, filter_mode: str) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Validate markets schema and check for drift.")
     parser.add_argument("--markets", required=True, help="Path to markets JSON dump file")
-    parser.add_argument("--candidate-whitelist", help="Path to newly generated whitelist JSON for drift check")
-    parser.add_argument("--prev-whitelist", help="Path to previous whitelist JSON file for drift check")
-    parser.add_argument("--env", required=True, help="Environment name (e.g., india_prod, global_prod)")
-    parser.add_argument("--out-report", help="Path to output markdown report", default="markets_schema_report.md")
+    parser.add_argument(
+        "--candidate-whitelist", help="Path to newly generated whitelist JSON for drift check"
+    )
+    parser.add_argument(
+        "--prev-whitelist", help="Path to previous whitelist JSON file for drift check"
+    )
+    parser.add_argument(
+        "--env", required=True, help="Environment name (e.g., india_prod, global_prod)"
+    )
+    parser.add_argument(
+        "--out-report", help="Path to output markdown report", default="markets_schema_report.md"
+    )
     args = parser.parse_args()
 
     # Load environment variables for configuration
@@ -87,7 +101,9 @@ def main():
     filter_mode = os.environ.get("FILTER_MODE", "perps_usdt")
 
     logger.info(f"Validating {args.markets} for env {args.env}")
-    logger.info(f"Config: MIN_MARKETS={min_markets}, MAX_REMOVAL_RATIO={max_removal_ratio}, FILTER_MODE={filter_mode}")
+    logger.info(
+        f"Config: MIN_MARKETS={min_markets}, MAX_REMOVAL_RATIO={max_removal_ratio}, FILTER_MODE={filter_mode}"
+    )
 
     markets_data = load_json(args.markets)
 
@@ -180,12 +196,16 @@ def main():
             if len(prev_set) > 0:
                 removal_ratio = len(removed) / len(prev_set)
 
-            logger.info(f"Drift Check: Added {len(added)}, Removed {len(removed)}, Kept {len(kept)}")
+            logger.info(
+                f"Drift Check: Added {len(added)}, Removed {len(removed)}, Kept {len(kept)}"
+            )
             logger.info(f"Removal Ratio: {removal_ratio:.2f} (Max: {max_removal_ratio})")
 
             if removal_ratio > max_removal_ratio:
                 drift_failed = True
-                logger.error(f"Drift Check FAILED: Removal ratio {removal_ratio:.2f} exceeds limit {max_removal_ratio}.")
+                logger.error(
+                    f"Drift Check FAILED: Removal ratio {removal_ratio:.2f} exceeds limit {max_removal_ratio}."
+                )
 
             # Critical Safety Check: Existing Pair Format Corruption
             # If a pair was in prev_whitelist, and still exists in markets dump,
@@ -210,9 +230,11 @@ def main():
                     # But if it just became inactive, that's normal removal.
                     m = market_map[pair]
                     if m.get("active") and not validate_symbol_format(pair, filter_mode):
-                         logger.error(f"CRITICAL: Pair {pair} exists but failed format validation! Possible schema change.")
-                         # This might be worth failing for.
-                         drift_failed = True
+                        logger.error(
+                            f"CRITICAL: Pair {pair} exists but failed format validation! Possible schema change."
+                        )
+                        # This might be worth failing for.
+                        drift_failed = True
 
         except Exception as e:
             logger.error(f"Drift check error: {e}")
@@ -230,14 +252,16 @@ def main():
         f.write(f"- **Date**: {datetime.now(timezone.utc).isoformat()}\n")
         f.write(f"- **Environment**: {args.env}\n")
         f.write(f"- **Total Markets**: {len(markets)}\n")
-        f.write(f"- **Candidate Whitelist**: {len(load_json(args.candidate_whitelist)) if args.candidate_whitelist else 'N/A'}\n")
+        f.write(
+            f"- **Candidate Whitelist**: {len(load_json(args.candidate_whitelist)) if args.candidate_whitelist else 'N/A'}\n"
+        )
 
         if drift_failed:
-             f.write(f"- **STATUS**: **FAIL** (Drift/Safety)\n")
+            f.write(f"- **STATUS**: **FAIL** (Drift/Safety)\n")
         elif len(markets) < min_markets:
-             f.write(f"- **STATUS**: **FAIL** (Min Markets)\n")
+            f.write(f"- **STATUS**: **FAIL** (Min Markets)\n")
         else:
-             f.write(f"- **STATUS**: **PASS**\n")
+            f.write(f"- **STATUS**: **PASS**\n")
 
         if args.candidate_whitelist:
             f.write(f"\n## Drift Analysis\n")

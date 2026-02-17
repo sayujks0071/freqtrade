@@ -110,12 +110,14 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         # This is expensive? Using get_analyzed_dataframe() to get latest candle.
         # But confirm_trade_entry is called per trade, so ok.
         try:
-             dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-             last_candle = dataframe.iloc[-1].squeeze()
-             rsi_val = last_candle.get("rsi", 0)
-             indicators = {"rsi": rsi_val}
+            dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+            last_candle = dataframe.iloc[-1].squeeze()
+            rsi_val = last_candle.get("rsi", 0)
+            indicators = {"rsi": rsi_val}
         except Exception:
-             indicators = {}
+            indicators = {}
 
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time, indicators=indicators)
+        self.log_signal(
+            pair, self.timeframe, side, "Signal Confirmed", current_time, indicators=indicators
+        )
         return True

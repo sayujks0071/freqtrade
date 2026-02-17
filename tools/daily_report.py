@@ -129,7 +129,11 @@ def generate_report(db_path, output_file, lookback_days=1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Daily Report")
     parser.add_argument("--db", default="user_data/tradesv3.sqlite", help="Path to database")
-    parser.add_argument("--out", default=f"user_data/reports/daily_report_{datetime.now().date()}.md", help="Output file")
+    parser.add_argument(
+        "--out",
+        default=f"user_data/reports/daily_report_{datetime.now().date()}.md",
+        help="Output file",
+    )
     parser.add_argument("--days", type=int, default=1, help="Lookback days")
     args = parser.parse_args()
 

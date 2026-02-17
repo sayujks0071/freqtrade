@@ -76,7 +76,9 @@ class StrategyVisitor(ast.NodeVisitor):
 
     def check_import(self, module_name, lineno):
         if module_name in ["requests", "urllib", "http", "socket"]:
-            self.errors.append(f"Line {lineno}: Network module '{module_name}' is forbidden in strategies.")
+            self.errors.append(
+                f"Line {lineno}: Network module '{module_name}' is forbidden in strategies."
+            )
 
     def visit_Call(self, node):
         # Check for datetime.now() without UTC
@@ -84,7 +86,9 @@ class StrategyVisitor(ast.NodeVisitor):
             # Check if called on datetime.datetime or datetime
             if isinstance(node.func.value, ast.Name) and node.func.value.id == "datetime":
                  if not node.args and not node.keywords:
-                     self.errors.append(f"Line {node.lineno}: datetime.now() called without timezone! Use datetime.now(timezone.utc).")
+                    self.errors.append(
+                        f"Line {node.lineno}: datetime.now() called without timezone! Use datetime.now(timezone.utc)."
+                    )
 
         self.generic_visit(node)
 
@@ -100,7 +104,7 @@ class StrategyVisitor(ast.NodeVisitor):
         # Check populate_indicators, populate_entry_trend, populate_exit_trend
         if node.name in ["populate_entry_trend", "populate_exit_trend"]:
             if not ast.get_docstring(node):
-                 self.warnings.append(f"Method '{node.name}' missing docstring.")
+                self.warnings.append(f"Method '{node.name}' missing docstring.")
 
             # Check for boolean assignments in .loc (avoid unreadable one-liners)
             # Enforce named variables? Hard to check via AST without strict rules.
@@ -141,11 +145,13 @@ def audit_file(filepath, fix=False):
                 f.write(new_source)
 
             logger.info(f"Fixed header in {filepath}.")
-            return [], visitor.warnings # Assume errors fixed or deferred
+            return [], visitor.warnings  # Assume errors fixed or deferred
 
         elif fix and visitor.has_docstring and not visitor.has_valid_header:
-             logger.warning("Existing docstring found but invalid. Manual fix required to preserve content.")
-             # We don't overwrite existing docstring to avoid data loss.
+            logger.warning(
+                "Existing docstring found but invalid. Manual fix required to preserve content."
+            )
+            # We don't overwrite existing docstring to avoid data loss.
 
         return visitor.errors, visitor.warnings
 
@@ -156,7 +162,9 @@ def audit_file(filepath, fix=False):
 def main():
     parser = argparse.ArgumentParser(description="Audit Freqtrade strategies.")
     parser.add_argument("files", nargs="+", help="Strategy files to audit")
-    parser.add_argument("--fix", action="store_true", help="Attempt to fix simple issues (e.g. missing header)")
+    parser.add_argument(
+        "--fix", action="store_true", help="Attempt to fix simple issues (e.g. missing header)"
+    )
     args = parser.parse_args()
 
     total_errors = 0

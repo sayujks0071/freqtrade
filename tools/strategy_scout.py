@@ -35,7 +35,16 @@ GITHUB_API_URL = "https://api.github.com"
 SEARCH_QUERY = "freqtrade strategy language:python"
 
 # Allowed Licenses
-ALLOWED_LICENSES = ["mit", "apache-2.0", "bsd-3-clause", "bsd-2-clause", "gpl-3.0", "lgpl-3.0", "mpl-2.0", "unlicense"]
+ALLOWED_LICENSES = [
+    "mit",
+    "apache-2.0",
+    "bsd-3-clause",
+    "bsd-2-clause",
+    "gpl-3.0",
+    "lgpl-3.0",
+    "mpl-2.0",
+    "unlicense",
+]
 
 def get_headers():
     token = os.environ.get("GITHUB_TOKEN")
@@ -50,11 +59,13 @@ def search_repositories(query: str, min_stars: int = 5) -> List[Dict[str, Any]]:
         "q": query,
         "sort": "stars",
         "order": "desc",
-        "per_page": 20 # Limit to top 20
+        "per_page": 20,  # Limit to top 20
     }
 
     try:
-        resp = requests.get(f"{GITHUB_API_URL}/search/repositories", headers=get_headers(), params=params)
+        resp = requests.get(
+            f"{GITHUB_API_URL}/search/repositories", headers=get_headers(), params=params
+        )
         resp.raise_for_status()
         data = resp.json()
         items = data.get("items", [])
@@ -94,11 +105,16 @@ def analyze_strategy(content: str) -> Dict[str, Any]:
     if "IStrategy" not in content and "freqtrade" not in content:
         return {"score": 0, "issues": ["Not a Freqtrade strategy"]}
 
-    if "populate_indicators" in content: score += 1
-    if "populate_entry_trend" in content: score += 1
-    if "populate_exit_trend" in content: score += 1
-    if "minimal_roi" in content: score += 1
-    if "stoploss" in content: score += 1
+    if "populate_indicators" in content:
+        score += 1
+    if "populate_entry_trend" in content:
+        score += 1
+    if "populate_exit_trend" in content:
+        score += 1
+    if "minimal_roi" in content:
+        score += 1
+    if "stoploss" in content:
+        score += 1
 
     # Risk checks
     if "martingale" in content.lower():
@@ -119,7 +135,7 @@ def scout_strategies(output_file: str):
         f"Generated at: {datetime.now(timezone.utc).isoformat()}",
         "",
         "## Candidates",
-        ""
+        "",
     ]
 
     for repo in repos:
@@ -146,29 +162,37 @@ def scout_strategies(output_file: str):
         for item in contents:
             if isinstance(item, dict) and item["type"] == "file" and item["name"].endswith(".py"):
                 # Check size to avoid huge files or symlinks
-                if item["size"] > 100000: continue
-                if item["size"] < 200: continue
+                if item["size"] > 100000:
+                    continue
+                if item["size"] < 200:
+                    continue
 
                 # Download and analyze
                 content = get_file_content(item["download_url"])
                 analysis = analyze_strategy(content)
 
-                if analysis["score"] > 3: # Threshold
-                    strategies_found.append({
-                        "name": item["name"],
-                        "url": item["html_url"],
-                        "score": analysis["score"],
-                        "issues": analysis["issues"]
-                    })
+                if analysis["score"] > 3:  # Threshold
+                    strategies_found.append(
+                        {
+                            "name": item["name"],
+                            "url": item["html_url"],
+                            "score": analysis["score"],
+                            "issues": analysis["issues"],
+                        }
+                    )
 
         if strategies_found:
             report_lines.append(f"### [{full_name}]({url})")
             report_lines.append(f"- **Stars**: {stars}")
-            report_lines.append(f"- **License**: {license_info['name'] if license_info else 'None'}")
+            report_lines.append(
+                f"- **License**: {license_info['name'] if license_info else 'None'}"
+            )
             report_lines.append("- **Strategies**:")
             for s in strategies_found:
-                issues_str = f" (Issues: {', '.join(s['issues'])})" if s['issues'] else ""
-                report_lines.append(f"  - [{s['name']}]({s['url']}) - Score: {s['score']}{issues_str}")
+                issues_str = f" (Issues: {', '.join(s['issues'])})" if s["issues"] else ""
+                report_lines.append(
+                    f"  - [{s['name']}]({s['url']}) - Score: {s['score']}{issues_str}"
+                )
             report_lines.append("")
 
             # Optional: Vendor logic could go here
