@@ -17,11 +17,13 @@ def generate_mapping_report(markets_file):
         sys.exit(1)
 
     # Header
-    print(f"# Symbol Mapping Report")
-    print(f"Date: {datetime.now(timezone.utc).isoformat()}")
+    print("# Symbol Mapping Report")
+    print(f"Date: {datetime.now(timezone.utc).isoformat()}")  # noqa: UP017
     print(f"Source: {markets_file}")
     print("")
-    print("This report maps Freqtrade pairs (standardized format) to Delta Exchange contract symbols.")
+    print(
+        "This report maps Freqtrade pairs (standardized format) to Delta Exchange contract symbols."
+    )
     print("Always use the Freqtrade pair format in your configuration and strategies.")
     print("")
     print("| Freqtrade Pair | Delta Symbol | Base | Quote | Settle | Active |")
@@ -42,19 +44,20 @@ def generate_mapping_report(markets_file):
         # If delta_symbol is N/A, try to infer or check if it's already in symbol
         # For Delta, Freqtrade usually maps BTC/USDT:USDT -> BTCUSDT
         if delta_symbol == "N/A":
-             # Fallback: simple inference if not present
-             if "/" in symbol and ":" in symbol:
-                 # Likely a futures pair
-                 parts = symbol.split("/")
-                 coin = parts[0]
-                 rest = parts[1].split(":")
-                 quote_currency = rest[0]
-                 # construct something like BTCUSDT
-                 # But verify with actual data if possible.
-                 # For now, we list what we have.
-                 pass
+            # Fallback: simple inference if not present
+            if "/" in symbol and ":" in symbol:
+                # Likely a futures pair
+                # parts = symbol.split("/")
+                # coin = parts[0]
+                # rest = parts[1].split(":")
+                # quote_currency = rest[0]
+                # construct something like BTCUSDT
+                # But verify with actual data if possible.
+                # For now, we list what we have.
+                pass
 
         print(f"| `{symbol}` | `{delta_symbol}` | {base} | {quote} | {settle} | {active} |")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

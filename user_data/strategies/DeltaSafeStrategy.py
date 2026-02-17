@@ -18,14 +18,15 @@ No Repainting: Logic runs on closed candles only (process_only_new_candles=True)
 """
 
 import sys
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Any
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
+
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -79,31 +80,25 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
 
         # Define named variables for clarity
         # RSI oversold condition
-        long_rsi = (dataframe["rsi"] < 30)
+        long_rsi = dataframe["rsi"] < 30
         # Volume filter
-        long_volume = (dataframe["volume"] > 0)
+        long_volume = dataframe["volume"] > 0
 
         # Combine conditions
         # We enter long when RSI is oversold and we have volume
-        dataframe.loc[
-            (long_rsi & long_volume),
-            "enter_long"
-        ] = 1
+        dataframe.loc[(long_rsi & long_volume), "enter_long"] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Define named variables for clarity
         # RSI overbought condition
-        exit_long_rsi = (dataframe["rsi"] > 70)
+        exit_long_rsi = dataframe["rsi"] > 70
         # Volume filter
-        exit_long_volume = (dataframe["volume"] > 0)
+        exit_long_volume = dataframe["volume"] > 0
 
         # We exit long when RSI is overbought and volume is present
-        dataframe.loc[
-            (exit_long_rsi & exit_long_volume),
-            "exit_long"
-        ] = 1
+        dataframe.loc[(exit_long_rsi & exit_long_volume), "exit_long"] = 1
         return dataframe
 
     def confirm_trade_entry(
@@ -114,7 +109,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: Optional[str],
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -123,7 +118,15 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         """
         # Call mixin implementation to log audit details
         return super().confirm_trade_entry(
-            pair, order_type, amount, rate, time_in_force, current_time, entry_tag, side, **kwargs
+            pair,
+            order_type,
+            amount,
+            rate,
+            time_in_force,
+            current_time,
+            entry_tag,
+            side,
+            **kwargs,
         )
 
     def confirm_trade_exit(
@@ -142,5 +145,13 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         Called right before exiting a trade.
         """
         return super().confirm_trade_exit(
-            pair, trade, order_type, amount, rate, time_in_force, sell_reason, current_time, **kwargs
+            pair,
+            trade,
+            order_type,
+            amount,
+            rate,
+            time_in_force,
+            sell_reason,
+            current_time,
+            **kwargs,
         )

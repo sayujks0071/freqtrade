@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import ast
 import argparse
+import ast
 import sys
-import re
 from pathlib import Path
+
 
 REQUIRED_HEADER_FIELDS = [
     "Strategy Name",
@@ -37,6 +37,7 @@ No Repainting: {no_repainting}
 \"\"\"
 """
 
+
 def check_header(source):
     """
     Checks if the source has a docstring with required fields.
@@ -57,6 +58,7 @@ def check_header(source):
             missing.append(field)
 
     return len(missing) == 0, missing
+
 
 def add_header(source, filepath):
     """
@@ -82,10 +84,70 @@ def add_header(source, filepath):
         entry_short="Describe short entry (if any)",
         exit_long="Describe long exit",
         exit_short="Describe short exit (if any)",
-        no_repainting="Logic runs on closed candles only (process_only_new_candles=True)"
+        no_repainting="Logic runs on closed candles only (process_only_new_candles=True)",
     )
 
     return shebang + header + source
+
+
+def is_loc_assignment(target):
+    """
+    Checks if the target is a dataframe.loc assignment.
+    Returns True if so.
+    """
+    if isinstance(target, ast.Subscript):
+        if isinstance(target.value, ast.Attribute) and target.value.attr == "loc":
+            if (
+                isinstance(target.value.value, ast.Name)
+                and target.value.value.id == "dataframe"
+            ):
+                return True
+    return False
+
+
+def get_row_indexer(target):
+    """
+    Extracts the row indexer from a .loc assignment.
+    """
+    sl = target.slice
+    # Python < 3.9 compatibility
+    if isinstance(sl, ast.Index):
+        sl = sl.value
+
+    # If slice is a Tuple (row_indexer, col_indexer)
+    if isinstance(sl, ast.Tuple):
+        if len(sl.elts) >= 1:
+            return sl.elts[0]
+    else:
+        return sl
+    return None
+
+
+def check_condition_complexity(node, child):
+    """
+    Checks if an assignment is a complex inline condition.
+    Returns error string if complex, None otherwise.
+    """
+    for target in child.targets:
+        if is_loc_assignment(target):
+            row_indexer = get_row_indexer(target)
+            if row_indexer:
+                if isinstance(row_indexer, ast.BoolOp):
+                    return (
+                        f"Complex inline condition in {node.name} at line {child.lineno}. "
+                        f"Use named variables."
+                    )
+                elif isinstance(row_indexer, ast.BinOp):
+                    if not (
+                        isinstance(row_indexer.left, (ast.Name, ast.UnaryOp))
+                        and isinstance(row_indexer.right, (ast.Name, ast.UnaryOp))
+                    ):
+                        return (
+                            f"Complex inline condition in {node.name} at line {child.lineno}. "
+                            f"Use named variables."
+                        )
+    return None
+
 
 def check_logic(tree, source_lines):
     """
@@ -98,68 +160,23 @@ def check_logic(tree, source_lines):
         if isinstance(node, ast.FunctionDef):
             if node.name in ["populate_entry_trend", "populate_exit_trend"]:
                 # Check for comments in the function body
-                # We use line numbers to scan source
                 start_line = node.lineno
-                end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10 # heuristic if old python
+                # heuristic if old python
+                end_line = node.end_lineno if hasattr(node, "end_lineno") else start_line + 10
 
-                body_source = "\n".join(source_lines[start_line-1:end_line])
+                body_source = "\n".join(source_lines[start_line - 1 : end_line])
                 if "#" not in body_source:
                     errors.append(f"Missing comments in {node.name} (explain the thesis)")
 
                 # Check assignments to .loc
                 for child in ast.walk(node):
                     if isinstance(child, ast.Assign):
-                        for target in child.targets:
-                            # We look for dataframe.loc[condition, 'col'] = 1
-                            if isinstance(target, ast.Subscript):
-                                # Check if target.value is dataframe.loc (Attribute) or dataframe (Name)
-                                # Pandas .loc usage: target.value is Attribute(value=Name(dataframe), attr='loc')
-                                is_loc = False
-                                if isinstance(target.value, ast.Attribute) and target.value.attr == "loc":
-                                    if isinstance(target.value.value, ast.Name) and target.value.value.id == "dataframe":
-                                        is_loc = True
-
-                                if is_loc:
-                                    # Check slice
-                                    sl = target.slice
-                                    # Python < 3.9 compatibility
-                                    if isinstance(sl, ast.Index):
-                                        sl = sl.value
-
-                                    # If slice is a Tuple (row_indexer, col_indexer)
-                                    row_indexer = None
-                                    if isinstance(sl, ast.Tuple):
-                                        if len(sl.elts) >= 1:
-                                            row_indexer = sl.elts[0]
-                                    else:
-                                        row_indexer = sl
-
-                                    if row_indexer:
-                                        # Check if row_indexer is a complex BoolOp
-                                        # We allow Name, Call (some functions), or simple comparison maybe?
-                                        # User wants "named boolean sub-conditions".
-                                        # So we reject BoolOp with multiple values inline.
-                                        if isinstance(row_indexer, ast.BoolOp):
-                                            errors.append(
-                                                f"Complex inline condition in {node.name} at line {child.lineno}. "
-                                                f"Use named variables."
-                                            )
-                                        elif isinstance(row_indexer, ast.BinOp):
-                                            # Bitwise operators are BinOp in pandas context usually (&, |)
-                                            # But ast treats & as BitAnd (BinOp)
-                                            # If it's a simple BinOp, it might be okay?
-                                            # But "named boolean sub-conditions" implies we want `dataframe.loc[long_cond, ...]`
-                                            # So any BinOp (like `a & b`) is arguably "not a named variable".
-                                            # However, we might allow `long_cond1 & long_cond2`.
-                                            # If the operands are not Names, then it's complex.
-                                            if not (isinstance(row_indexer.left, (ast.Name, ast.UnaryOp)) and
-                                                    isinstance(row_indexer.right, (ast.Name, ast.UnaryOp))):
-                                                 errors.append(
-                                                    f"Complex inline condition in {node.name} at line {child.lineno}. "
-                                                    f"Use named variables."
-                                                )
+                        complexity_error = check_condition_complexity(node, child)
+                        if complexity_error:
+                            errors.append(complexity_error)
 
     return errors
+
 
 def check_safety(tree):
     errors = []
@@ -179,9 +196,6 @@ def check_safety(tree):
     if not found_process_only:
         # Check if it's defined in class scope
         pass
-        # Actually the above walk covers class attributes too if they are Assign nodes.
-        # But we should ensure it's True.
-        # If not found, we warn.
         errors.append("Missing 'process_only_new_candles = True' (No Repainting)")
 
     # 2. Check for UTC usage
@@ -190,15 +204,17 @@ def check_safety(tree):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
                 # Check args/keywords for timezone
-                has_tz = False
                 if node.args or node.keywords:
-                    # heuristic: assumes if args are present, it's likely timezone or we can't be sure
-                    # We can check if arg is timezone.utc or datetime.UTC
+                    # heuristic: assumes if args present, likely timezone or we can't be sure
                     pass
                 else:
-                    errors.append(f"Potential unsafe datetime.now() at line {node.lineno}. Use datetime.now(timezone.utc).")
+                    errors.append(
+                        f"Potential unsafe datetime.now() at line {node.lineno}. "
+                        f"Use datetime.now(timezone.utc)."
+                    )
 
     return errors
+
 
 def check_inheritance(tree, filepath):
     errors = []
@@ -212,6 +228,7 @@ def check_inheritance(tree, filepath):
                 if "AuditedStrategyMixin" not in bases:
                     errors.append(f"Class {node.name} must inherit AuditedStrategyMixin")
     return errors
+
 
 def audit_file(filepath, fix=False):
     print(f"Auditing {filepath}...")
@@ -230,7 +247,7 @@ def audit_file(filepath, fix=False):
             with path.open("w", encoding="utf-8") as f:
                 f.write(new_source)
             source = new_source
-            source_lines = source.splitlines() # update lines
+            source_lines = source.splitlines()  # update lines
         else:
             print(f"  FAIL: Missing header fields: {', '.join(missing_fields)}")
             return False
@@ -265,6 +282,7 @@ def audit_file(filepath, fix=False):
     print("  PASS")
     return True
 
+
 def main():
     parser = argparse.ArgumentParser(description="Audit Freqtrade strategies.")
     parser.add_argument("paths", nargs="+", help="Files or directories to audit")
@@ -281,13 +299,16 @@ def main():
                 failed = True
         elif path.is_dir():
             for f in path.rglob("*.py"):
-                if f.name.startswith("__"): continue
-                if "AuditedStrategyMixin" in f.name: continue
+                if f.name.startswith("__"):
+                    continue
+                if "AuditedStrategyMixin" in f.name:
+                    continue
                 if not audit_file(str(f), fix=args.fix):
                     failed = True
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -5,9 +5,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional, Dict
+from typing import Any
 
-from freqtrade.strategy import IStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ class AuditedStrategyMixin:
     """
 
     # Type hints for attributes expected from IStrategy
-    config: Dict[str, Any]
+    config: dict[str, Any]
     dp: Any  # DataProvider
 
     def log_signal(
@@ -27,7 +26,7 @@ class AuditedStrategyMixin:
         side: str,
         reason: str,
         ts_utc: datetime,
-        indicators_snapshot: Optional[Dict[str, Any]] = None,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -35,10 +34,7 @@ class AuditedStrategyMixin:
         """
         indicators_str = str(indicators_snapshot) if indicators_snapshot else "{}"
 
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {indicators_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {indicators_str}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:
@@ -47,7 +43,7 @@ class AuditedStrategyMixin:
         """
         return pair.upper()
 
-    def assert_pair_in_whitelist(self, pair: str, whitelist: Optional[list] = None) -> bool:
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list | None = None) -> bool:
         """
         Assert pair is in current whitelist.
         If whitelist is not provided, tries to get it from config.
@@ -64,14 +60,16 @@ class AuditedStrategyMixin:
         # ^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$
         # But maybe too strict if using regex allowlist.
         if "/" not in pair or ":" not in pair:
-             logger.warning(f"AUDIT_WARNING | Pair {pair} format mismatch (expected Base/Quote:Settle)!")
-             # We might want to return False here to enforce "Symbol Sanity"
-             # The user asked for "symbol sanity function that fails fast"
-             return False
+            logger.warning(
+                f"AUDIT_WARNING | Pair {pair} format mismatch (expected Base/Quote:Settle)!"
+            )
+            # We might want to return False here to enforce "Symbol Sanity"
+            # The user asked for "symbol sanity function that fails fast"
+            return False
 
         return True
 
-    def _get_indicators_snapshot(self, pair: str) -> Dict[str, Any]:
+    def _get_indicators_snapshot(self, pair: str) -> dict[str, Any]:
         """
         Helper to fetch latest indicators for audit log.
         """
@@ -84,7 +82,7 @@ class AuditedStrategyMixin:
             last_row = dataframe.iloc[-1]
 
             # Select key indicators to log
-            for col in ['rsi', 'volume', 'close', 'open', 'high', 'low']:
+            for col in ["rsi", "volume", "close", "open", "high", "low"]:
                 if col in last_row:
                     indicators[col] = last_row[col]
         except Exception as e:
@@ -99,7 +97,7 @@ class AuditedStrategyMixin:
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: Optional[str],
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -112,10 +110,20 @@ class AuditedStrategyMixin:
             pair=pair,
             side=side,
             reason=entry_tag or "unknown",
-            ts_utc=datetime.now(timezone.utc), # Log event time
-            indicators_snapshot=indicators
+            ts_utc=datetime.now(timezone.utc),  # noqa: UP017
+            indicators_snapshot=indicators,
         )
-        return True
+        return super().confirm_trade_entry(
+            pair,
+            order_type,
+            amount,
+            rate,
+            time_in_force,
+            current_time,
+            entry_tag,
+            side,
+            **kwargs,
+        )
 
     def confirm_trade_exit(
         self,
@@ -140,13 +148,23 @@ class AuditedStrategyMixin:
         # Assuming standard Freqtrade Trade object
         side = "exit"
         if hasattr(trade, "is_short"):
-             side = "exit_short" if trade.is_short else "exit_long"
+            side = "exit_short" if trade.is_short else "exit_long"
 
         self.log_signal(
             pair=pair,
             side=side,
             reason=sell_reason,
-            ts_utc=datetime.now(timezone.utc),
-            indicators_snapshot=indicators
+            ts_utc=datetime.now(timezone.utc),  # noqa: UP017
+            indicators_snapshot=indicators,
         )
-        return True
+        return super().confirm_trade_exit(
+            pair,
+            trade,
+            order_type,
+            amount,
+            rate,
+            time_in_force,
+            sell_reason,
+            current_time,
+            **kwargs,
+        )
