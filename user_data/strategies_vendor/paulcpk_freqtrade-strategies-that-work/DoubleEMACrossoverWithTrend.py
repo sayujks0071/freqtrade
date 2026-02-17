@@ -6,7 +6,6 @@ import numpy  # noqa
 
 
 class DoubleEMACrossoverWithTrend(IStrategy):
-
     """
     DoubleEMACrossoverWithTrend
     author@: Paul Csapak
@@ -33,7 +32,7 @@ class DoubleEMACrossoverWithTrend(IStrategy):
     stoploss = -0.2
 
     # Optimal timeframe for the strategy
-    timeframe = '1h'
+    timeframe = "1h"
 
     # trailing stoploss
     trailing_stop = False
@@ -42,9 +41,9 @@ class DoubleEMACrossoverWithTrend(IStrategy):
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
-        dataframe['ema9'] = ta.EMA(dataframe, timeperiod=9)
-        dataframe['ema21'] = ta.EMA(dataframe, timeperiod=21)
-        dataframe['ema200'] = ta.EMA(dataframe, timeperiod=200)
+        dataframe["ema9"] = ta.EMA(dataframe, timeperiod=9)
+        dataframe["ema21"] = ta.EMA(dataframe, timeperiod=21)
+        dataframe["ema200"] = ta.EMA(dataframe, timeperiod=200)
 
         return dataframe
 
@@ -53,12 +52,14 @@ class DoubleEMACrossoverWithTrend(IStrategy):
         dataframe.loc[
             (
                 # fast ema crosses above slow ema
-                (qtpylib.crossed_above(dataframe['ema9'], dataframe['ema21'])) &
-                (dataframe['low'] > dataframe['ema200']) &  # Candle low is above EMA
+                (qtpylib.crossed_above(dataframe["ema9"], dataframe["ema21"]))
+                & (dataframe["low"] > dataframe["ema200"])  # Candle low is above EMA
+                &
                 # Ensure this candle had volume (important for backtesting)
-                (dataframe['volume'] > 0)
+                (dataframe["volume"] > 0)
             ),
-            'buy'] = 1
+            "buy",
+        ] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -66,8 +67,9 @@ class DoubleEMACrossoverWithTrend(IStrategy):
         dataframe.loc[
             (
                 # fast ema crosses below slow ema
-                (qtpylib.crossed_below(dataframe['ema9'], dataframe['ema21'])) |
-                (dataframe['low'] < dataframe['ema200']) # OR price is below trend ema
+                (qtpylib.crossed_below(dataframe["ema9"], dataframe["ema21"]))
+                | (dataframe["low"] < dataframe["ema200"])  # OR price is below trend ema
             ),
-            'sell'] = 1
+            "sell",
+        ] = 1
         return dataframe

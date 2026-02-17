@@ -30,40 +30,34 @@ class BreakEven(IStrategy):
     INTERFACE_VERSION: int = 3
     # This attribute will be overridden if the config file contains "minimal_roi"
     minimal_roi = {
-        "0": 0.01,      # at least 1% at first
-        "10": 0         # after 10min, everything goes
+        "0": 0.01,  # at least 1% at first
+        "10": 0,  # after 10min, everything goes
     }
 
     # This is more radical version that sells everything above the profit level
-#    minimal_roi = {
-#        "0": 0
-#    }
+    #    minimal_roi = {
+    #        "0": 0
+    #    }
 
     # And this is basically "/forcesell all", that sells no matter what profit
-#    minimal_roi = {
-#        "0": -1
-#    }
+    #    minimal_roi = {
+    #        "0": -1
+    #    }
 
     # Optimal stoploss designed for the strategy
     stoploss = -0.05
 
     # Optimal timeframe for the strategy
-    timeframe = '5m'
+    timeframe = "5m"
 
     # don't generate any buy or sell signals, everything is handled by ROI and stop_loss
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[
-            (
-            ),
-            'enter_long'] = 0
+        dataframe.loc[(), "enter_long"] = 0
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[
-            (
-            ),
-            'exit_long'] = 0
+        dataframe.loc[(), "exit_long"] = 0
         return dataframe

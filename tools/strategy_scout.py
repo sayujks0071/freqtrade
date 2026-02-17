@@ -8,8 +8,8 @@ import argparse
 import datetime
 import os
 import re
-import sys
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +54,9 @@ class StrategyScout:
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
                     reset_time = datetime.datetime.fromtimestamp(reset)
-                    print(f"WARNING: Rate limit low. Resets at {reset_time}. Halting or degrading inspection.")
+                    print(
+                        f"WARNING: Rate limit low. Resets at {reset_time}. Halting or degrading inspection."
+                    )
                     return False
             return True
         except Exception as e:

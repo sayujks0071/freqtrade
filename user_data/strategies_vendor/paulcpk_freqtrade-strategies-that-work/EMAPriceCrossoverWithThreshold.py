@@ -6,7 +6,6 @@ import numpy  # noqa
 
 
 class EMAPriceCrossoverWithThreshold(IStrategy):
-
     """
     EMAPriceCrossoverWithThreshold
     author@: Paul Csapak
@@ -33,7 +32,7 @@ class EMAPriceCrossoverWithThreshold(IStrategy):
     stoploss = -0.15
 
     # Optimal timeframe for the strategy
-    timeframe = '1h'
+    timeframe = "1h"
 
     # trailing stoploss
     trailing_stop = True
@@ -41,8 +40,8 @@ class EMAPriceCrossoverWithThreshold(IStrategy):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
 
         threshold_percentage = 1
-        dataframe['ema800'] = ta.EMA(dataframe, timeperiod=800)
-        dataframe['ema_threshold'] = dataframe['ema800'] * (100 - threshold_percentage) / 100
+        dataframe["ema800"] = ta.EMA(dataframe, timeperiod=800)
+        dataframe["ema_threshold"] = dataframe["ema800"] * (100 - threshold_percentage) / 100
 
         return dataframe
 
@@ -51,11 +50,13 @@ class EMAPriceCrossoverWithThreshold(IStrategy):
         dataframe.loc[
             (
                 # Close price crossed above EMA
-                (qtpylib.crossed_above(dataframe['close'], dataframe['ema800'])) &
+                (qtpylib.crossed_above(dataframe["close"], dataframe["ema800"]))
+                &
                 # Ensure this candle had volume (important for backtesting)
-                (dataframe['volume'] > 0)
+                (dataframe["volume"] > 0)
             ),
-            'buy'] = 1
+            "buy",
+        ] = 1
         return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -63,7 +64,8 @@ class EMAPriceCrossoverWithThreshold(IStrategy):
         dataframe.loc[
             (
                 # Close price crossed below EMA threshold
-                (qtpylib.crossed_below(dataframe['close'], dataframe['ema_threshold']))
+                qtpylib.crossed_below(dataframe["close"], dataframe["ema_threshold"])
             ),
-            'sell'] = 1
+            "sell",
+        ] = 1
         return dataframe
