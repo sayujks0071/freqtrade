@@ -85,6 +85,12 @@ if [ -n "$PREV_DUMP" ]; then
     echo "Generated via update script." >> $DIFF_FILE
 fi
 
+# Generate Symbol Mapping Report
+MAPPING_REPORT="$REPORTS_DIR/symbol_mapping_${TIMESTAMP}.md"
+echo "Generating symbol mapping report..."
+python3 tools/generate_symbol_mapping.py "$MARKETS_FILE" > "$MAPPING_REPORT"
+echo "Symbol mapping report generated at $MAPPING_REPORT"
+
 # Clean up old dumps (keep last 7)
 ls -t $REPORTS_DIR/markets_*.json | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null || true
 
