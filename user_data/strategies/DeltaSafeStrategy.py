@@ -1,20 +1,26 @@
 """
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+
+Strategy Name: DeltaSafeStrategy
+Author: Google Jules
+Version: 1.0.0
+Supported Timeframes: 1h
+Supported Pair Format: BASE/QUOTE:SETTLE
+Timezone: UTC
+Entry Conditions: RSI < 30 and Volume > 0
+Exit Conditions: RSI > 70 and Volume > 0
+No Repainting: True
 """
 
-import sys
-from pathlib import Path
+from datetime import datetime
+from typing import Optional
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
-
-
-# Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
+from _base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
@@ -53,22 +59,29 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Populate indicators.
+        """
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if not self.check_whitelist(metadata["pair"]):
+        """
+        Populate entry trend.
+        """
+        # Ensure pair is in whitelist (Audit Check)
+        if not self.assert_pair_in_whitelist(metadata["pair"]):
             return dataframe
 
         dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
-
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """
+        Populate exit trend.
+        """
         dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
         return dataframe
 
@@ -79,13 +92,30 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         amount: float,
         rate: float,
         time_in_force: str,
-        current_time,
-        entry_tag,
+        current_time: datetime,
+        entry_tag: Optional[str],
         side: str,
         **kwargs,
     ) -> bool:
         """
         Called right before placing a trade.
         """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
+        # 1. Check Daily Loss Limit (Audit Check)
+        if not self.check_daily_loss_limit(current_time):
+            self.log_signal(pair, self.timeframe, side, "Daily Loss Limit Hit", current_time)
+            return False
+
+        # 2. Log Signal
+        # Fetch indicator value for log
+        # This is expensive? Using get_analyzed_dataframe() to get latest candle.
+        # But confirm_trade_entry is called per trade, so ok.
+        try:
+             dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+             last_candle = dataframe.iloc[-1].squeeze()
+             rsi_val = last_candle.get("rsi", 0)
+             indicators = {"rsi": rsi_val}
+        except Exception:
+             indicators = {}
+
+        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time, indicators=indicators)
         return True

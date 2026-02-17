@@ -1,33 +1,52 @@
 name: Strategy CI
 
 on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'user_data/strategies/**'
+      - 'tools/strategy_auditor.py'
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, develop ]
     paths:
       - 'user_data/strategies/**'
       - 'tools/strategy_auditor.py'
 
-permissions:
-  contents: read
-
 jobs:
-  audit_strategies:
+  audit-strategies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          # We need basic deps for import checks if we run compilation
+          # But auditor uses AST which doesn't need imports.
+          # Compiling might fail on missing freqtrade.
+          # We can skip compilation or mock freqtrade if needed.
+          # Let's try to install freqtrade to be safe.
+          pip install freqtrade
 
       - name: Compile Check
         run: |
-          python3 -m compileall user_data/strategies/
+          python -m compileall user_data/strategies/
 
       - name: Run Strategy Auditor
         run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+          # Find all strategy files (excluding _base/vendor/init)
+          STRATEGIES=$(find user_data/strategies -name "*.py" -not -path "*/_base/*" -not -path "*/strategies_vendor/*" -not -name "__init__.py")
+
+          if [ -z "$STRATEGIES" ]; then
+            echo "No strategies found."
+            exit 0
+          fi
+
+          echo "Auditing: $STRATEGIES"
+          python tools/strategy_auditor.py $STRATEGIES

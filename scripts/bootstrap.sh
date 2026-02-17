@@ -1,44 +1,37 @@
 #!/bin/bash
 set -e
 
-echo "Bootstrapping Freqtrade Delta Stack..."
+# Base directory
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+USER_DATA="$BASE_DIR/user_data"
+
+echo "Bootstrapping Freqtrade setup for Delta Exchange..."
 
 # Create directories
-mkdir -p user_data/configs user_data/reports user_data/logs user_data/data
+mkdir -p "$USER_DATA/configs"
+mkdir -p "$USER_DATA/logs"
+mkdir -p "$USER_DATA/reports"
+mkdir -p "$USER_DATA/pairlists"
+mkdir -p "$USER_DATA/strategies/_base"
+mkdir -p "$USER_DATA/strategies_vendor"
+mkdir -p "$USER_DATA/protections"
 
 # Copy .env if not exists
-if [ ! -f .env ]; then
+if [ ! -f "$BASE_DIR/.env" ]; then
     echo "Copying .env.example to .env..."
-    cp .env.example .env
-    echo "Please edit .env with your Delta API keys!"
-echo "Bootstrapping Delta Exchange Freqtrade Stack..."
-
-# Create directories
-mkdir -p user_data/logs
-mkdir -p user_data/pairlists
-mkdir -p user_data/reports
-mkdir -p user_data/strategies/_base
-mkdir -p user_data/strategies_vendor
-mkdir -p user_data/db
-
-# Copy env if missing
-if [ ! -f .env ]; then
-    echo "Creating .env from .env.example..."
-    cp .env.example .env
-    echo "PLEASE EDIT .env WITH YOUR CREDENTIALS!"
+    cp "$BASE_DIR/.env.example" "$BASE_DIR/.env"
 else
-    echo ".env already exists."
+    echo ".env already exists, skipping copy."
 fi
 
-echo "Bootstrap complete."
-echo "Next steps:"
-echo "1. Edit .env with your API credentials."
-echo "2. Run 'scripts/validate_exchange.sh' to verify connectivity and markets."
-echo "3. Run 'scripts/run_dryrun.sh' to start the bot in dry-run mode."
-# Create dummy whitelist if missing to allow startup
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Creating dummy whitelist..."
-    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT", "ETH/USDT:USDT"]}}' > user_data/pairlists/whitelist.delta.json
+# Create a dummy whitelist if it doesn't exist to prevent crash
+WHITELIST_FILE="$USER_DATA/pairlists/whitelist.delta.json"
+if [ ! -f "$WHITELIST_FILE" ]; then
+    echo "Creating initial empty whitelist..."
+    echo '["BTC/USDT:USDT"]' > "$WHITELIST_FILE"
 fi
 
-echo "Bootstrap complete."
+# Make scripts executable
+chmod +x "$BASE_DIR/scripts/"*.sh 2>/dev/null || true
+
+echo "Bootstrap complete. Please edit .env with your credentials."
