@@ -1,0 +1,27 @@
+name: Risk Audit
+
+on:
+  push:
+    branches: [ develop, master ]
+    paths:
+      - 'user_data/configs/**'
+      - 'user_data/strategies/**'
+      - 'scripts/audit_risk.py'
+  pull_request:
+    branches: [ develop, master ]
+    paths:
+      - 'user_data/configs/**'
+      - 'user_data/strategies/**'
+      - 'scripts/audit_risk.py'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Run Risk Audit
+      run: python3 scripts/audit_risk.py
