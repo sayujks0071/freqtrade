@@ -18,11 +18,37 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+LOG_FILE = Path("optimization_log.txt")
 
 # Optimization Parameters
 EPOCHS = 200
 SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
+
+
+def write_optimization_log(
+    status: str,
+    strategy: str,
+    old_sharpe: float,
+    new_sharpe: float,
+    old_dd: float,
+    new_dd: float,
+) -> None:
+    """Appends a structured log line to optimization_log.txt."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # YYYY-MM-DD HH:MM:SS | Strategy: <Name> | Status: <Success/Fail>
+    # Sharpe: <Old> -> <New> | Drawdown: <Old> -> <New>
+    log_line = (
+        f"{timestamp} | Strategy: {strategy} | Status: {status} | "
+        f"Sharpe: {old_sharpe:.4f} -> {new_sharpe:.4f} | "
+        f"Drawdown: {old_dd:.4f} -> {new_dd:.4f}\n"
+    )
+    try:
+        with LOG_FILE.open("a") as f:
+            f.write(log_line)
+        print(f"Logged result to {LOG_FILE}")
+    except Exception as e:
+        print(f"Failed to write to log file: {e}")
 
 
 def run_command(cmd, capture=True):
@@ -378,11 +404,15 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
+        write_optimization_log(
+            "Success", worst_strategy, current_sharpe, new_sharpe, current_drawdown, new_drawdown
+        )
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         if args.dry_run:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
             print(f"  File: {strategy_json}")
+            print(f"  File: {LOG_FILE}")
             print(f"  Message: {msg}")
             if args.branch:
                 print(f"  Branch: {args.branch}")
@@ -391,10 +421,11 @@ Examples:
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
             # Determine target branch
-            target_branch = args.branch if args.branch else "main"
+            target_branch = args.branch if args.branch else "develop"
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", str(LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -413,9 +444,9 @@ Examples:
             print(f"\nPushing to {target_branch}...")
 
             push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
-            if target_branch == "main":
-                push_cmd.append("HEAD:main")
+            # If target is develop, assume we might be in detached HEAD in CI
+            if target_branch == "develop":
+                push_cmd.append("HEAD:develop")
             else:
                 push_cmd.append(target_branch)
 
@@ -433,11 +464,29 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+        write_optimization_log(
+            "Fail", worst_strategy, current_sharpe, new_sharpe, current_drawdown, new_drawdown
+        )
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        if not args.dry_run:
+            # Commit the log failure
+            msg = f"chore: log optimization failure for {worst_strategy}"
+            run_command(["git", "add", str(LOG_FILE)])
+            run_command(["git", "commit", "-m", msg])
+
+            target_branch = args.branch if args.branch else "develop"
+            print(f"\nPushing failure log to {target_branch}...")
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "develop":
+                push_cmd.append("HEAD:develop")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
 
 
 if __name__ == "__main__":
