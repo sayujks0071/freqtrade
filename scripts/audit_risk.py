@@ -8,11 +8,7 @@ from pathlib import Path
 def check_configs():
     violations = []
     # Check multiple locations for config files
-    config_patterns = [
-        'config.json',
-        'user_data/config.json',
-        'user_data/configs/*.json'
-    ]
+    config_patterns = ["config.json", "user_data/config.json", "user_data/configs/*.json"]
 
     config_files = []
     for pattern in config_patterns:
@@ -31,7 +27,7 @@ def check_configs():
     for config_file_path in config_files:
         config_path = Path(config_file_path)
         try:
-            with config_path.open('r') as f:
+            with config_path.open("r") as f:
                 config = json.load(f)
 
                 if not isinstance(config, dict):
@@ -40,7 +36,7 @@ def check_configs():
                     )
                     continue
 
-                max_open_trades = config.get('max_open_trades')
+                max_open_trades = config.get("max_open_trades")
 
                 if max_open_trades is None:
                     violations.append(
@@ -50,8 +46,7 @@ def check_configs():
                 elif isinstance(max_open_trades, (int, float)):
                     if max_open_trades == -1:
                         violations.append(
-                            f"Config violation in {config_path}: "
-                            "max_open_trades is -1 (unlimited)"
+                            f"Config violation in {config_path}: max_open_trades is -1 (unlimited)"
                         )
                     elif max_open_trades > 5:
                         violations.append(
@@ -87,7 +82,7 @@ def check_strategy_node(node, strategy_file, violations):
     for item in node.body:
         if isinstance(item, ast.Assign):
             for target in item.targets:
-                if isinstance(target, ast.Name) and target.id == 'stoploss':
+                if isinstance(target, ast.Name) and target.id == "stoploss":
                     value_node = item.value
                     stoploss_val = None
 
@@ -112,7 +107,7 @@ def check_strategy_node(node, strategy_file, violations):
 
 def check_strategies():
     violations = []
-    strategy_files = glob.glob('user_data/strategies/*.py')  # noqa: PTH207
+    strategy_files = glob.glob("user_data/strategies/*.py")  # noqa: PTH207
 
     if not strategy_files:
         print("Warning: No strategy files found in user_data/strategies/")
@@ -121,13 +116,13 @@ def check_strategies():
     print(f"Checking strategy files: {strategy_files}")
 
     for strategy_file_path in strategy_files:
-        if '__init__.py' in strategy_file_path or '_base' in strategy_file_path:
+        if "__init__.py" in strategy_file_path or "_base" in strategy_file_path:
             continue
 
         strategy_path = Path(strategy_file_path)
 
         try:
-            with strategy_path.open('r') as f:
+            with strategy_path.open("r") as f:
                 tree = ast.parse(f.read(), filename=str(strategy_path))
 
                 for node in tree.body:
