@@ -1,3 +1,5 @@
+from typing import Any
+
 from pandas import DataFrame
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
@@ -6,10 +8,10 @@ from freqtrade.strategy.interface import IStrategy
 
 class EasyInEasyOut(IStrategy):
     # Buy hyperspace params:
-    buy_params = {}
+    buy_params: dict[str, Any] = {}
 
     # Sell hyperspace params:
-    sell_params = {}
+    sell_params: dict[str, Any] = {}
 
     minimal_roi = {"0": 0.02, "60": 0.03, "120": 0.02, "900": 0.01}
 

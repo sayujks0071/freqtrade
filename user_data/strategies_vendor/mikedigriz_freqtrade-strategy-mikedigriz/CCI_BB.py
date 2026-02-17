@@ -1,3 +1,5 @@
+from typing import Any
+
 import talib.abstract as ta
 from pandas import DataFrame
 
@@ -7,10 +9,10 @@ from freqtrade.strategy import IStrategy
 
 class CCI_BB(IStrategy):
     # Buy hyperspace params:
-    buy_params = {}
+    buy_params: dict[str, Any] = {}
 
     # Sell hyperspace params:
-    sell_params = {}
+    sell_params: dict[str, Any] = {}
 
     minimal_roi = {
         "0": 0.02,

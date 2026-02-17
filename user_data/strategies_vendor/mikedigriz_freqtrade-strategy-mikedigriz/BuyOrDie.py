@@ -1,3 +1,5 @@
+from typing import Any
+
 from pandas import DataFrame
 
 import freqtrade.vendor.qtpylib.indicators as qtpylib
@@ -6,10 +8,10 @@ from freqtrade.strategy.interface import IStrategy
 
 class BuyOrDie(IStrategy):
     # Buy hyperspace params:
-    buy_params = {}
+    buy_params: dict[str, Any] = {}
 
     # Sell hyperspace params:
-    sell_params = {}
+    sell_params: dict[str, Any] = {}
 
     # ROI table:
     minimal_roi = {"0": 1000}

@@ -4,6 +4,7 @@
 import numpy as np  # noqa
 import pandas as pd  # noqa
 from pandas import DataFrame
+from typing import Any
 
 from freqtrade.strategy import IStrategy
 
@@ -26,7 +27,7 @@ class CustomStoplossWithPSAR(IStrategy):
     INTERFACE_VERSION: int = 3
     timeframe = "1h"
     stoploss = -0.2
-    custom_info = {}
+    custom_info: dict[str, Any] = {}
     use_custom_stoploss = True
 
     startup_candle_count = 199
@@ -38,8 +39,9 @@ class CustomStoplossWithPSAR(IStrategy):
         current_time: datetime,
         current_rate: float,
         current_profit: float,
+        after_fill: bool,
         **kwargs,
-    ) -> float:
+    ) -> float | None:
 
         result = 1
         if self.custom_info and pair in self.custom_info and trade:
@@ -50,7 +52,7 @@ class CustomStoplossWithPSAR(IStrategy):
                 # so we need to get analyzed_dataframe from dp
                 dataframe, _ = self.dp.get_analyzed_dataframe(pair=pair, timeframe=self.timeframe)
                 # only use .iat[-1] in callback methods, never in "populate_*" methods.
-                # see: https://www.freqtrade.io/en/latest/strategy-customization/#common-mistakes-when-developing-strategies
+                # see: https://www.freqtrade.io/en/latest/strategy-customization/#common-mistakes-when-developing-strategies  # noqa: E501
                 last_candle = dataframe.iloc[-1].squeeze()
                 relative_sl = last_candle["sar"]
 
@@ -58,7 +60,8 @@ class CustomStoplossWithPSAR(IStrategy):
                 # print("custom_stoploss().relative_sl: {}".format(relative_sl))
                 # calculate new_stoploss relative to current_rate
                 new_stoploss = (current_rate - relative_sl) / current_rate
-                # turn into relative negative offset required by `custom_stoploss` return implementation  # noqa: E501
+                # turn into relative negative offset required by `custom_stoploss`
+                # return implementation
                 result = new_stoploss - 1
 
         # print("custom_stoploss() -> {}".format(result))
