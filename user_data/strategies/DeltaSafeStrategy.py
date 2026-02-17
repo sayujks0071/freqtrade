@@ -137,7 +137,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time: datetime,
         **kwargs,
     ) -> bool:
@@ -151,7 +151,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
             amount,
             rate,
             time_in_force,
-            sell_reason,
+            exit_reason,
             current_time,
             **kwargs,
         )

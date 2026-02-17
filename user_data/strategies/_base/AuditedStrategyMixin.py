@@ -5,13 +5,26 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from freqtrade.strategy import IStrategy
+else:
+    # Runtime mock to allow super() calls to work even if IStrategy isn't in MRO yet
+    # though in practice it will be.
+    class IStrategy:
+        def confirm_trade_entry(self, *args, **kwargs) -> bool:
+            return True
+
+        def confirm_trade_exit(self, *args, **kwargs) -> bool:
+            return True
 
 
 logger = logging.getLogger(__name__)
 
 
-class AuditedStrategyMixin:
+class AuditedStrategyMixin(IStrategy):
     """
     Mixin for strategies to enforce audit logging and safety checks.
     """
@@ -19,6 +32,7 @@ class AuditedStrategyMixin:
     # Type hints for attributes expected from IStrategy
     config: dict[str, Any]
     dp: Any  # DataProvider
+    timeframe: str
 
     def log_signal(
         self,
@@ -133,7 +147,7 @@ class AuditedStrategyMixin:
         amount: float,
         rate: float,
         time_in_force: str,
-        sell_reason: str,
+        exit_reason: str,
         current_time: datetime,
         **kwargs,
     ) -> bool:
@@ -153,7 +167,7 @@ class AuditedStrategyMixin:
         self.log_signal(
             pair=pair,
             side=side,
-            reason=sell_reason,
+            reason=exit_reason,
             ts_utc=datetime.now(timezone.utc),  # noqa: UP017
             indicators_snapshot=indicators,
         )
@@ -164,7 +178,7 @@ class AuditedStrategyMixin:
             amount,
             rate,
             time_in_force,
-            sell_reason,
+            exit_reason,
             current_time,
             **kwargs,
         )

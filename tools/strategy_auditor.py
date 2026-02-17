@@ -97,10 +97,7 @@ def is_loc_assignment(target):
     """
     if isinstance(target, ast.Subscript):
         if isinstance(target.value, ast.Attribute) and target.value.attr == "loc":
-            if (
-                isinstance(target.value.value, ast.Name)
-                and target.value.value.id == "dataframe"
-            ):
+            if isinstance(target.value.value, ast.Name) and target.value.value.id == "dataframe":
                 return True
     return False
 
@@ -261,20 +258,20 @@ def audit_file(filepath, fix=False):
     # 2. Logic Check
     logic_errors = check_logic(tree, source_lines)
     if logic_errors:
-        for e in logic_errors:
-            print(f"  FAIL: {e}")
+        for err in logic_errors:
+            print(f"  FAIL: {err}")
 
     # 3. Safety Check
     safety_errors = check_safety(tree)
     if safety_errors:
-        for e in safety_errors:
-            print(f"  FAIL: {e}")
+        for err in safety_errors:
+            print(f"  FAIL: {err}")
 
     # 4. Inheritance Check
     inheritance_errors = check_inheritance(tree, filepath)
     if inheritance_errors:
-        for e in inheritance_errors:
-            print(f"  FAIL: {e}")
+        for err in inheritance_errors:
+            print(f"  FAIL: {err}")
 
     if logic_errors or safety_errors or inheritance_errors:
         return False
