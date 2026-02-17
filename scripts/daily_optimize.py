@@ -422,7 +422,9 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: optimize-{datetime.now(timezone.utc).strftime('%Y%m%d')}")  # noqa: UP017
+                # noqa: UP017
+                branch_name = f"optimize-{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+                print(f"  Branch: {branch_name}")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
         else:
             # Determine target branch
