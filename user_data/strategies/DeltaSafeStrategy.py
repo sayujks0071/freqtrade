@@ -20,11 +20,17 @@ from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     INTERFACE_VERSION = 3
 
-    # Minimal ROI
-    minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
+    # Minimal ROI (Relaxed to test trailing stop)
+    minimal_roi = {"0": 100}
 
     # Stoploss
     stoploss = -0.10
+
+    # Trailing Stop
+    trailing_stop = True
+    trailing_stop_positive = 0.01
+    trailing_stop_positive_offset = 0.02
+    trailing_only_offset_is_reached = True
 
     # Timeframe
     timeframe = "1h"
