@@ -139,6 +139,37 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   `tools/strategy_scout.py`: Finds strategies on GitHub.
 -   `tools/validate_markets_schema.py`: Validates market dumps.
 -   `tools/strategy_auditor.py`: Audits strategy code for safety.
+-   `tools/generate_symbol_mapping.py`: Generates symbol mapping reports.
+
+## Strategy Audit & Safety
+
+Every strategy must pass the `tools/strategy_auditor.py` check.
+This ensures:
+- Clear metadata (Timeframe, Author, Version).
+- Explicit Entry/Exit logic documentation.
+- Named variables for complex conditions.
+- No repainting (closed candle logic).
+
+### How to choose pairs on Delta
+
+**Never hand-type pairs.** Delta Exchange symbols can be confusing (e.g., `BTC/USDT:USDT` vs `BTCUSDT`).
+Always use the generated report:
+1. Run `scripts/update_markets_and_whitelist.sh`.
+2. Check `user_data/reports/symbol_mapping_<DATE>.md`.
+3. Use the **Freqtrade Pair** column in your configuration.
+
+### How to interpret logs
+
+The bot logs every trade decision with an audit trail.
+Grep for `AUDIT_SIGNAL` in your logs:
+```bash
+grep "AUDIT_SIGNAL" user_data/logs/freqtrade.log
+```
+Format:
+`AUDIT_SIGNAL | UTC_TIMESTAMP | PAIR | SIDE | REASON | INDICATORS_SNAPSHOT`
+
+Example:
+`AUDIT_SIGNAL | 2023-10-27T10:00:00+00:00 | BTC/USDT:USDT | long | Signal Confirmed | {'rsi': 25.5, 'volume': 1200}`
 
 ## Documentation
 
