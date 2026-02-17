@@ -10,9 +10,9 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 # Check for requests
 try:
@@ -52,9 +52,9 @@ def get_headers():
     return headers
 
 
-def search_repositories(query: str, min_stars: int = 5) -> List[Dict[str, Any]]:
+def search_repositories(query: str, min_stars: int = 5) -> list[dict[str, Any]]:
     logger.info(f"Searching GitHub for: {query}")
-    params = {
+    params: dict[str, str | int] = {
         "q": query,
         "sort": "stars",
         "order": "desc",
@@ -63,7 +63,10 @@ def search_repositories(query: str, min_stars: int = 5) -> List[Dict[str, Any]]:
 
     try:
         resp = requests.get(
-            f"{GITHUB_API_URL}/search/repositories", headers=get_headers(), params=params
+            f"{GITHUB_API_URL}/search/repositories",
+            headers=get_headers(),
+            params=params,
+            timeout=10,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -76,10 +79,10 @@ def search_repositories(query: str, min_stars: int = 5) -> List[Dict[str, Any]]:
         return []
 
 
-def get_repo_contents(owner: str, repo: str, path: str = "") -> List[Dict[str, Any]]:
+def get_repo_contents(owner: str, repo: str, path: str = "") -> list[dict[str, Any]]:
     try:
         url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/contents/{path}"
-        resp = requests.get(url, headers=get_headers())
+        resp = requests.get(url, headers=get_headers(), timeout=10)
         if resp.status_code == 404:
             return []
         resp.raise_for_status()
@@ -91,7 +94,7 @@ def get_repo_contents(owner: str, repo: str, path: str = "") -> List[Dict[str, A
 
 def get_file_content(download_url: str) -> str:
     try:
-        resp = requests.get(download_url)
+        resp = requests.get(download_url, timeout=10)
         resp.raise_for_status()
         return resp.text
     except Exception as e:
@@ -99,7 +102,7 @@ def get_file_content(download_url: str) -> str:
         return ""
 
 
-def analyze_strategy(content: str) -> Dict[str, Any]:
+def analyze_strategy(content: str) -> dict[str, Any]:
     score = 0
     issues = []
 
@@ -135,7 +138,7 @@ def scout_strategies(output_file: str):
 
     report_lines = [
         "# Strategy Scout Report",
-        f"Generated at: {datetime.now(timezone.utc).isoformat()}",
+        f"Generated at: {datetime.now(UTC).isoformat()}",
         "",
         "## Candidates",
         "",

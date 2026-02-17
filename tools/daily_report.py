@@ -7,10 +7,8 @@ Generates a daily trading report from Freqtrade database.
 
 import argparse
 import logging
-import os
 import sqlite3
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Configure logging
@@ -31,7 +29,7 @@ def generate_report(db_path, output_file, lookback_days=1):
 
     # Calculate time range (UTC)
     # Freqtrade stores naive UTC datetime strings: "YYYY-MM-DD HH:MM:SS.ssssss"
-    end_time = datetime.now(timezone.utc)
+    end_time = datetime.now(UTC)
     start_time = end_time - timedelta(days=lookback_days)
 
     start_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -82,9 +80,9 @@ def generate_report(db_path, output_file, lookback_days=1):
 
     # Markdown Report
     lines = []
-    lines.append(f"# Daily Trading Report ({datetime.now(timezone.utc).date()})")
+    lines.append(f"# Daily Trading Report ({datetime.now(UTC).date()})")
     lines.append(
-        f"**Generated**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        f"**Generated**: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}"
     )
     lines.append(f"**Period**: Last {lookback_days} days (Since {start_str} UTC)")
     lines.append("")
@@ -140,7 +138,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--out",
-        default=f"user_data/reports/daily_report_{datetime.now(timezone.utc).date()}.md",
+        default=f"user_data/reports/daily_report_{datetime.now(UTC).date()}.md",
         help="Output file",
     )
     parser.add_argument("--days", type=int, default=1, help="Lookback days")

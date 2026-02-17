@@ -69,7 +69,7 @@ This script:
 4. Updates `user_data/pairlists/whitelist.delta.json`.
 
 ### CI/CD Refresh
-The GitHub Workflow `Delta Markets Refresh` runs daily at 06:30 IST to automate this process. It opens a PR if changes are detected.
+The GitHub Workflow `Delta Markets Refresh` runs daily at 06:30 Asia/Kolkata to automate this process. It opens a PR if changes are detected.
 
 ## Strategy Development
 

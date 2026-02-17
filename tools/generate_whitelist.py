@@ -38,7 +38,7 @@ def load_json(filepath: str) -> Any:
         sys.exit(1)
 
 
-def is_eligible(market: dict, filter_mode: str, allowlist_regex: str) -> bool:
+def is_eligible(market: dict[str, Any], filter_mode: str, allowlist_regex: str) -> bool:
     symbol = market.get("symbol")
     if not symbol:
         return False
@@ -56,11 +56,7 @@ def is_eligible(market: dict, filter_mode: str, allowlist_regex: str) -> bool:
     # Common checks for perps/futures
     # Freqtrade/CCXT structure varies.
     # Look for 'contract': True or 'future': True, or 'linear'/'inverse'.
-    is_contract = (
-        market.get("contract", False)
-        or market.get("future", False)
-        or market.get("swap", False)
-    )
+    is_contract = market.get("contract", False) or market.get("future", False) or market.get("swap", False)
     if not is_contract:
         # Some exchanges might not set this explicitly in all versions, checking type
         if market.get("type") not in ["swap", "future"]:

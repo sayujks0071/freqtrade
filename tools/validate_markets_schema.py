@@ -12,9 +12,9 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Configure logging
 logging.basicConfig(
@@ -69,9 +69,12 @@ def validate_symbol_format(symbol: str, filter_mode: str) -> bool:
 
 
 def perform_drift_check(
-    candidate_path: str, prev_path: str, max_removal_ratio: float, market_map: Dict[str, Any],
-    filter_mode: str
-) -> Tuple[bool, float, List[str], List[str]]:
+    candidate_path: str,
+    prev_path: str,
+    max_removal_ratio: float,
+    market_map: dict[str, Any],
+    filter_mode: str,
+) -> tuple[bool, float, list[str], list[str]]:
     """
     Checks for drift between previous whitelist and candidate whitelist.
     Returns (failed, removal_ratio, added, removed).
@@ -130,22 +133,18 @@ def generate_report(
     out_path: str,
     env: str,
     markets_count: int,
-    candidate_whitelist_path: Optional[str],
+    candidate_whitelist_path: str | None,
     drift_failed: bool,
     min_markets: int,
-    added: List[str],
-    removed: List[str],
+    added: list[str],
+    removed: list[str],
     removal_ratio: float,
     max_removal_ratio: float,
 ):
     path = Path(out_path)
     with path.open("w", encoding="utf-8") as f:
         f.write("# Market Schema Validation Report\n\n")
-        # Use timezone.utc explicitly to avoid ruff UP017 if datetime.UTC is not preferred
-        # actually ruff prefers datetime.UTC in python 3.11+
-        # I will stick to timezone.utc and suppress if needed, but the log said "Use datetime.UTC"
-        # I will try to use datetime.now(timezone.utc)
-        f.write(f"- **Date**: {datetime.now(timezone.utc).isoformat()}\n")
+        f.write(f"- **Date**: {datetime.now(UTC).isoformat()}\n")
         f.write(f"- **Environment**: {env}\n")
         f.write(f"- **Total Markets**: {markets_count}\n")
 

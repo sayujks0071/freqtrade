@@ -11,6 +11,12 @@ services:
       - FREQTRADE__EXCHANGE__KEY=${DELTA_API_KEY}
       - FREQTRADE__EXCHANGE__SECRET=${DELTA_API_SECRET}
       - DELTA_ENV=${DELTA_ENV:-india_testnet}
+      - DAILY_LOSS_LIMIT_PCT=${DAILY_LOSS_LIMIT_PCT:--0.05}
+      - MIN_MARKETS=${MIN_MARKETS:-20}
+      - MAX_REMOVAL_RATIO=${MAX_REMOVAL_RATIO:-0.25}
+      - STRICT_VOLUME=${STRICT_VOLUME:-false}
+      - FILTER_MODE=${FILTER_MODE:-perps_usdt}
+      - ALLOWLIST_REGEX=${ALLOWLIST_REGEX}
       # This env var is passed to the container, can be used by scripts inside
       - FREQTRADE_CONFIG_FILE=${FREQTRADE_CONFIG_FILE:-config.delta.dryrun.json}
     healthcheck:

@@ -5,7 +5,7 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from freqtrade.persistence import Trade
@@ -43,7 +43,7 @@ class AuditedStrategyMixin:
         """
         indicator_str = str(indicators) if indicators else "{}"
         # Ensure UTC timestamp
-        now_utc = datetime.now(timezone.utc).isoformat()
+        now_utc = datetime.now(UTC).isoformat()
 
         # Format candle date to ISO string if it's datetime
         candle_str = (
@@ -115,7 +115,7 @@ class AuditedStrategyMixin:
             for trade in trades:
                 # Double check close date just in case
                 if trade.close_date and trade.close_date >= today_start:
-                    daily_pnl_abs += trade.close_profit_abs  # Realized PnL in stake currency
+                    daily_pnl_abs += (trade.close_profit_abs or 0.0)  # Realized PnL in stake currency
 
             # Get current total balance (stake currency)
             total_balance = self.wallets.get_total_stake_amount()

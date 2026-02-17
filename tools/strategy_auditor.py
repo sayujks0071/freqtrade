@@ -59,9 +59,7 @@ class StrategyVisitor(ast.NodeVisitor):
                 missing_fields.append(field)
 
         if missing_fields:
-            self.errors.append(
-                f"Docstring missing required fields: {', '.join(missing_fields)}"
-            )
+            self.errors.append(f"Docstring missing required fields: {', '.join(missing_fields)}")
         else:
             self.has_valid_header = True
 
@@ -85,14 +83,10 @@ class StrategyVisitor(ast.NodeVisitor):
         # Check for datetime.now() without UTC
         if isinstance(node.func, ast.Attribute) and node.func.attr == "now":
             # Check if called on datetime.datetime or datetime
-            if (
-                isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "datetime"
-            ):
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "datetime":
                 if not node.args and not node.keywords:
                     self.errors.append(
-                        f"Line {node.lineno}: datetime.now() called without timezone! "
-                        "Use datetime.now(timezone.utc)."
+                        f"Line {node.lineno}: datetime.now() called without timezone! Use datetime.now(timezone.utc)."
                     )
 
         self.generic_visit(node)
@@ -156,8 +150,7 @@ def audit_file(filepath, fix=False):
 
         elif fix and visitor.has_docstring and not visitor.has_valid_header:
             logger.warning(
-                "Existing docstring found but invalid. "
-                "Manual fix required to preserve content."
+                "Existing docstring found but invalid. Manual fix required to preserve content."
             )
             # We don't overwrite existing docstring to avoid data loss.
 
@@ -197,9 +190,7 @@ def main():
             total_warnings += len(warnings)
 
     if total_errors > 0:
-        logger.error(
-            f"Audit FAILED with {total_errors} errors and {total_warnings} warnings."
-        )
+        logger.error(f"Audit FAILED with {total_errors} errors and {total_warnings} warnings.")
         sys.exit(1)
     else:
         logger.info(f"Audit PASSED with {total_warnings} warnings.")

@@ -14,11 +14,13 @@ No Repainting: True
 """
 
 from datetime import datetime
+from typing import Any
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
+
 from _base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
@@ -57,7 +59,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
         """
         Populate indicators.
         """
@@ -65,7 +67,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         return dataframe
 
-    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
         """
         Populate entry trend.
         """
@@ -77,7 +79,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
         return dataframe
 
-    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
         """
         Populate exit trend.
         """
