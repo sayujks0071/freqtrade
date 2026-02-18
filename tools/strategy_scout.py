@@ -141,8 +141,8 @@ class StrategyScout:
                     score += 5
                     license_name = "See Repo (Known Source)"
                 else:
-                    # Prefer clear licenses
-                    pass
+                    # Reject "no license"
+                    continue
 
             # 2. Recency
             if pushed_at:
