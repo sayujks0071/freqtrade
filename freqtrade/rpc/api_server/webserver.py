@@ -131,9 +131,7 @@ class ApiServer(RPCHandler):
         ApiServer.__initialized = True
 
         api_config = self._config["api_server"]
-        if api_config.get("jwt_secret_key", "super-secret") in (
-            "super-secret, somethingrandom"
-        ):
+        if api_config.get("jwt_secret_key", "super-secret") in ("super-secret, somethingrandom"):
             logger.warning(
                 "SECURITY WARNING - `jwt_secret_key` seems to be default. "
                 "Generated a random key for this session. "
