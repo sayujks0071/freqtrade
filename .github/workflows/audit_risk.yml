@@ -1,0 +1,36 @@
+name: Audit Risk Limits
+
+on:
+  push:
+    paths:
+      - 'config.json'
+      - 'user_data/config.json'
+      - 'user_data/configs/*.json'
+      - 'user_data/strategies/*.py'
+      - 'scripts/audit_risk.py'
+  pull_request:
+    paths:
+      - 'config.json'
+      - 'user_data/config.json'
+      - 'user_data/configs/*.json'
+      - 'user_data/strategies/*.py'
+      - 'scripts/audit_risk.py'
+
+jobs:
+  audit_risk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.11'
+
+      - name: Run Risk Audit
+        run: |
+          python3 scripts/audit_risk.py
