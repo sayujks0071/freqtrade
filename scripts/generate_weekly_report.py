@@ -69,8 +69,7 @@ def get_stuck_candidates(opt_logs):
     stuck = []
     for strat, count in failed_counts.items():
         succeeded = any(
-            e.get("status") == "success" and e.get("strategy") == strat
-            for e in opt_logs
+            e.get("status") == "success" and e.get("strategy") == strat for e in opt_logs
         )
         if not succeeded:
             stuck.append(f"{strat} ({count} failed attempts)")
