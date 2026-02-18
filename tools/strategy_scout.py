@@ -34,7 +34,6 @@ KNOWN_SOURCES = [
 ]
 REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
-TIMEOUT = 10
 REQUEST_TIMEOUT = 10  # Seconds
 
 
@@ -111,7 +110,7 @@ class StrategyScout:
                     if resp.status_code == 200:
                         found_repos[source] = resp.json()
                     elif resp.status_code == 404:
-                         print(f"Source not found: {source}")
+                        print(f"Source not found: {source}")
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
 
@@ -149,9 +148,9 @@ class StrategyScout:
             if pushed_at:
                 try:
                     # GitHub API returns UTC ISO 8601
-                    pushed_dt = datetime.datetime.strptime(
-                        pushed_at, "%Y-%m-%dT%H:%M:%SZ"
-                    ).replace(tzinfo=datetime.UTC)
+                    pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+                        tzinfo=datetime.UTC
+                    )
                     age_days = (datetime.datetime.now(datetime.UTC) - pushed_dt).days
                     if age_days < 30:
                         score += 5
@@ -241,8 +240,8 @@ class StrategyScout:
         # Timeframe detection
         tf_match = re.search(r"timeframe\s*=\s*['\"]([^'\"]+)['\"]", content)
         if tf_match:
-                repo["timeframe"] = tf_match.group(1)
-                repo["scout_notes"].append(f"Timeframe: {tf_match.group(1)}")
+            repo["timeframe"] = tf_match.group(1)
+            repo["scout_notes"].append(f"Timeframe: {tf_match.group(1)}")
 
         # Indicator detection
         indicators = []
@@ -289,7 +288,7 @@ class StrategyScout:
 
                 # Check up to 3 strategy files for content to get better coverage
                 for strat_file in strategies[:3]:
-                     self._analyze_strategy_content(strat_file, repo)
+                    self._analyze_strategy_content(strat_file, repo)
 
                 # Deduplicate notes
                 repo["scout_notes"] = list(set(repo["scout_notes"]))
@@ -410,7 +409,8 @@ class StrategyScout:
 
         # Filter for strategy files first
         strategy_files = [
-            f for f in contents
+            f
+            for f in contents
             if f.get("name", "").endswith(".py") and f.get("name") != "__init__.py"
         ]
 
@@ -444,19 +444,15 @@ class StrategyScout:
     def _run_formatter(self, file_path):
         """Run ruff format and fix on the file."""
         try:
-             if shutil.which("ruff"):
-                 # Run ruff check --fix (silently)
-                 subprocess.run(
-                     ["ruff", "check", "--fix", "--unsafe-fixes", str(file_path)],
-                     check=False,
-                     capture_output=True
-                 )
-                 # Run ruff format (silently)
-                 subprocess.run(
-                     ["ruff", "format", str(file_path)],
-                     check=False,
-                     capture_output=True
-                 )
+            if shutil.which("ruff"):
+                # Run ruff check --fix (silently)
+                subprocess.run(
+                    ["ruff", "check", "--fix", "--unsafe-fixes", str(file_path)],
+                    check=False,
+                    capture_output=True,
+                )
+                # Run ruff format (silently)
+                subprocess.run(["ruff", "format", str(file_path)], check=False, capture_output=True)
         except Exception:  # noqa: S110
             # Ignore errors during formatting (it's optional)
             pass
