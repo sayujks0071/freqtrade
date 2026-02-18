@@ -162,53 +162,54 @@ def check_logic_complexity(tree):
     return errors
 
 
-def check_comments_in_method(filepath, method_name):
-    """
-    Check if a specific method in the file contains any comments.
-    This uses tokenize as AST strips comments.
-    """
+def get_method_range(tree, method_name):
+    """Finds the start and end lines of a method in the strategy class."""
+    strat_node = get_strategy_class_node(tree)
+    if not strat_node:
+        return None, None
+
+    for node in strat_node.body:
+        if isinstance(node, ast.FunctionDef) and node.name == method_name:
+            return node.lineno, node.end_lineno
+    return None, None
+
+
+def has_comment_in_range(filepath, start_line, end_line):
+    """Checks if there is at least one comment within the line range."""
     try:
         with Path(filepath).open("rb") as f:
             tokens = list(tokenize.tokenize(f.readline))
     except Exception:
-        # If we can't tokenize, we assume it's fine or failed elsewhere
+        # If we can't tokenize, we default to passing to avoid blocking builds on parser errors
         return True
 
-    # Parse AST to find start/end lines of the method
+    for token in tokens:
+        if token.type == tokenize.COMMENT:
+            if start_line <= token.start[0] <= end_line:
+                return True
+    return False
+
+
+def check_comments_in_method(filepath, method_name):
+    """
+    Check if a specific method in the file contains any comments.
+    Splits AST parsing and Tokenization to reduce complexity.
+    """
     try:
         with Path(filepath).open() as f:
             source = f.read()
         tree = ast.parse(source)
     except Exception:
+        # If AST parse fails, we can't find the method range, assume pass
         return True
 
-    strat_node = get_strategy_class_node(tree)
-    if not strat_node:
+    start_line, end_line = get_method_range(tree, method_name)
+
+    if start_line is None:
+        # Method not found, strategy might not use it
         return True
 
-    target_method = None
-    for node in strat_node.body:
-        if isinstance(node, ast.FunctionDef) and node.name == method_name:
-            target_method = node
-            break
-
-    if not target_method:
-        # Method not found, strategy might not use it (e.g. no shorting)
-        return True
-
-    start_line = target_method.lineno
-    end_line = target_method.end_lineno
-
-    has_comment = False
-    for token in tokens:
-        if token.type == tokenize.COMMENT:
-            if start_line <= token.start[0] <= end_line:
-                has_comment = True
-                break
-
-    if not has_comment:
-        return False
-    return True
+    return has_comment_in_range(filepath, start_line, end_line)
 
 
 def try_fix_header(tree, source, filepath):

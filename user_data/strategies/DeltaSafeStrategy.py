@@ -1,24 +1,24 @@
 """
-    Strategy Name: DeltaSafeStrategy
-    Author: Unknown
-    Version: 0.1
-    Timeframes: 1h
+Strategy Name: DeltaSafeStrategy
+Author: Unknown
+Version: 0.1
+Timeframes: 1h
 
-    Supported Pair Format:
-    - Delta futures pairs (BTC/USDT:USDT)
-    - Adheres to BASE/QUOTE:SETTLE format
+Supported Pair Format:
+- Delta futures pairs (BTC/USDT:USDT)
+- Adheres to BASE/QUOTE:SETTLE format
 
-    Timezone Rule:
-    - All timestamps logged as UTC ISO-8601
+Timezone Rule:
+- All timestamps logged as UTC ISO-8601
 
-    Entry/Exit Definitions:
-    - Long Entry: RSI < 30 and Volume > 0
-    - Long Exit: RSI > 70 and Volume > 0
-    - Short Entry: None
-    - Short Exit: None
+Entry/Exit Definitions:
+- Long Entry: RSI < 30 and Volume > 0
+- Long Exit: RSI > 70 and Volume > 0
+- Short Entry: None
+- Short Exit: None
 
-    No Repainting:
-    - Only acts on closed candles.
+No Repainting:
+- Only acts on closed candles.
 """
 
 from __future__ import annotations
