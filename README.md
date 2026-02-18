@@ -133,6 +133,30 @@ This repository is configured as a production-ready crypto trading stack for Del
 -   **Observability**: Daily reports and structured logging.
 -   **Audit Logs**: Strategy signals are logged with `AUDIT_SIGNAL` prefix in the logs (`user_data/logs/freqtrade.log`).
 
+## How to choose pairs on Delta
+
+**NEVER** guess the pair format. Always pick from the official markets list.
+
+1.  Run `./scripts/update_markets_and_whitelist.sh` to fetch the latest markets.
+2.  Check `user_data/reports/symbol_mapping_<DATE>.md` for examples.
+3.  Pairs must match `BASE/QUOTE:SETTLE` (e.g., `BTC/USDT:USDT`).
+4.  Add validated pairs to `user_data/configs/config.delta.dryrun.json` (or live config).
+
+## How to interpret logs
+
+The strategy audit layer produces structured logs for every trade decision.
+
+**Log Format:**
+`AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE_DATE | INDICATORS`
+
+**Example:**
+`AUDIT_SIGNAL | 2023-10-27T10:00:00+00:00 | BTC/USDT:USDT | long | RSI Oversold | 2023-10-27T09:00:00+00:00 | rsi=25.5, volume=1500`
+
+-   **TIMESTAMP**: When the decision was made.
+-   **REASON**: Which specific sub-condition triggered the signal.
+-   **CANDLE_DATE**: The candle timestamp that triggered the signal (usually previous closed candle).
+-   **INDICATORS**: Snapshot of key indicator values at that moment.
+
 ## Tools
 
 -   `tools/daily_report.py`: Generates daily trading summary.
