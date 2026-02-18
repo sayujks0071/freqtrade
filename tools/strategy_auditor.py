@@ -6,6 +6,7 @@ import sys
 import tokenize
 from pathlib import Path
 
+
 REQUIRED_HEADER_FIELDS = [
     "Strategy Name:",
     "Author:",
@@ -69,9 +70,7 @@ def check_header(tree, source, filepath):
 def fix_header(source, strategy_name, timeframe):
     # Always prepend the standard header template.
     # If there was an existing docstring, it will remain as a second string literal.
-    header = (
-        '"""' + HEADER_TEMPLATE.format(name=strategy_name, timeframe=timeframe) + '"""\n'
-    )
+    header = '"""' + HEADER_TEMPLATE.format(name=strategy_name, timeframe=timeframe) + '"""\n'
     return header + source
 
 
