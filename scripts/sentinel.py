@@ -119,9 +119,7 @@ class Sentinel:
     def check_drawdown(self) -> bool:
         """Check if account drawdown > 5% in last 1 hour."""
         try:
-            resp = requests.get(
-                f"{self.api_url}/balance", headers=self.get_headers(), timeout=10
-            )
+            resp = requests.get(f"{self.api_url}/balance", headers=self.get_headers(), timeout=10)
             if resp.status_code == 401:
                 # Token might be expired, retry once
                 self.get_token()
@@ -252,16 +250,12 @@ class Sentinel:
 
 def main():
     parser = argparse.ArgumentParser(description="Sentinel Circuit Breaker")
-    parser.add_argument(
-        "--config", "-c", required=True, type=Path, help="Path to Freqtrade config"
-    )
+    parser.add_argument("--config", "-c", required=True, type=Path, help="Path to Freqtrade config")
     parser.add_argument("--openclaw-url", help="OpenClaw Webhook URL")
     parser.add_argument(
         "--panic-sell", action="store_true", help="Liquidate all positions on trigger"
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Do not execute stop/sell commands"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Do not execute stop/sell commands")
 
     args = parser.parse_args()
 
