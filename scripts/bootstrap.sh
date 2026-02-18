@@ -5,9 +5,16 @@ set -e
 mkdir -p user_data/configs
 mkdir -p user_data/pairlists
 mkdir -p user_data/strategies/_base
+mkdir -p user_data/protections
 mkdir -p user_data/reports
 mkdir -p user_data/logs
 mkdir -p user_data/strategies_vendor
+
+# Create __init__.py for proper package resolution
+touch user_data/__init__.py
+touch user_data/strategies/__init__.py
+touch user_data/strategies/_base/__init__.py
+touch user_data/protections/__init__.py
 
 # Copy .env.example to .env if it doesn't exist
 if [ ! -f .env ]; then

@@ -74,7 +74,7 @@
             "required_profit": 0.02
         },
         {
-            "method": "DailyLossLimit",
+            "method": "protections.daily_loss_limit.DailyLossLimit",
             "stop_duration_candles": 60
         }
     ]

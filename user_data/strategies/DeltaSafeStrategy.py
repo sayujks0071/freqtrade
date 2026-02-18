@@ -2,7 +2,7 @@ from freqtrade.strategy import IStrategy, IntParameter
 from pandas import DataFrame
 import talib.abstract as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
+from strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
 
 class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     INTERFACE_VERSION = 3

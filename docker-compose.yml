@@ -9,6 +9,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
+      - PYTHONPATH=/freqtrade/user_data:${PYTHONPATH}
       - FREQTRADE__EXCHANGE__KEY=${DELTA_API_KEY}
       - FREQTRADE__EXCHANGE__SECRET=${DELTA_API_SECRET}
       - DELTA_ENV=${DELTA_ENV}
