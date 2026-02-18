@@ -81,6 +81,38 @@ def read_backtest_result(filepath):
     return data
 
 
+def get_worst_strategy_from_baseline():
+    """
+    Reads baseline_metrics.json and returns the strategy with the lowest ROI.
+    """
+    baseline_file = Path("baseline_metrics.json")
+    if not baseline_file.exists():
+        return None
+
+    try:
+        with baseline_file.open() as f:
+            metrics = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Error reading baseline_metrics.json: {e}")
+        return None
+
+    if not metrics or not isinstance(metrics, list):
+        return None
+
+    worst_strategy = None
+    min_roi = float("inf")
+
+    for entry in metrics:
+        roi = entry.get("roi")
+        strategy = entry.get("strategy")
+        if roi is not None and strategy:
+            if roi < min_roi:
+                min_roi = roi
+                worst_strategy = strategy
+
+    return worst_strategy
+
+
 def find_worst_strategy(backtest_data):
     strategies = backtest_data.get("strategy", {})
     if not strategies:
@@ -118,6 +150,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -251,31 +285,56 @@ Examples:
             sys.exit(1)
 
     # 1. Establish Baseline
-    latest_file = get_latest_backtest_file()
-
+    worst_strategy = get_worst_strategy_from_baseline()
+    current_sharpe = -float("inf")
+    current_drawdown = 1.0
     backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
 
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
-        strategies = find_available_strategies()
-        if not strategies:
-            print("No strategy file found.")
+    if worst_strategy:
+        print(f"Selected Strategy from baseline: {worst_strategy}")
+        # Run baseline verification backtest
+        print(f"Running baseline verification backtest for {worst_strategy}...")
+
+        # Strategy config might be in a .json file if it was previously optimized
+        strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
+        extra_config = strategy_json if strategy_json.exists() else None
+
+        backtest_data = run_backtest_job(worst_strategy, extra_config=extra_config)
+        if backtest_data:
+            stats = backtest_data["strategy"].get(worst_strategy, {})
+            current_sharpe = stats.get("sharpe", -float("inf"))
+            current_drawdown = stats.get("max_drawdown_account", 1.0)
+            if current_sharpe is None:
+                current_sharpe = -float("inf")
+        else:
+            print("Failed to run baseline verification backtest.")
             sys.exit(1)
-        backtest_data = run_backtest_job(strategies)
+    else:
+        # Fallback to existing logic
+        latest_file = get_latest_backtest_file()
 
-    if not backtest_data:
-        print("Failed to produce backtest baseline.")
-        sys.exit(1)
+        if latest_file:
+            print(f"Using latest backtest file: {latest_file}")
+            backtest_data = read_backtest_result(latest_file)
 
-    worst_strategy, current_sharpe, current_stats = find_worst_strategy(backtest_data)
-    if not worst_strategy:
-        print("No strategy found in backtest results.")
-        sys.exit(1)
+        if not backtest_data:
+            print("No valid baseline found. Running initial backtest...")
+            strategies = find_available_strategies()
+            if not strategies:
+                print("No strategy file found.")
+                sys.exit(1)
+            backtest_data = run_backtest_job(strategies)
 
-    current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+        if not backtest_data:
+            print("Failed to produce backtest baseline.")
+            sys.exit(1)
+
+        worst_strategy, current_sharpe, current_stats = find_worst_strategy(backtest_data)
+        if not worst_strategy:
+            print("No strategy found in backtest results.")
+            sys.exit(1)
+
+        current_drawdown = current_stats.get("max_drawdown_account", 1.0)
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -294,6 +353,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
