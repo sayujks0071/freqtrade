@@ -1,5 +1,5 @@
 {
-    "max_open_trades": 5,
+    "max_open_trades": 10,
     "stake_currency": "USDT",
     "stake_amount": 20,
     "tradable_balance_ratio": 0.99,
@@ -8,7 +8,6 @@
     "cancel_open_orders_on_exit": false,
     "trading_mode": "futures",
     "margin_mode": "isolated",
-    "unidirectional_only": true,
     "exchange": {
         "name": "delta",
         "key": "",
@@ -20,52 +19,17 @@
             "enableRateLimit": true,
             "rateLimit": 200
         },
-        "pair_whitelist": [],
-        "pair_blacklist": []
+        "pair_whitelist": [
+        ],
+        "pair_blacklist": [
+        ]
     },
     "pairlists": [
         {
-            "method": "StaticPairList"
+            "method": "StaticPairList",
+            "allow_inactive": true
         }
     ],
-    "telegram": {
-        "enabled": false,
-        "token": "",
-        "chat_id": ""
-    },
-    "api_server": {
-        "enabled": true,
-        "listen_ip_address": "0.0.0.0",
-        "listen_port": 8080,
-        "verbosity": "error",
-        "jwt_secret_key": "somethingrandom",
-        "CORS_origins": [],
-        "username": "freqtrader",
-        "password": "SuperSecurePassword123!"
-    },
-    "protections": [
-        {
-            "method": "CooldownPeriod",
-            "stop_duration_candles": 5
-        },
-        {
-            "method": "MaxDrawdown",
-            "lookback_period_candles": 48,
-            "trade_limit": 20,
-            "stop_duration_candles": 12,
-            "max_allowed_drawdown": 0.2
-        },
-        {
-            "method": "DailyLossLimit",
-            "max_daily_loss": 0.05
-        }
-    ],
-    "bot_name": "freqtrade",
-    "initial_state": "running",
-    "forcebuy_enable": false,
-    "internals": {
-        "process_throttle_secs": 5
-    },
     "entry_pricing": {
         "price_side": "same",
         "use_order_book": true,
@@ -81,13 +45,36 @@
         "use_order_book": true,
         "order_book_top": 1
     },
-    "order_types": {
-        "entry": "limit",
-        "exit": "limit",
-        "emergency_exit": "market",
-        "force_exit": "market",
-        "force_entry": "market",
-        "stoploss": "market",
-        "stoploss_on_exchange": false
-    }
+    "exchange_rate_max_slippage": 0.05,
+    "protections": [
+        {
+            "method": "CooldownPeriod",
+            "stop_duration_candles": 5
+        },
+        {
+            "method": "MaxDrawdown",
+            "lookback_period_candles": 48,
+            "trade_limit": 20,
+            "stop_duration_candles": 12,
+            "max_allowed_drawdown": 0.2
+        },
+        {
+            "method": "StoplossGuard",
+            "lookback_period_candles": 24,
+            "trade_limit": 4,
+            "stop_duration_candles": 2,
+            "only_per_pair": false
+        },
+        {
+            "method": "LowProfitPairs",
+            "lookback_period_candles": 6,
+            "trade_limit": 2,
+            "stop_duration_candles": 60,
+            "required_profit": 0.02
+        },
+        {
+            "method": "protections.daily_loss_limit.DailyLossLimit",
+            "stop_duration_candles": 60
+        }
+    ]
 }
