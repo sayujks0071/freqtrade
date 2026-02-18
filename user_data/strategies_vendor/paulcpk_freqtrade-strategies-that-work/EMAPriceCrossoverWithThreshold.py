@@ -1,8 +1,9 @@
-from freqtrade.strategy import IStrategy, merge_informative_pair
-from pandas import DataFrame
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy  # noqa
+import talib.abstract as ta
+from pandas import DataFrame
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.strategy import IStrategy
 
 
 class EMAPriceCrossoverWithThreshold(IStrategy):
@@ -63,7 +64,7 @@ class EMAPriceCrossoverWithThreshold(IStrategy):
         dataframe.loc[
             (
                 # Close price crossed below EMA threshold
-                (qtpylib.crossed_below(dataframe['close'], dataframe['ema_threshold']))
+                qtpylib.crossed_below(dataframe['close'], dataframe['ema_threshold'])
             ),
             'sell'] = 1
         return dataframe

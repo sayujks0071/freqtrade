@@ -1,10 +1,16 @@
-import talib.abstract as ta
-import numpy as np  # noqa
-import pandas as pd
 from functools import reduce
+
+import numpy as np  # noqa
+import talib.abstract as ta
 from pandas import DataFrame
+
 import freqtrade.vendor.qtpylib.indicators as qtpylib
-from freqtrade.strategy import IStrategy, CategoricalParameter, DecimalParameter, IntParameter, RealParameter
+from freqtrade.strategy import (
+    CategoricalParameter,
+    IntParameter,
+    IStrategy,
+)
+
 
 __author__ = "Robert Roman"
 __copyright__ = "Free For Use"

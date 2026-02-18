@@ -1,12 +1,19 @@
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import numpy as np
-import talib.abstract as ta
-from freqtrade.persistence import Trade
-from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame
-from datetime import datetime, timedelta
-from freqtrade.strategy import merge_informative_pair, CategoricalParameter, DecimalParameter, IntParameter, stoploss_from_open
+from datetime import datetime
 from functools import reduce
+
+import talib.abstract as ta
+from pandas import DataFrame
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.persistence import Trade
+from freqtrade.strategy import (
+    CategoricalParameter,
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
+    stoploss_from_open,
+)
+from freqtrade.strategy.interface import IStrategy
 
 
 ###########################################################################################################
@@ -303,7 +310,7 @@ class BigZ04_TSL3(IStrategy):
         conditions = []
 
         conditions.append(
-            (
+
                 self.buy_condition_12_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200']) &
@@ -321,11 +328,11 @@ class BigZ04_TSL3(IStrategy):
                 ((dataframe['open'] - dataframe['close']) < dataframe['bb_upperband'].shift(2) - dataframe['bb_lowerband'].shift(2)) &
 
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_11_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200']) &
@@ -350,11 +357,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['low'].shift(2) > dataframe['bb_middleband'].shift(2)) &
 
                 (dataframe['volume'] > 0) # Make sure Volume is not 0
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_0_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200']) &
@@ -366,11 +373,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume_mean_slow'] > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value) &
                 (dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value < dataframe['volume_mean_slow'].shift(48)) &
                 (dataframe['volume'] > 0) # Make sure Volume is not 0
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_1_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200']) &
@@ -386,11 +393,11 @@ class BigZ04_TSL3(IStrategy):
                 ((dataframe['open'] - dataframe['close']) < dataframe['bb_upperband'].shift(2) - dataframe['bb_lowerband'].shift(2)) &
 
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_2_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200']) &
@@ -402,11 +409,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume'] < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)) &
                 (dataframe['open'] - dataframe['close'] < dataframe['bb_upperband'].shift(2) - dataframe['bb_lowerband'].shift(2)) &
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_3_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200_1h']) &
@@ -419,11 +426,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume'] < (dataframe['volume'].shift() * self.buy_volume_drop_3.value)) &
 
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_4_enable.value &
 
                 (dataframe['rsi_1h'] < self.buy_rsi_1h_1.value) &
@@ -434,11 +441,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value < dataframe['volume_mean_slow'].shift(48)) &
                 (dataframe['volume'] < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)) &
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_5_enable.value &
 
                 (dataframe['close'] > dataframe['ema_200']) &
@@ -453,11 +460,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume_mean_slow'] > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value) &
                 (dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value < dataframe['volume_mean_slow'].shift(48)) &
                 (dataframe['volume'] > 0) # Make sure Volume is not 0
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_6_enable.value &
 
                 (dataframe['rsi_1h'] < self.buy_rsi_1h_5.value) &
@@ -471,11 +478,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value < dataframe['volume_mean_slow'].shift(48)) &
                 (dataframe['volume'] < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)) &
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
                 self.buy_condition_7_enable.value &
 
                 (dataframe['rsi_1h'] < self.buy_rsi_1h_2.value) &
@@ -488,12 +495,12 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume_mean_slow'] > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value) &
                 (dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value < dataframe['volume_mean_slow'].shift(48)) &
                 (dataframe['volume'] > 0)
-            )
+
         )
 
 
         conditions.append(
-            (
+
 
                 self.buy_condition_8_enable.value &
 
@@ -503,11 +510,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume'] < (dataframe['volume'].shift() * self.buy_volume_drop_1.value)) &
 
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
 
                 self.buy_condition_9_enable.value &
 
@@ -518,11 +525,11 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['volume_mean_slow'] > dataframe['volume_mean_slow'].shift(48) * self.buy_volume_pump_1.value) &
                 (dataframe['volume_mean_slow'] * self.buy_volume_pump_1.value < dataframe['volume_mean_slow'].shift(48)) &
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         conditions.append(
-            (
+
 
                 self.buy_condition_10_enable.value &
 
@@ -536,7 +543,7 @@ class BigZ04_TSL3(IStrategy):
                 (dataframe['open'] < dataframe['close']) &
 
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         if conditions:
@@ -561,10 +568,10 @@ class BigZ04_TSL3(IStrategy):
 
         conditions = []
         conditions.append(
-            (
+
                 (dataframe['close'] > (dataframe[f'ma_sell_{self.base_nb_candles_sell.value}'] * self.high_offset.value)) &
                 (dataframe['volume'] > 0)
-            )
+
         )
 
         if conditions:

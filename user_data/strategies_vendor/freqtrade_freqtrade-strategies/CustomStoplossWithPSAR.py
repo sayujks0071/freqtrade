@@ -10,7 +10,6 @@ from freqtrade.strategy import IStrategy
 # --------------------------------
 # Add your lib to import here
 import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 from datetime import datetime
 from freqtrade.persistence import Trade
 
@@ -76,7 +75,7 @@ class CustomStoplossWithPSAR(IStrategy):
         """
         dataframe.loc[
             (
-                (dataframe['sar'] < dataframe['sar'].shift())
+                dataframe['sar'] < dataframe['sar'].shift()
             ),
             'enter_long'] = 1
 

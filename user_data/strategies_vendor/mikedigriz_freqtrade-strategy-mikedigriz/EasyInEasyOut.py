@@ -1,7 +1,7 @@
+from pandas import DataFrame
+
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame, DatetimeIndex, merge, Series
-from technical.indicators import hull_moving_average
 
 
 class EasyInEasyOut(IStrategy):

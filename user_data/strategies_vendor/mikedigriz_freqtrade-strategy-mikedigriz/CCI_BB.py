@@ -1,8 +1,9 @@
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 import talib.abstract as ta
-from freqtrade.strategy import (DecimalParameter, IStrategy, IntParameter)
+from pandas import DataFrame
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.strategy import IStrategy
 from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame, DatetimeIndex, merge, Series
 
 
 class CCI_BB(IStrategy):

@@ -1,17 +1,22 @@
 # --- Do not remove these libs ---
-import freqtrade.vendor.qtpylib.indicators as qtpylib
-import numpy as np
-import talib.abstract as ta
-import pandas_ta as pta
-
-from freqtrade.persistence import Trade
-from freqtrade.strategy.interface import IStrategy
-from pandas import DataFrame, Series, DatetimeIndex, merge
-from datetime import datetime, timedelta
-from freqtrade.strategy import merge_informative_pair, CategoricalParameter, DecimalParameter, IntParameter, stoploss_from_open
-from freqtrade.exchange import timeframe_to_prev_date
+from datetime import datetime
 from functools import reduce
-from technical.indicators import RMI, zema, ichimoku
+
+import numpy as np
+import pandas_ta as pta
+import talib.abstract as ta
+from pandas import DataFrame, Series
+from technical.indicators import RMI, zema
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.persistence import Trade
+from freqtrade.strategy import (
+    DecimalParameter,
+    IntParameter,
+    merge_informative_pair,
+)
+from freqtrade.strategy.interface import IStrategy
+
 
 # --------------------------------
 def ha_typical_price(bars):
@@ -41,7 +46,7 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
 def SROC(dataframe, roclen=21, emalen=13, smooth=21):
     df = dataframe.copy()
 
-    roc = ta.ROC(df, timeperiod=roclen)
+    ta.ROC(df, timeperiod=roclen)
     ema = ta.EMA(df, timeperiod=emalen)
     sroc = ta.ROC(ema, timeperiod=smooth)
 
@@ -467,12 +472,12 @@ class BB_RPB_TSL(IStrategy):
         previous_candle_2 = dataframe.iloc[-3]
 
         max_profit = ((trade.max_rate - trade.open_rate) / trade.open_rate)
-        max_loss = ((trade.open_rate - trade.min_rate) / trade.min_rate)
+        ((trade.open_rate - trade.min_rate) / trade.min_rate)
 
         buy_tag = 'empty'
         if hasattr(trade, 'buy_tag') and trade.buy_tag is not None:
             buy_tag = trade.buy_tag
-        buy_tags = buy_tag.split()
+        buy_tag.split()
 
         # sell trail
         if 0.012 > current_profit >= 0.0:
@@ -509,11 +514,11 @@ class BB_RPB_TSL(IStrategy):
 
         # main sell
         if current_profit > 0.02:
-            if (last_candle['momdiv_sell_1h'] == True):
+            if (last_candle['momdiv_sell_1h']):
                 return f"signal_profit_q_momdiv_1h( {buy_tag})"
-            if (last_candle['momdiv_sell'] == True):
+            if (last_candle['momdiv_sell']):
                 return f"signal_profit_q_momdiv( {buy_tag})"
-            if (last_candle['momdiv_coh'] == True):
+            if (last_candle['momdiv_coh']):
                 return f"signal_profit_q_momdiv_coh( {buy_tag})"
 
         # sell bear
@@ -590,7 +595,7 @@ class BB_RPB_TSL(IStrategy):
             return False
 
         dataframe = dataframe.iloc[-1].squeeze()
-        if ((rate > dataframe['close'])) :
+        if (rate > dataframe['close']) :
 
             slippage = ( (rate / dataframe['close']) - 1 ) * 100
 
@@ -1144,14 +1149,14 @@ def pmax(df, period, multiplier, length, MAtype, src):
     pm = Series(pm_arr)
 
     # Mark the trend direction up/down
-    pmx = np.where((pm_arr > 0.00), np.where((mavalue < pm_arr), 'down',  'up'), np.NaN)
+    pmx = np.where((pm_arr > 0.00), np.where((mavalue < pm_arr), 'down',  'up'), np.nan)
 
     return pm, pmx
 
 # Mom DIV
 def momdiv(dataframe: DataFrame, mom_length: int = 10, bb_length: int = 20, bb_dev: float = 2.0, lookback: int = 30) -> DataFrame:
     mom: Series = ta.MOM(dataframe, timeperiod=mom_length)
-    upperband, middleband, lowerband = ta.BBANDS(mom, timeperiod=bb_length, nbdevup=bb_dev, nbdevdn=bb_dev, matype=0)
+    upperband, _middleband, lowerband = ta.BBANDS(mom, timeperiod=bb_length, nbdevup=bb_dev, nbdevdn=bb_dev, matype=0)
     buy = qtpylib.crossed_below(mom, lowerband)
     sell = qtpylib.crossed_above(mom, upperband)
     hh = dataframe['high'].rolling(lookback).max()

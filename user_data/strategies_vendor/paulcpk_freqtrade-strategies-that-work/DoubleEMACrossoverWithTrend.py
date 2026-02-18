@@ -1,8 +1,9 @@
-from freqtrade.strategy import IStrategy, merge_informative_pair
-from pandas import DataFrame
-import talib.abstract as ta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 import numpy  # noqa
+import talib.abstract as ta
+from pandas import DataFrame
+
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+from freqtrade.strategy import IStrategy
 
 
 class DoubleEMACrossoverWithTrend(IStrategy):

@@ -8,6 +8,8 @@ import argparse
 import datetime
 import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -435,8 +437,29 @@ class StrategyScout:
                     with file_path.open("w") as f:
                         f.write(r.text)
                     downloaded += 1
+                    self._run_formatter(file_path)
 
         return downloaded
+
+    def _run_formatter(self, file_path):
+        """Run ruff format and fix on the file."""
+        try:
+             if shutil.which("ruff"):
+                 # Run ruff check --fix (silently)
+                 subprocess.run(
+                     ["ruff", "check", "--fix", "--unsafe-fixes", str(file_path)],
+                     check=False,
+                     capture_output=True
+                 )
+                 # Run ruff format (silently)
+                 subprocess.run(
+                     ["ruff", "format", str(file_path)],
+                     check=False,
+                     capture_output=True
+                 )
+        except Exception:  # noqa: S110
+            # Ignore errors during formatting (it's optional)
+            pass
 
 
 def main():
