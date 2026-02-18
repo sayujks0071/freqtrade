@@ -1882,6 +1882,8 @@ def test_api_forceexit(botclient, mocker, ticker, fee, markets):
     assert trade.is_open is True
 
     # Test with explicit price
+    # Sleep to ensure unique order IDs in dry-run mode on fast systems (Windows)
+    time.sleep(0.02)
     rc = client_post(
         client,
         f"{BASE_URI}/forceexit",
@@ -1901,6 +1903,8 @@ def test_api_forceexit(botclient, mocker, ticker, fee, markets):
     assert pytest.approx(trade.amount) == 75
     assert trade.is_open is True
 
+    # Sleep to ensure unique order IDs in dry-run mode on fast systems (Windows)
+    time.sleep(0.02)
     rc = client_post(client, f"{BASE_URI}/forceexit", data={"tradeid": "5"})
     assert_response(rc)
     assert rc.json() == {"result": "Created exit order for trade 5."}

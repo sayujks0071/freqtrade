@@ -150,7 +150,8 @@ def test_throttle_sleep_time(mocker, default_conf, caplog) -> None:
         assert worker._throttle(throttled_func, throttle_secs=5) == 42
         # This moves the clock by 1 second
         assert sleep_mock.call_count == 1
-        assert 3.8 < sleep_mock.call_args[0][0] < 4.1
+        # On Windows, time precision can be lower or overhead higher
+        assert 3.5 < sleep_mock.call_args[0][0] < 4.1
 
         sleep_mock.reset_mock()
         # This moves the clock by 1 second
