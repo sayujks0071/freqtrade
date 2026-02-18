@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+import ast
 import json
 import sys
-import ast
 from pathlib import Path
+
 
 def audit_config(filepath):
     print(f"Auditing Config: {filepath}...")
     try:
-        with open(filepath, 'r') as f:
+        with Path(filepath).open() as f:
             data = json.load(f)
     except Exception as e:
         print(f"FAIL: Error reading {filepath}: {e}")
@@ -22,8 +23,8 @@ def audit_config(filepath):
 
     # Check if value is valid number
     if not isinstance(max_open_trades, (int, float)):
-         print(f"FAIL: max_open_trades is not a number in {filepath}")
-         return False
+        print(f"FAIL: max_open_trades is not a number in {filepath}")
+        return False
 
     if max_open_trades > 5:
         print(f"FAIL: max_open_trades ({max_open_trades}) > 5 in {filepath}")
@@ -32,10 +33,34 @@ def audit_config(filepath):
     print(f"PASS: {filepath}")
     return True
 
-def audit_strategy(filepath):
+
+def check_stoploss(node, filepath):
+    stoploss_value = None
+    has_stoploss = False
+
+    if isinstance(node, ast.Assign):
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id == 'stoploss':
+                # Handle simple assignment: stoploss = -0.10 or stoploss = 0.05
+                if isinstance(node.value, ast.Constant):
+                    stoploss_value = node.value.value
+                elif (isinstance(node.value, ast.UnaryOp) and
+                      isinstance(node.value.op, ast.USub) and
+                      isinstance(node.value.operand, ast.Constant)):
+                    stoploss_value = -node.value.operand.value
+                else:
+                    print(f"WARN: stoploss found but complex/dynamic value in {filepath}")
+                    # specific check for manual review if dynamic
+                    pass
+
+                has_stoploss = True
+    return has_stoploss, stoploss_value
+
+
+def audit_strategy(filepath):  # noqa: C901
     print(f"Auditing Strategy: {filepath}...")
     try:
-        with open(filepath, 'r') as f:
+        with Path(filepath).open() as f:
             source = f.read()
         tree = ast.parse(source)
     except Exception as e:
@@ -49,20 +74,10 @@ def audit_strategy(filepath):
         if isinstance(node, ast.ClassDef):
             # Check class attributes
             for item in node.body:
-                if isinstance(item, ast.Assign):
-                    for target in item.targets:
-                        if isinstance(target, ast.Name) and target.id == 'stoploss':
-                            # Handle simple assignment: stoploss = -0.10 or stoploss = 0.05
-                            if isinstance(item.value, ast.Constant):
-                                stoploss_value = item.value.value
-                            elif isinstance(item.value, ast.UnaryOp) and isinstance(item.value.op, ast.USub) and isinstance(item.value.operand, ast.Constant):
-                                stoploss_value = -item.value.operand.value
-                            else:
-                                print(f"WARN: stoploss found but complex/dynamic value in {filepath}")
-                                # specific check for manual review if dynamic
-                                pass
-
-                            has_stoploss = True
+                found, val = check_stoploss(item, filepath)
+                if found:
+                    has_stoploss = True
+                    stoploss_value = val
 
     if has_stoploss:
         if stoploss_value is not None:
@@ -73,10 +88,12 @@ def audit_strategy(filepath):
                 return False
     else:
         # Freqtrade default stoploss is -0.10.
-        print(f"WARN: stoploss not explicitly defined in {filepath}. Assuming default (-0.10) which is compliant.")
+        print(f"WARN: stoploss not explicitly defined in {filepath}. "
+              "Assuming default (-0.10) which is compliant.")
 
     print(f"PASS: {filepath}")
     return True
+
 
 def main():
     failed = False
@@ -119,6 +136,7 @@ def main():
         sys.exit(1)
     else:
         print("All checks passed.")
+
 
 if __name__ == "__main__":
     main()
