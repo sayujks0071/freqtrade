@@ -1,11 +1,14 @@
-from datetime import datetime, timezone
 import logging
-from typing import Optional, Dict, Any
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+from freqtrade.strategy import IStrategy
 
 logger = logging.getLogger(__name__)
 
 # Mock IStrategy to allow super() calls in Mixin without runtime error if used standalone or strictly typed
 # But simpler is just to rely on MRO.
+
 
 class AuditedStrategyMixin:
     """
@@ -20,29 +23,38 @@ class AuditedStrategyMixin:
         """
         Audit log for signals.
         """
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(datetime.UTC).isoformat()
         msg = {
             "timestamp": timestamp,
             "type": "AUDIT_SIGNAL",
             "pair": pair,
             "side": side,
             "reason": reason,
-            "details": details or {}
+            "details": details or {},
         }
         logger.info(f"AUDIT_SIGNAL: {msg}")
 
-    def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
-                            time_in_force: str, current_time: datetime, entry_tag: Optional[str],
-                            side: str, **kwargs) -> bool:
-
-        self.log_signal(pair, side, entry_tag or "entry", {
-            "amount": amount,
-            "rate": rate,
-            "order_type": order_type
-        })
+    def confirm_trade_entry(
+        self,
+        pair: str,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        current_time: datetime,
+        entry_tag: Optional[str],
+        side: str,
+        **kwargs,
+    ) -> bool:
+        self.log_signal(
+            pair,
+            side,
+            entry_tag or "entry",
+            {"amount": amount, "rate": rate, "order_type": order_type},
+        )
 
         # Verify whitelist (safety check)
-        if hasattr(self, 'dp') and self.dp:
+        if hasattr(self, "dp") and self.dp:
             try:
                 # current_whitelist might raise error if not initialized
                 whitelist = self.dp.current_whitelist()
@@ -53,14 +65,30 @@ class AuditedStrategyMixin:
                 logger.error(f"Error checking whitelist: {e}")
 
         # Call next in MRO (IStrategy)
-        # We need to handle case where this is the last one? No, IStrategy is base.
-        # But if we use super(), we need IStrategy in bases.
-        return super().confirm_trade_entry(pair, order_type, amount, rate, time_in_force, current_time, entry_tag, side, **kwargs)
+        return super().confirm_trade_entry(
+            pair,
+            order_type,
+            amount,
+            rate,
+            time_in_force,
+            current_time,
+            entry_tag,
+            side,
+            **kwargs,
+        )
 
-    def confirm_trade_exit(self, pair: str, trade, order_type: str, amount: float,
-                           rate: float, time_in_force: str, exit_reason: str,
-                           current_time: datetime, **kwargs) -> bool:
-
+    def confirm_trade_exit(
+        self,
+        pair: str,
+        trade,
+        order_type: str,
+        amount: float,
+        rate: float,
+        time_in_force: str,
+        exit_reason: str,
+        current_time: datetime,
+        **kwargs,
+    ) -> bool:
         # We assume 'trade' object has certain properties.
         # trade is of type 'Trade'
         # Handle sell_reason vs exit_reason if needed, but modern freqtrade uses exit_reason
@@ -69,12 +97,27 @@ class AuditedStrategyMixin:
         profit_abs = trade.calc_profit(rate)
         duration = (current_time - trade.open_date_utc).total_seconds()
 
-        self.log_signal(pair, "exit", exit_reason, {
-            "amount": amount,
-            "rate": rate,
-            "profit_pct": profit_pct,
-            "profit_abs": profit_abs,
-            "duration": duration
-        })
+        self.log_signal(
+            pair,
+            "exit",
+            exit_reason,
+            {
+                "amount": amount,
+                "rate": rate,
+                "profit_pct": profit_pct,
+                "profit_abs": profit_abs,
+                "duration": duration,
+            },
+        )
 
-        return super().confirm_trade_exit(pair, trade, order_type, amount, rate, time_in_force, exit_reason, current_time, **kwargs)
+        return super().confirm_trade_exit(
+            pair,
+            trade,
+            order_type,
+            amount,
+            rate,
+            time_in_force,
+            exit_reason,
+            current_time,
+            **kwargs,
+        )

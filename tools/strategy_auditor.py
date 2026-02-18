@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
 import ast
-import sys
 import os
-import re
+import sys
+
 
 def check_ast(node, errors):
     for child in ast.walk(node):
         # Check for network calls (requests, urllib)
         if isinstance(child, ast.Import):
             for alias in child.names:
-                if alias.name in ['requests', 'urllib', 'socket', 'http']:
+                if alias.name in ["requests", "urllib", "socket", "http"]:
                     errors.append(f"Network import found: {alias.name} (Line {child.lineno})")
         elif isinstance(child, ast.ImportFrom):
-            if child.module in ['requests', 'urllib', 'socket', 'http']:
+            if child.module in ["requests", "urllib", "socket", "http"]:
                 errors.append(f"Network import found: {child.module} (Line {child.lineno})")
 
         # Check for datetime.now() usage (should use UTC or timeframe)
         if isinstance(child, ast.Call):
             if isinstance(child.func, ast.Attribute):
-                if isinstance(child.func.value, ast.Name) and child.func.value.id == 'datetime' and child.func.attr == 'now':
+                if (
+                    isinstance(child.func.value, ast.Name)
+                    and child.func.value.id == "datetime"
+                    and child.func.attr == "now"
+                ):
                     # Check if arguments are present (likely timezone)
                     if not child.args:
-                        errors.append(f"datetime.now() usage found (Line {child.lineno}). Ensure usage of timezone.utc.")
+                        errors.append(
+                            f"datetime.now() usage found (Line {child.lineno}). Ensure usage of timezone.utc."
+                        )
+
 
 def check_source(source, filename):
     errors = []
@@ -39,13 +46,13 @@ def check_source(source, filename):
 
     return errors
 
+
 def main():
     if len(sys.argv) < 2 or "--help" in sys.argv:
         print("Usage: strategy_auditor.py <file_or_dir> [--fix]")
         sys.exit(0)
 
     target = sys.argv[1]
-    fix_mode = "--fix" in sys.argv
 
     files = []
     if os.path.isdir(target):
@@ -61,7 +68,7 @@ def main():
     for fpath in files:
         print(f"Auditing {fpath}...")
         try:
-            with open(fpath, 'r') as f:
+            with open(fpath, "r") as f:
                 source = f.read()
 
             errors = check_source(source, fpath)
@@ -82,6 +89,7 @@ def main():
         sys.exit(1)
 
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

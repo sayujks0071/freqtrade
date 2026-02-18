@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-import sqlite3
-import pandas as pd
-from datetime import datetime, timezone, timedelta
-import sys
 import os
+import sqlite3
+import sys
+from datetime import datetime, timezone
+
+import pandas as pd
+
 
 def main():
     db_path = "user_data/tradesv3.sqlite"
@@ -18,7 +20,7 @@ def main():
     try:
         # Just check connection and basic select
         pd.read_sql_query("SELECT 1", conn)
-    except:
+    except Exception:
         print("Error checking DB connection.")
         sys.exit(1)
 
@@ -37,18 +39,18 @@ def main():
         sys.exit(0)
 
     # Convert dates
-    df['open_date'] = pd.to_datetime(df['open_date'])
-    df['close_date'] = pd.to_datetime(df['close_date'])
+    df["open_date"] = pd.to_datetime(df["open_date"])
+    df["close_date"] = pd.to_datetime(df["close_date"])
 
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Filter closed trades today
-    if 'is_open' in df.columns:
-        daily_trades = df[(df['close_date'] >= today_start) & (df['is_open'] == 0)].copy()
+    if "is_open" in df.columns:
+        daily_trades = df[(df["close_date"] >= today_start) & (df["is_open"] == 0)].copy()
     else:
         # Fallback if is_open missing (unlikely)
-        daily_trades = df[(df['close_date'] >= today_start)].copy()
+        daily_trades = df[(df["close_date"] >= today_start)].copy()
 
     if daily_trades.empty:
         print("No closed trades today.")
@@ -58,21 +60,27 @@ def main():
     report_file = f"user_data/reports/daily_summary_{timestamp}.md"
 
     total_trades = len(daily_trades)
-    wins = len(daily_trades[daily_trades['close_profit'] > 0])
+    wins = len(daily_trades[daily_trades["close_profit"] > 0])
     winrate = (wins / total_trades * 100) if total_trades > 0 else 0
-    total_pnl_abs = daily_trades['close_profit_abs'].sum()
-    avg_profit_pct = daily_trades['close_profit'].mean() * 100 if total_trades > 0 else 0
+    total_pnl_abs = daily_trades["close_profit_abs"].sum()
+    avg_profit_pct = daily_trades["close_profit"].mean() * 100 if total_trades > 0 else 0
 
-    daily_trades = daily_trades.sort_values('close_date')
-    daily_trades['cum_pnl'] = daily_trades['close_profit_abs'].cumsum()
-    peak = daily_trades['cum_pnl'].cummax()
-    drawdown = daily_trades['cum_pnl'] - peak
+    daily_trades = daily_trades.sort_values("close_date")
+    daily_trades["cum_pnl"] = daily_trades["close_profit_abs"].cumsum()
+    peak = daily_trades["cum_pnl"].cummax()
+    drawdown = daily_trades["cum_pnl"] - peak
     max_dd = drawdown.min() if not drawdown.empty else 0
 
-    top_pairs = daily_trades.groupby('pair')['close_profit_abs'].sum().sort_values(ascending=False).head(5)
-    top_reasons = daily_trades['exit_reason'].value_counts().head(5) if 'exit_reason' in daily_trades.columns else pd.Series()
+    top_pairs = (
+        daily_trades.groupby("pair")["close_profit_abs"].sum().sort_values(ascending=False).head(5)
+    )
+    top_reasons = (
+        daily_trades["exit_reason"].value_counts().head(5)
+        if "exit_reason" in daily_trades.columns
+        else pd.Series()
+    )
 
-    with open(report_file, 'w') as f:
+    with open(report_file, "w") as f:
         f.write(f"# Daily Trading Summary: {timestamp}\n\n")
         f.write(f"- **Total Trades:** {total_trades}\n")
         f.write(f"- **Win Rate:** {winrate:.2f}%\n")
@@ -93,11 +101,14 @@ def main():
         f.write("| Pair | Side | Reason | Profit % | PnL |\n")
         f.write("| --- | --- | --- | --- | --- |\n")
         for _, row in daily_trades.tail(10).iterrows():
-            side = "Short" if row.get('is_short') else "Long"
-            reason = row.get('exit_reason', 'N/A')
-            f.write(f"| {row['pair']} | {side} | {reason} | {row['close_profit']*100:.2f}% | {row['close_profit_abs']:.2f} |\n")
+            side = "Short" if row.get("is_short") else "Long"
+            reason = row.get("exit_reason", "N/A")
+            f.write(
+                f"| {row['pair']} | {side} | {reason} | {row['close_profit'] * 100:.2f}% | {row['close_profit_abs']:.2f} |\n"
+            )
 
     print(f"Report generated: {report_file}")
+
 
 if __name__ == "__main__":
     main()
