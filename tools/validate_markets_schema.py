@@ -168,10 +168,10 @@ Date: {datetime.now(UTC).isoformat()}
 Status: {status}
 
 ## Summary
-- Total Markets: {stats['total']}
-- Eligible Markets: {stats['eligible']}
-- Whitelist Size: {stats['whitelist_size']}
-- Drift: {stats['drift_removed']} removed, ratio {stats['drift_ratio']:.2f}
+- Total Markets: {stats["total"]}
+- Eligible Markets: {stats["eligible"]}
+- Whitelist Size: {stats["whitelist_size"]}
+- Drift: {stats["drift_removed"]} removed, ratio {stats["drift_ratio"]:.2f}
 
 ## Validation Errors
 """
