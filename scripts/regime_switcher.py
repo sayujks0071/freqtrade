@@ -8,12 +8,13 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import ccxt
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta as ta  # noqa: F401
+
 
 # Configuration
 USER_DATA_DIR = Path("user_data")
@@ -129,14 +130,14 @@ def update_config(strategy_name, config_source):
         return False
 
     try:
-        with open(config_source, "r") as f:
+        with config_source.open() as f:
             config = json.load(f)
 
         # Update strategy
         config["strategy"] = strategy_name
 
         # Write to target config
-        with open(CONFIG_TARGET, "w") as f:
+        with CONFIG_TARGET.open("w") as f:
             json.dump(config, f, indent=4)
 
         logger.info(f"Updated {CONFIG_TARGET} with strategy: {strategy_name}")
@@ -147,15 +148,15 @@ def update_config(strategy_name, config_source):
 
 
 def log_regime(regime, strategy):
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     message = f"| {timestamp} | {regime} | {strategy} |\n"
 
     if not REGIME_LOG.exists():
-        with open(REGIME_LOG, "w") as f:
+        with REGIME_LOG.open("w") as f:
             f.write("| Timestamp | Regime | Strategy |\n")
             f.write("|---|---|---|\n")
 
-    with open(REGIME_LOG, "a") as f:
+    with REGIME_LOG.open("a") as f:
         f.write(message)
 
     logger.info(f"Logged regime: {regime} -> {strategy}")
