@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+LOG_FILE = Path("optimization_log.txt")
 
 # Optimization Parameters
 EPOCHS = 200
@@ -37,6 +38,18 @@ def get_timerange():
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)
     return f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+
+
+def log_optimization_result(entry: dict):
+    """
+    Logs the optimization result to a file in JSON lines format.
+    """
+    try:
+        with LOG_FILE.open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+        print(f"Logged optimization result for {entry.get('strategy')}")
+    except Exception as e:
+        print(f"Failed to log optimization result: {e}")
 
 
 def get_latest_backtest_file():
@@ -118,6 +131,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -276,6 +291,7 @@ Examples:
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+    current_profit_pct = current_stats.get("profit_total_pct", 0.0)
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -294,6 +310,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -321,6 +339,32 @@ Examples:
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
         print(result_hyperopt.stderr)  # Print stderr on failure
+
+        # Log failure
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "strategy": worst_strategy,
+            "status": "failed",
+            "reason": "Hyperopt execution failed",
+            "roi_change": 0.0,
+            "sharpe_change": 0.0,
+            "drawdown_change": 0.0,
+        }
+        log_optimization_result(log_entry)
+
+        # Commit log failure
+        if not args.dry_run:
+            run_command(["git", "add", "-f", str(LOG_FILE)])
+            msg = f"chore: record failed optimization for {worst_strategy}"
+            run_command(["git", "commit", "-m", msg])
+            target_branch = args.branch if args.branch else "main"
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
+
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -335,11 +379,31 @@ Examples:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
 
-        # If capture failed to get json, we should probably revert and exit
+        # Log failure
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "strategy": worst_strategy,
+            "status": "failed",
+            "reason": "Could not extract parameters",
+            "roi_change": 0.0,
+            "sharpe_change": 0.0,
+            "drawdown_change": 0.0,
+        }
+        log_optimization_result(log_entry)
+
+        if not args.dry_run:
+            run_command(["git", "add", "-f", str(LOG_FILE)])
+            msg = f"chore: record failed optimization for {worst_strategy}"
+            run_command(["git", "commit", "-m", msg])
+            target_branch = args.branch if args.branch else "main"
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
+
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -352,6 +416,30 @@ Examples:
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
+
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "strategy": worst_strategy,
+            "status": "failed",
+            "reason": "Verification backtest failed",
+            "roi_change": 0.0,
+            "sharpe_change": 0.0,
+            "drawdown_change": 0.0,
+        }
+        log_optimization_result(log_entry)
+
+        if not args.dry_run:
+            run_command(["git", "add", "-f", str(LOG_FILE)])
+            msg = f"chore: record failed optimization for {worst_strategy}"
+            run_command(["git", "commit", "-m", msg])
+            target_branch = args.branch if args.branch else "main"
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
+
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -363,9 +451,15 @@ Examples:
     if new_sharpe is None:
         new_sharpe = -float("inf")
     new_drawdown = new_stats.get("max_drawdown_account", 1.0)
+    new_profit_pct = new_stats.get("profit_total_pct", 0.0)
 
     # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+    avg_profit_pct = new_profit_pct * 100
+
+    # Calculate deltas
+    roi_change = new_profit_pct - current_profit_pct
+    sharpe_change = new_sharpe - current_sharpe
+    drawdown_change = new_drawdown - current_drawdown
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
@@ -379,6 +473,16 @@ Examples:
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
+
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "strategy": worst_strategy,
+            "status": "success",
+            "roi_change": roi_change,
+            "sharpe_change": sharpe_change,
+            "drawdown_change": drawdown_change,
+        }
+        log_optimization_result(log_entry)
 
         if args.dry_run:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
@@ -395,6 +499,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", "-f", str(LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -433,6 +538,30 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "strategy": worst_strategy,
+            "status": "failed",
+            "reason": "Metrics did not improve",
+            "roi_change": roi_change,
+            "sharpe_change": sharpe_change,
+            "drawdown_change": drawdown_change,
+        }
+        log_optimization_result(log_entry)
+
+        if not args.dry_run:
+            run_command(["git", "add", "-f", str(LOG_FILE)])
+            msg = f"chore: record failed optimization for {worst_strategy}"
+            run_command(["git", "commit", "-m", msg])
+            target_branch = args.branch if args.branch else "main"
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
+
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
