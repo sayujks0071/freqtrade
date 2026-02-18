@@ -14,7 +14,7 @@ def audit_config(filepath):
         print(f"FAIL: Error reading {filepath}: {e}")
         return False
 
-    max_open_trades = data.get('max_open_trades')
+    max_open_trades = data.get("max_open_trades")
     if max_open_trades is None:
         print(f"PASS: max_open_trades not found in {filepath} (assuming inherited/default).")
         # If not present, we can't enforce it here, but it doesn't violate the rule directly.
@@ -40,13 +40,15 @@ def check_stoploss(node, filepath):
 
     if isinstance(node, ast.Assign):
         for target in node.targets:
-            if isinstance(target, ast.Name) and target.id == 'stoploss':
+            if isinstance(target, ast.Name) and target.id == "stoploss":
                 # Handle simple assignment: stoploss = -0.10 or stoploss = 0.05
                 if isinstance(node.value, ast.Constant):
                     stoploss_value = node.value.value
-                elif (isinstance(node.value, ast.UnaryOp) and
-                      isinstance(node.value.op, ast.USub) and
-                      isinstance(node.value.operand, ast.Constant)):
+                elif (
+                    isinstance(node.value, ast.UnaryOp)
+                    and isinstance(node.value.op, ast.USub)
+                    and isinstance(node.value.operand, ast.Constant)
+                ):
                     stoploss_value = -node.value.operand.value
                 else:
                     print(f"WARN: stoploss found but complex/dynamic value in {filepath}")
@@ -57,7 +59,7 @@ def check_stoploss(node, filepath):
     return has_stoploss, stoploss_value
 
 
-def audit_strategy(filepath):  # noqa: C901
+def audit_strategy(filepath):
     print(f"Auditing Strategy: {filepath}...")
     try:
         with Path(filepath).open() as f:
@@ -88,17 +90,17 @@ def audit_strategy(filepath):  # noqa: C901
                 return False
     else:
         # Freqtrade default stoploss is -0.10.
-        print(f"WARN: stoploss not explicitly defined in {filepath}. "
-              "Assuming default (-0.10) which is compliant.")
+        print(
+            f"WARN: stoploss not explicitly defined in {filepath}. "
+            "Assuming default (-0.10) which is compliant."
+        )
 
     print(f"PASS: {filepath}")
     return True
 
 
-def main():
+def audit_all_configs():
     failed = False
-
-    # Audit configs
     config_dir = Path("user_data/configs")
     if config_dir.exists():
         for config_file in config_dir.glob("*.json"):
@@ -118,7 +120,11 @@ def main():
         if not audit_config(root_config):
             failed = True
 
-    # Audit strategies
+    return failed
+
+
+def audit_all_strategies():
+    failed = False
     strategy_dir = Path("user_data/strategies")
     if strategy_dir.exists():
         # Iterate files recursively
@@ -132,7 +138,14 @@ def main():
     else:
         print("WARN: user_data/strategies/ does not exist.")
 
-    if failed:
+    return failed
+
+
+def main():
+    failed_configs = audit_all_configs()
+    failed_strategies = audit_all_strategies()
+
+    if failed_configs or failed_strategies:
         sys.exit(1)
     else:
         print("All checks passed.")
