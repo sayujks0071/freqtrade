@@ -2,7 +2,6 @@
 
 # Load .env
 if [ -f .env ]; then
-    # echo "Loading .env..."
     set -a
     . .env
     set +a
@@ -28,7 +27,6 @@ case "$DELTA_ENV" in
     india_testnet)
         BASE_URL="https://cdn-ind.testnet.deltaex.org"
         WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
         ;;
     *)
         echo "Unknown DELTA_ENV: $DELTA_ENV"
@@ -48,11 +46,21 @@ echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
 export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
 export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
 
+# UI Password
+export FREQTRADE__API_SERVER__PASSWORD="${FREQTRADE_UI_PASSWORD:-SuperSecurePassword123!}"
+
 # CCXT Config for URLs
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
 
+# Common settings
+export MIN_MARKETS=${MIN_MARKETS:-20}
+export MAX_REMOVAL_RATIO=${MAX_REMOVAL_RATIO:-0.25}
+export STRICT_VOLUME=${STRICT_VOLUME:-false}
+export FILTER_MODE=${FILTER_MODE:-perps_usdt}
+export ALLOWLIST_REGEX=${ALLOWLIST_REGEX:-.*}
+
 if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
+    echo "WARNING: API Key or Secret is missing! Edit .env file."
 fi
