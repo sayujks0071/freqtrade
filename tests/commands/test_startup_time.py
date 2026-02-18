@@ -1,8 +1,6 @@
 import subprocess  # noqa: S404, RUF100
 import time
 
-from tests.conftest import is_mac
-
 
 MAXIMUM_STARTUP_TIME = 1.5
 
