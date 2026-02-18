@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
-import os
 import sqlite3
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 
 
-def main():
-    db_path = "user_data/tradesv3.sqlite"
-    if not os.path.exists(db_path):
+def get_db_connection(db_path: Path):
+    if not db_path.exists():
         print("No database found.")
         sys.exit(0)
 
-    conn = sqlite3.connect(db_path)
-
-    # Query trades
-    # Ensure columns exist. 'is_short' might be present.
     try:
+        conn = sqlite3.connect(db_path)
         # Just check connection and basic select
         pd.read_sql_query("SELECT 1", conn)
+        return conn
     except Exception:
         print("Error checking DB connection.")
         sys.exit(1)
 
-    query = "SELECT * FROM trades"
 
+def get_daily_trades(conn):
+    query = "SELECT * FROM trades"
     try:
         df = pd.read_sql_query(query, conn)
     except Exception as e:
@@ -42,7 +40,7 @@ def main():
     df["open_date"] = pd.to_datetime(df["open_date"])
     df["close_date"] = pd.to_datetime(df["close_date"])
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)  # noqa: UP017
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Filter closed trades today
@@ -52,12 +50,11 @@ def main():
         # Fallback if is_open missing (unlikely)
         daily_trades = df[(df["close_date"] >= today_start)].copy()
 
-    if daily_trades.empty:
-        print("No closed trades today.")
-        sys.exit(0)
+    return daily_trades, now
 
-    timestamp = now.strftime("%Y%m%d")
-    report_file = f"user_data/reports/daily_summary_{timestamp}.md"
+
+def write_report(daily_trades, timestamp):
+    report_file = Path(f"user_data/reports/daily_summary_{timestamp}.md")
 
     total_trades = len(daily_trades)
     wins = len(daily_trades[daily_trades["close_profit"] > 0])
@@ -72,7 +69,10 @@ def main():
     max_dd = drawdown.min() if not drawdown.empty else 0
 
     top_pairs = (
-        daily_trades.groupby("pair")["close_profit_abs"].sum().sort_values(ascending=False).head(5)
+        daily_trades.groupby("pair")["close_profit_abs"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(5)
     )
     top_reasons = (
         daily_trades["exit_reason"].value_counts().head(5)
@@ -80,7 +80,7 @@ def main():
         else pd.Series()
     )
 
-    with open(report_file, "w") as f:
+    with report_file.open("w") as f:
         f.write(f"# Daily Trading Summary: {timestamp}\n\n")
         f.write(f"- **Total Trades:** {total_trades}\n")
         f.write(f"- **Win Rate:** {winrate:.2f}%\n")
@@ -103,11 +103,26 @@ def main():
         for _, row in daily_trades.tail(10).iterrows():
             side = "Short" if row.get("is_short") else "Long"
             reason = row.get("exit_reason", "N/A")
+            row_cp = row["close_profit"] * 100
+            row_cpa = row["close_profit_abs"]
             f.write(
-                f"| {row['pair']} | {side} | {reason} | {row['close_profit'] * 100:.2f}% | {row['close_profit_abs']:.2f} |\n"
+                f"| {row['pair']} | {side} | {reason} | {row_cp:.2f}% | {row_cpa:.2f} |\n"
             )
 
     print(f"Report generated: {report_file}")
+
+
+def main():
+    db_path = Path("user_data/tradesv3.sqlite")
+    conn = get_db_connection(db_path)
+    daily_trades, now = get_daily_trades(conn)
+
+    if daily_trades.empty:
+        print("No closed trades today.")
+        sys.exit(0)
+
+    timestamp = now.strftime("%Y%m%d")
+    write_report(daily_trades, timestamp)
 
 
 if __name__ == "__main__":

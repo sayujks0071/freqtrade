@@ -2,7 +2,16 @@ import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IntParameter, IStrategy
-from strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
+
+
+try:
+    from strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
+except ImportError:
+    try:
+        from user_data.strategies._base.AuditedStrategyMixin import AuditedStrategyMixin
+    except ImportError:
+        # Fallback for when running from strategies directory or similar
+        from _base.AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
@@ -41,11 +50,13 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            ((dataframe["rsi"] < self.buy_rsi.value) & (dataframe["volume"] > 0)), "enter_long"
+            ((dataframe["rsi"] < self.buy_rsi.value) & (dataframe["volume"] > 0)),
+            "enter_long",
         ] = 1
 
         dataframe.loc[
-            ((dataframe["rsi"] > self.sell_rsi.value) & (dataframe["volume"] > 0)), "enter_short"
+            ((dataframe["rsi"] > self.sell_rsi.value) & (dataframe["volume"] > 0)),
+            "enter_short",
         ] = 1
 
         return dataframe

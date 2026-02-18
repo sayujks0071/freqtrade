@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-import json
-import os
 import sys
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
+
+import requests
+
 
 # Known sources to fallback or prioritize
 KNOWN_SOURCES = [
@@ -16,18 +16,25 @@ KNOWN_SOURCES = [
 
 def search_github(query="freqtrade strategy"):
     # Basic search, rate limited without token
-    url = f"https://api.github.com/search/repositories?q={query}&sort=updated&order=desc"
+    url = "https://api.github.com/search/repositories"
+    params = {
+        "q": query,
+        "sort": "updated",
+        "order": "desc",
+    }
+    headers = {
+        "User-Agent": "Freqtrade-Strategy-Scout",
+        "Accept": "application/vnd.github.v3+json",
+    }
+
     try:
-        req = urllib.request.Request(url)
-        req.add_header("User-Agent", "Freqtrade-Strategy-Scout")
-        with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode())
-                return data.get("items", [])
-            else:
-                print(f"GitHub Search API returned {response.status}")
-                return []
-    except urllib.error.URLError as e:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        if response.status_code == 200:
+            return response.json().get("items", [])
+        else:
+            print(f"GitHub Search API returned {response.status_code}")
+            return []
+    except requests.RequestException as e:
         print(f"GitHub Search failed: {e}")
         return []
     except Exception as e:
@@ -66,21 +73,21 @@ def main():
             unique[s["html_url"]] = s
 
     # Generate Report
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
-    report_file = f"user_data/reports/strategy_shortlist_{timestamp}.md"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")  # noqa: UP017
+    report_file = Path(f"user_data/reports/strategy_shortlist_{timestamp}.md")
 
-    os.makedirs(os.path.dirname(report_file), exist_ok=True)
+    report_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(report_file, "w") as f:
+    with report_file.open("w") as f:
         f.write(f"# Strategy Shortlist {timestamp}\n\n")
         f.write("| Repo | Stars | Description |\n")
         f.write("| --- | --- | --- |\n")
         for s in unique.values():
             desc = s.get("description", "") or ""
             desc = desc.replace("\n", " ")
-            f.write(
-                f"| [{s['full_name']}]({s['html_url']}) | {s.get('stargazers_count', 0)} | {desc} |\n"
-            )
+            repo_link = f"[{s['full_name']}]({s['html_url']})"
+            stars = s.get("stargazers_count", 0)
+            f.write(f"| {repo_link} | {stars} | {desc} |\n")
 
     print(f"Report generated: {report_file}")
 

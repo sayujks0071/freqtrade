@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import ast
-import os
 import sys
+from pathlib import Path
 
 
 def check_ast(node, errors):
@@ -26,7 +26,8 @@ def check_ast(node, errors):
                     # Check if arguments are present (likely timezone)
                     if not child.args:
                         errors.append(
-                            f"datetime.now() usage found (Line {child.lineno}). Ensure usage of timezone.utc."
+                            f"datetime.now() usage found (Line {child.lineno}). "
+                            "Ensure usage of timezone.utc."
                         )
 
 
@@ -52,14 +53,13 @@ def main():
         print("Usage: strategy_auditor.py <file_or_dir> [--fix]")
         sys.exit(0)
 
-    target = sys.argv[1]
+    target = Path(sys.argv[1])
 
     files = []
-    if os.path.isdir(target):
-        for root, _, fs in os.walk(target):
-            for f in fs:
-                if f.endswith(".py") and not f.startswith("__"):
-                    files.append(os.path.join(root, f))
+    if target.is_dir():
+        for path in target.rglob("*.py"):
+            if not path.name.startswith("__"):
+                files.append(path)
     else:
         files.append(target)
 
@@ -68,10 +68,10 @@ def main():
     for fpath in files:
         print(f"Auditing {fpath}...")
         try:
-            with open(fpath, "r") as f:
+            with fpath.open("r") as f:
                 source = f.read()
 
-            errors = check_source(source, fpath)
+            errors = check_source(source, str(fpath))
 
             if errors:
                 all_passed = False

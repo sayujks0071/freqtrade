@@ -1,16 +1,24 @@
 import logging
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
-from freqtrade.strategy import IStrategy
+
+if TYPE_CHECKING:
+    from freqtrade.strategy import IStrategy
+else:
+    # Mock IStrategy for runtime if not imported, though usually it is.
+    class IStrategy:
+        def confirm_trade_entry(self, *args, **kwargs) -> bool:
+            return True
+
+        def confirm_trade_exit(self, *args, **kwargs) -> bool:
+            return True
+
 
 logger = logging.getLogger(__name__)
 
-# Mock IStrategy to allow super() calls in Mixin without runtime error if used standalone or strictly typed
-# But simpler is just to rely on MRO.
 
-
-class AuditedStrategyMixin:
+class AuditedStrategyMixin(IStrategy):
     """
     Mixin to enforce audit logging and safety checks for strategies.
     Must be mixed into IStrategy.
@@ -19,11 +27,14 @@ class AuditedStrategyMixin:
     # Enforce process_only_new_candles
     process_only_new_candles = True
 
-    def log_signal(self, pair: str, side: str, reason: str, details: Dict[str, Any] = None):
+    def log_signal(
+        self, pair: str, side: str, reason: str, details: dict[str, Any] | None = None
+    ):
         """
         Audit log for signals.
         """
-        timestamp = datetime.now(datetime.UTC).isoformat()
+        # Use timezone.utc to be compatible with mypy checks that might fail on datetime.UTC
+        timestamp = datetime.now(timezone.utc).isoformat()  # noqa: UP017
         msg = {
             "timestamp": timestamp,
             "type": "AUDIT_SIGNAL",
@@ -42,7 +53,7 @@ class AuditedStrategyMixin:
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: Optional[str],
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
