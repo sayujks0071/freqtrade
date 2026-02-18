@@ -251,7 +251,7 @@ reportTypedDictNotRequiredAccess = false  # 27
 
 [tool.ruff]
 line-length = 100
-extend-exclude = [".env", ".venv"]
+extend-exclude = [".env", ".venv", "user_data/strategies_vendor"]
 
 [tool.ruff.lint]
 extend-select = [

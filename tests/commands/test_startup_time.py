@@ -1,10 +1,16 @@
 import subprocess  # noqa: S404, RUF100
+import sys
 import time
 
 from tests.conftest import is_mac
 
 
-MAXIMUM_STARTUP_TIME = 0.7 if is_mac() else 0.5
+if is_mac():
+    MAXIMUM_STARTUP_TIME = 0.7
+elif sys.platform == "win32":
+    MAXIMUM_STARTUP_TIME = 1.5
+else:
+    MAXIMUM_STARTUP_TIME = 0.5
 
 
 def test_startup_time():
