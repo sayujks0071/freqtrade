@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 
 def main():
@@ -15,7 +16,7 @@ def main():
     FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
     ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
-    with open(markets_file, "r") as f:
+    with Path(markets_file).open() as f:
         markets = json.load(f)
 
     whitelist = []

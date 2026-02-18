@@ -69,10 +69,7 @@ def write_report(daily_trades, timestamp):
     max_dd = drawdown.min() if not drawdown.empty else 0
 
     top_pairs = (
-        daily_trades.groupby("pair")["close_profit_abs"]
-        .sum()
-        .sort_values(ascending=False)
-        .head(5)
+        daily_trades.groupby("pair")["close_profit_abs"].sum().sort_values(ascending=False).head(5)
     )
     top_reasons = (
         daily_trades["exit_reason"].value_counts().head(5)
@@ -105,9 +102,7 @@ def write_report(daily_trades, timestamp):
             reason = row.get("exit_reason", "N/A")
             row_cp = row["close_profit"] * 100
             row_cpa = row["close_profit_abs"]
-            f.write(
-                f"| {row['pair']} | {side} | {reason} | {row_cp:.2f}% | {row_cpa:.2f} |\n"
-            )
+            f.write(f"| {row['pair']} | {side} | {reason} | {row_cp:.2f}% | {row_cpa:.2f} |\n")
 
     print(f"Report generated: {report_file}")
 

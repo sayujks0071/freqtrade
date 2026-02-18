@@ -57,9 +57,7 @@ def validate_market_format(market, filter_mode, report_file):
         if len(parts) != 2:
             fail(f"Invalid symbol format (too many colons): {symbol}", report_file)
         if not parts[1]:
-            fail(
-                f"Invalid symbol format (empty settle currency): {symbol}", report_file
-            )
+            fail(f"Invalid symbol format (empty settle currency): {symbol}", report_file)
 
 
 def validate_schema(markets, min_markets, filter_mode, strict_volume, report_file):
@@ -106,9 +104,7 @@ def check_drift(markets, prev_markets_file, max_removal_ratio, report_file):
             removed = prev_symbols - curr_symbols
             added = curr_symbols - prev_symbols
 
-            removal_ratio = (
-                len(removed) / len(prev_symbols) if len(prev_symbols) > 0 else 0.0
-            )
+            removal_ratio = len(removed) / len(prev_symbols) if len(prev_symbols) > 0 else 0.0
 
             with report_file.open("a") as f:
                 f.write("\n## Drift Analysis\n")
@@ -137,7 +133,7 @@ def main():
     prev_markets_file = sys.argv[2] if len(sys.argv) > 2 else None
 
     # Use datetime.UTC where possible or timezone.utc
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") # noqa: UP017
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")  # noqa: UP017
     report_file = Path(f"user_data/reports/whitelist_diff_{timestamp}.md")
 
     # Environment configs
@@ -150,9 +146,7 @@ def main():
     report_file.parent.mkdir(parents=True, exist_ok=True)
 
     with report_file.open("w") as f:
-        f.write(
-            f"# Market Schema Validation Report\nDate: {timestamp}\nFile: {markets_file}\n\n"
-        )
+        f.write(f"# Market Schema Validation Report\nDate: {timestamp}\nFile: {markets_file}\n\n")
 
     markets = load_markets(markets_file, report_file)
     validate_schema(markets, MIN_MARKETS, FILTER_MODE, STRICT_VOLUME, report_file)

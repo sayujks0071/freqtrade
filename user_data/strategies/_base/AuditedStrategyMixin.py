@@ -27,9 +27,7 @@ class AuditedStrategyMixin(IStrategy):
     # Enforce process_only_new_candles
     process_only_new_candles = True
 
-    def log_signal(
-        self, pair: str, side: str, reason: str, details: dict[str, Any] | None = None
-    ):
+    def log_signal(self, pair: str, side: str, reason: str, details: dict[str, Any] | None = None):
         """
         Audit log for signals.
         """
