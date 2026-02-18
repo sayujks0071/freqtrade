@@ -1,4 +1,5 @@
 {
+    "$schema": "https://schema.freqtrade.io/schema.json",
     "max_open_trades": 5,
     "stake_currency": "USDT",
     "stake_amount": 20,
@@ -38,11 +39,10 @@
         "enabled": true,
         "listen_ip_address": "0.0.0.0",
         "listen_port": 8080,
-        "verbosity": "error",
+        "verbosity": "info",
         "jwt_secret_key": "somethingrandom",
         "CORS_origins": [],
-        "username": "freqtrader",
-        "password": "SuperSecurePassword123!"
+        "username": "freqtrader"
     },
     "protections": [
         {
@@ -57,13 +57,24 @@
             "max_allowed_drawdown": 0.2
         },
         {
-            "method": "DailyLossLimit",
-            "max_daily_loss": 0.05
+            "method": "StoplossGuard",
+            "lookback_period_candles": 24,
+            "trade_limit": 4,
+            "stop_duration_candles": 2,
+            "only_per_pair": false
+        },
+        {
+            "method": "LowProfitPairs",
+            "chain_of_decisions": [[6, 0.02]],
+            "lookback_period_candles": 6,
+            "trade_limit": 1,
+            "stop_duration_candles": 60,
+            "required_profit": 0.02
         }
     ],
     "bot_name": "freqtrade",
     "initial_state": "running",
-    "forcebuy_enable": false,
+    "force_entry_enable": false,
     "internals": {
         "process_throttle_secs": 5
     },
