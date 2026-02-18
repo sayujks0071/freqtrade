@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -14,6 +15,10 @@ from sentinel import Sentinel  # noqa: E402, RUF100
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
+        # Create a temporary directory for each test
+        self.test_dir = tempfile.TemporaryDirectory()
+        self.test_dir_path = Path(self.test_dir.name)
+
         self.config = {
             "api_server": {
                 "listen_ip_address": "127.0.0.1",
@@ -22,21 +27,17 @@ class TestSentinel(unittest.TestCase):
                 "password": "password",
             }
         }
-        self.config_path = Path("test_config.json")
+        self.config_path = self.test_dir_path / "test_config.json"
         with self.config_path.open("w") as f:
             json.dump(self.config, f)
 
         self.sentinel = Sentinel(self.config_path, "http://openclaw", True, False)
-        # Prevent actual state file writing
-        self.sentinel.state_file = Path("test_sentinel_state.json")
-        if self.sentinel.state_file.exists():
-            self.sentinel.state_file.unlink()
+        # Point state file to the temporary directory
+        self.sentinel.state_file = self.test_dir_path / "test_sentinel_state.json"
 
     def tearDown(self):
-        if self.config_path.exists():
-            self.config_path.unlink()
-        if self.sentinel.state_file.exists():
-            self.sentinel.state_file.unlink()
+        # Cleanup the temporary directory
+        self.test_dir.cleanup()
 
     @patch("sentinel.requests.post")
     def test_get_token(self, mock_post):

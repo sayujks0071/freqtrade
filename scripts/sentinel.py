@@ -55,12 +55,11 @@ class Sentinel:
             return json.load(f)
 
     def load_state(self) -> dict[str, Any]:
-        if self.state_file.exists():
-            try:
-                with self.state_file.open("r") as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                pass
+        try:
+            with self.state_file.open("r") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
         return {"balance_history": [], "triggered": False}
 
     def save_state(self):
