@@ -9,12 +9,12 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import ccxt
 import requests
+
 
 # Configure logging
 logging.basicConfig(
@@ -34,25 +34,30 @@ class Sentinel:
         self.config = self.load_config(config_path)
 
         # API Configuration
-        api_config = self.config.get('api_server', {})
-        self.api_url = f"http://{api_config.get('listen_ip_address', '127.0.0.1')}:{api_config.get('listen_port', 8080)}/api/v1"
-        self.api_auth = (api_config.get('username', ''), api_config.get('password', ''))
+        api_config = self.config.get("api_server", {})
+        ip = api_config.get("listen_ip_address", "127.0.0.1")
+        port = api_config.get("listen_port", 8080)
+        self.api_url = f"http://{ip}:{port}/api/v1"
+        self.api_auth = (
+            api_config.get("username", ""),
+            api_config.get("password", ""),
+        )
         self.access_token = None
 
         self.state_file = Path("user_data/sentinel_state.json")
         self.state = self.load_state()
 
-    def load_config(self, path: Path) -> Dict[str, Any]:
+    def load_config(self, path: Path) -> dict[str, Any]:
         if not path.exists():
             logger.error(f"Config file not found: {path}")
             sys.exit(1)
-        with open(path, "r") as f:
+        with path.open("r") as f:
             return json.load(f)
 
-    def load_state(self) -> Dict[str, Any]:
+    def load_state(self) -> dict[str, Any]:
         if self.state_file.exists():
             try:
-                with open(self.state_file, "r") as f:
+                with self.state_file.open("r") as f:
                     return json.load(f)
             except json.JSONDecodeError:
                 pass
@@ -61,7 +66,7 @@ class Sentinel:
     def save_state(self):
         # Ensure directory exists
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.state_file, "w") as f:
+        with self.state_file.open("w") as f:
             json.dump(self.state, f, indent=4)
 
     def get_token(self):
@@ -92,7 +97,7 @@ class Sentinel:
             # ohlcv is [timestamp, open, high, low, close, volume]
             # Max high in the last 4 completed candles + current partial
             highs = [x[2] for x in ohlcv]
-            current_price = ohlcv[-1][4] # Current close
+            current_price = ohlcv[-1][4]  # Current close
             max_high = max(highs)
 
             if max_high == 0:
@@ -114,11 +119,15 @@ class Sentinel:
     def check_drawdown(self) -> bool:
         """Check if account drawdown > 5% in last 1 hour."""
         try:
-            resp = requests.get(f"{self.api_url}/balance", headers=self.get_headers(), timeout=10)
+            resp = requests.get(
+                f"{self.api_url}/balance", headers=self.get_headers(), timeout=10
+            )
             if resp.status_code == 401:
                 # Token might be expired, retry once
                 self.get_token()
-                resp = requests.get(f"{self.api_url}/balance", headers=self.get_headers(), timeout=10)
+                resp = requests.get(
+                    f"{self.api_url}/balance", headers=self.get_headers(), timeout=10
+                )
 
             resp.raise_for_status()
             data = resp.json()
@@ -163,7 +172,11 @@ class Sentinel:
         # 1. Alert
         if self.openclaw_url:
             try:
-                requests.post(self.openclaw_url, json={"message": f"CRITICAL ALERT: {reason}"}, timeout=10)
+                requests.post(
+                    self.openclaw_url,
+                    json={"message": f"CRITICAL ALERT: {reason}"},
+                    timeout=10,
+                )
                 logger.info("Alert sent to OpenClaw")
             except Exception as e:
                 logger.error(f"Failed to send alert: {e}")
@@ -179,7 +192,9 @@ class Sentinel:
         if self.panic_sell:
             try:
                 # Get open trades
-                resp = requests.get(f"{self.api_url}/status", headers=self.get_headers(), timeout=10)
+                resp = requests.get(
+                    f"{self.api_url}/status", headers=self.get_headers(), timeout=10
+                )
                 resp.raise_for_status()
                 trades = resp.json()
 
@@ -187,10 +202,12 @@ class Sentinel:
                     trade_id = trade["trade_id"]
                     logger.info(f"Panic selling trade {trade_id}")
                     # Using forceexit
-                    requests.post(f"{self.api_url}/forceexit",
-                                  headers=self.get_headers(),
-                                  json={"tradeid": trade_id},
-                                  timeout=10)
+                    requests.post(
+                        f"{self.api_url}/forceexit",
+                        headers=self.get_headers(),
+                        json={"tradeid": trade_id},
+                        timeout=10,
+                    )
             except Exception as e:
                 logger.error(f"Failed to panic sell: {e}")
 
@@ -215,7 +232,10 @@ class Sentinel:
             self.state = self.load_state()
 
             if self.state.get("triggered"):
-                logger.warning("Sentinel already triggered. Waiting for manual reset (delete or update state file).")
+                logger.warning(
+                    "Sentinel already triggered. "
+                    "Waiting for manual reset (delete or update state file)."
+                )
                 time.sleep(300)
                 continue
 
@@ -229,17 +249,25 @@ class Sentinel:
 
             time.sleep(300)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Sentinel Circuit Breaker")
-    parser.add_argument("--config", "-c", required=True, type=Path, help="Path to Freqtrade config")
+    parser.add_argument(
+        "--config", "-c", required=True, type=Path, help="Path to Freqtrade config"
+    )
     parser.add_argument("--openclaw-url", help="OpenClaw Webhook URL")
-    parser.add_argument("--panic-sell", action="store_true", help="Liquidate all positions on trigger")
-    parser.add_argument("--dry-run", action="store_true", help="Do not execute stop/sell commands")
+    parser.add_argument(
+        "--panic-sell", action="store_true", help="Liquidate all positions on trigger"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Do not execute stop/sell commands"
+    )
 
     args = parser.parse_args()
 
     sentinel = Sentinel(args.config, args.openclaw_url, args.panic_sell, args.dry_run)
     sentinel.run()
+
 
 if __name__ == "__main__":
     main()

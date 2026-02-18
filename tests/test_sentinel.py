@@ -1,15 +1,16 @@
-import sys
 import json
-import unittest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+import sys
 import time
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 
 # Add scripts directory to path
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
-import sentinel
-from sentinel import Sentinel
+from sentinel import Sentinel  # noqa: E402, RUF100
+
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
@@ -18,11 +19,11 @@ class TestSentinel(unittest.TestCase):
                 "listen_ip_address": "127.0.0.1",
                 "listen_port": 8080,
                 "username": "user",
-                "password": "password"
+                "password": "password",
             }
         }
         self.config_path = Path("test_config.json")
-        with open(self.config_path, "w") as f:
+        with self.config_path.open("w") as f:
             json.dump(self.config, f)
 
         self.sentinel = Sentinel(self.config_path, "http://openclaw", True, False)
@@ -56,11 +57,11 @@ class TestSentinel(unittest.TestCase):
         # [timestamp, open, high, low, close, volume]
         # High was 100, current close is 89 (11% drop)
         mock_exchange.fetch_ohlcv.return_value = [
-            [1000, 100, 100, 90, 95, 10], # -4
-            [1001, 95, 96, 94, 95, 10],   # -3
-            [1002, 95, 95, 90, 90, 10],   # -2
-            [1003, 90, 90, 80, 85, 10],   # -1
-            [1004, 85, 89, 88, 89, 10],   # Current
+            [1000, 100, 100, 90, 95, 10],  # -4
+            [1001, 95, 96, 94, 95, 10],  # -3
+            [1002, 95, 95, 90, 90, 10],  # -2
+            [1003, 90, 90, 80, 85, 10],  # -1
+            [1004, 85, 89, 88, 89, 10],  # Current
         ]
 
         result = self.sentinel.check_btc_crash()
@@ -87,9 +88,7 @@ class TestSentinel(unittest.TestCase):
 
         # Setup history: Max was 1000
         now = time.time()
-        self.sentinel.state["balance_history"] = [
-            [now - 100, 1000.0]
-        ]
+        self.sentinel.state["balance_history"] = [[now - 100, 1000.0]]
 
         # Current is 900 (10% drop)
         mock_response = MagicMock()
@@ -105,9 +104,7 @@ class TestSentinel(unittest.TestCase):
         self.sentinel.access_token = "token"
 
         now = time.time()
-        self.sentinel.state["balance_history"] = [
-            [now - 100, 1000.0]
-        ]
+        self.sentinel.state["balance_history"] = [[now - 100, 1000.0]]
 
         # Current is 960 (4% drop)
         mock_response = MagicMock()
@@ -137,12 +134,21 @@ class TestSentinel(unittest.TestCase):
         self.sentinel.trigger_emergency("Test Reason")
 
         # Check Alert
-        mock_post.assert_any_call("http://openclaw", json={"message": "CRITICAL ALERT: Test Reason"}, timeout=10)
+        mock_post.assert_any_call(
+            "http://openclaw",
+            json={"message": "CRITICAL ALERT: Test Reason"},
+            timeout=10,
+        )
 
         # Check Stop
-        mock_post.assert_any_call(f"{self.sentinel.api_url}/stop", headers=self.sentinel.get_headers(), timeout=10)
+        mock_post.assert_any_call(
+            f"{self.sentinel.api_url}/stop",
+            headers=self.sentinel.get_headers(),
+            timeout=10,
+        )
 
         self.assertTrue(self.sentinel.state["triggered"])
+
 
 if __name__ == "__main__":
     unittest.main()
