@@ -1,69 +1,61 @@
 #!/usr/bin/env python3
 import json
+import sys
 import os
 import re
-import sys
-from pathlib import Path
-
-
-# Env
-FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
-ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
-
-
-def filter_markets(markets):
-    whitelist = []
-    regex = re.compile(ALLOWLIST_REGEX)
-
-    for m in markets:
-        symbol = m["symbol"]
-
-        # Basic active check
-        if not m.get("active", True):
-            continue
-
-        # Filter logic
-        if FILTER_MODE == "perps_usdt":
-            # Check if quote is USDT and it's a perp
-            # In ccxt/freqtrade, futures usually have 'linear' type or swap
-            # We rely on symbol string mostly for Freqtrade
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
-        elif FILTER_MODE == "all_futures":
-            whitelist.append(symbol)
-        elif FILTER_MODE == "allowlist_regex":
-            if regex.match(symbol):
-                whitelist.append(symbol)
-        else:
-            # Default to perps_usdt
-            if "/USDT:USDT" in symbol:
-                whitelist.append(symbol)
-
-    return sorted(list(set(whitelist)))
-
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: generate_whitelist.py <markets_json>")
+        print("Usage: generate_whitelist.py <markets_file>")
         sys.exit(1)
 
-    with Path(sys.argv[1]).open() as f:
-        data = json.load(f)
+    markets_file = sys.argv[1]
 
-    if isinstance(data, dict) and "markets" in data:
-        data = data["markets"]
+    FILTER_MODE = os.environ.get("FILTER_MODE", "perps_usdt")
+    ALLOWLIST_REGEX = os.environ.get("ALLOWLIST_REGEX", ".*")
 
-    whitelist = filter_markets(data)
+    with open(markets_file, 'r') as f:
+        markets = json.load(f)
 
-    # Output format for freqtrade config (or just list)
-    # The prompt asks for: user_data/pairlists/whitelist.delta.<env>.json
-    # and .txt
+    whitelist = []
 
-    # JSON format for Freqtrade inclusion
-    output_obj = {"exchange": {"pair_whitelist": whitelist}}
+    for m in markets:
+        # Only consider active markets
+        if not m.get('active'):
+            continue
 
-    print(json.dumps(output_obj, indent=4))
+        symbol = m['symbol']
 
+        # Determine if it's a derivative
+        is_contract = m.get('contract', False) or m.get('linear', False) or m.get('inverse', False) or m.get('swap', False) or m.get('future', False)
+        quote = m.get('quote', '')
+
+        if FILTER_MODE == 'perps_usdt':
+            # Must be a contract, quote USDT, and standard Delta format ending in :USDT
+            if is_contract and quote == 'USDT' and symbol.endswith(':USDT'):
+                 whitelist.append(symbol)
+        elif FILTER_MODE == 'all_futures':
+            if is_contract:
+                 whitelist.append(symbol)
+        elif FILTER_MODE == 'allowlist_regex':
+            if re.match(ALLOWLIST_REGEX, symbol):
+                whitelist.append(symbol)
+        else:
+            # Default fallback: perps_usdt behavior
+             if is_contract and quote == 'USDT' and symbol.endswith(':USDT'):
+                 whitelist.append(symbol)
+
+    # Sort canonical
+    whitelist.sort()
+
+    # Output as Freqtrade configuration
+    output = {
+        "exchange": {
+            "pair_whitelist": whitelist
+        }
+    }
+
+    print(json.dumps(output, indent=4))
 
 if __name__ == "__main__":
     main()
