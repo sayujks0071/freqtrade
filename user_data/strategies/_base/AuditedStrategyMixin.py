@@ -4,8 +4,9 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class AuditedStrategyMixin:
         # Serialize indicators to a compact string
         indicators_str = ", ".join(f"{k}={v}" for k, v in indicators_snapshot.items())
         msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
+            f"AUDIT_SIGNAL | {datetime.now(timezone.utc).isoformat()} | {pair} | "
             f"{side} | {reason} | {ts_utc} | {indicators_str}"
         )
         logger.info(msg)

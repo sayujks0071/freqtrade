@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import ast
 import os
-import sys
 import re
+import sys
+import tokenize
 from pathlib import Path
 
 REQUIRED_HEADER_FIELDS = [
@@ -67,8 +68,10 @@ def check_header(tree, source, filepath):
 
 def fix_header(source, strategy_name, timeframe):
     # Always prepend the standard header template.
-    # If there was an existing docstring, it will remain as a second string literal (which is fine in Python).
-    header = '"""' + HEADER_TEMPLATE.format(name=strategy_name, timeframe=timeframe) + '"""\n'
+    # If there was an existing docstring, it will remain as a second string literal.
+    header = (
+        '"""' + HEADER_TEMPLATE.format(name=strategy_name, timeframe=timeframe) + '"""\n'
+    )
     return header + source
 
 
@@ -103,12 +106,6 @@ def fix_mixin(source, tree):
         return source
 
     # Add import if missing
-    # We need to add:
-    # import sys
-    # from pathlib import Path
-    # sys.path.append(str(Path(__file__).parent / "_base"))
-    # from AuditedStrategyMixin import AuditedStrategyMixin
-
     import_block = """
 import sys
 from pathlib import Path
@@ -136,16 +133,7 @@ from AuditedStrategyMixin import AuditedStrategyMixin
         bases_str = match.group(1)
         bases = [b.strip() for b in bases_str.split(",")]
         if "AuditedStrategyMixin" not in bases:
-            bases.insert(0, "AuditedStrategyMixin") # First for mixin precedence? or last?
-            # Prompt said: "Modify selected strategies to inherit from the mixin"
-            # Python MRO: Mixin usually first if it overrides methods or adds generic behavior?
-            # AuditedStrategyMixin doesn't override IStrategy methods (except maybe if IStrategy had them)
-            # But usually Mixins go first.
-            # However, IStrategy is the main base.
-            # Let's put it last or first. Existing DeltaSafeStrategy has (IStrategy, AuditedStrategyMixin).
-            # Wait, `DeltaSafeStrategy` in my read had `class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):`.
-            # But the user memory says: "Strategies using AuditedStrategyMixin must be defined with the mixin before IStrategy (e.g., class S(AuditedStrategyMixin, IStrategy)) to allow super() calls to resolve correctly to the mixin."
-            # Memory says BEFORE.
+            bases.insert(0, "AuditedStrategyMixin")  # First for mixin precedence?
             return f"class {strategy_node.name}(AuditedStrategyMixin, {bases_str}):"
         return match.group(0)
 
@@ -155,58 +143,107 @@ from AuditedStrategyMixin import AuditedStrategyMixin
     return new_source
 
 
-def check_logic(tree):
+def check_logic_complexity(tree):
     errors = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Subscript):
                     sl = target.slice
-                    if isinstance(sl, ast.Index): # Python < 3.9
+                    if isinstance(sl, ast.Index):  # Python < 3.9
                         sl = sl.value
 
                     if isinstance(sl, ast.BoolOp):
-                         if len(sl.values) > 3:
-                            errors.append(f"Complex inline condition (>{len(sl.values)} ops) at line {node.lineno}. Use named variables.")
+                        if len(sl.values) > 3:
+                            errors.append(
+                                f"Complex inline condition (>{len(sl.values)} ops) at "
+                                f"line {node.lineno}. Use named variables."
+                            )
     return errors
 
 
-def audit_file(filepath, fix=False):
-    print(f"Auditing {filepath}...")
+def check_comments_in_method(filepath, method_name):
+    """
+    Check if a specific method in the file contains any comments.
+    This uses tokenize as AST strips comments.
+    """
+    try:
+        with Path(filepath).open("rb") as f:
+            tokens = list(tokenize.tokenize(f.readline))
+    except Exception:
+        # If we can't tokenize, we assume it's fine or failed elsewhere
+        return True
+
+    # Parse AST to find start/end lines of the method
     try:
         with Path(filepath).open() as f:
             source = f.read()
         tree = ast.parse(source)
-    except Exception as e:
-        print(f"FAIL: Parse Error in {filepath}: {e}")
-        return False
+    except Exception:
+        return True
 
+    strat_node = get_strategy_class_node(tree)
+    if not strat_node:
+        return True
+
+    target_method = None
+    for node in strat_node.body:
+        if isinstance(node, ast.FunctionDef) and node.name == method_name:
+            target_method = node
+            break
+
+    if not target_method:
+        # Method not found, strategy might not use it (e.g. no shorting)
+        return True
+
+    start_line = target_method.lineno
+    end_line = target_method.end_lineno
+
+    has_comment = False
+    for token in tokens:
+        if token.type == tokenize.COMMENT:
+            if start_line <= token.start[0] <= end_line:
+                has_comment = True
+                break
+
+    if not has_comment:
+        return False
+    return True
+
+
+def try_fix_header(tree, source, filepath):
+    # Try to fix missing docstring
+    # Need strategy name and timeframe
+    strat_node = get_strategy_class_node(tree)
+    name = strat_node.name if strat_node else "UnknownStrategy"
+
+    # Try to find timeframe
+    timeframe = "1h"  # Default
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == "timeframe":
+                    if isinstance(node.value, ast.Constant):
+                        timeframe = node.value.value
+
+    source = fix_header(source, name, timeframe)
+    print("  [FIX] Added/Updated header docstring.")
+    return source
+
+
+def audit_content(tree, source, filepath, fix=False):
     errors = []
+    fixed_source = source
     fixed_something = False
 
     # 1. Header
     ok, err = check_header(tree, source, filepath)
     if not ok:
         if fix and ("Missing module docstring" in err or "Missing header field" in err):
-            # Try to fix missing docstring or prepend header
-            # Need strategy name and timeframe
-            strat_node = get_strategy_class_node(tree)
-            name = strat_node.name if strat_node else "UnknownStrategy"
-
-            # Try to find timeframe
-            timeframe = "1h" # Default
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Assign):
-                    for t in node.targets:
-                        if isinstance(t, ast.Name) and t.id == "timeframe":
-                            if isinstance(node.value, ast.Constant):
-                                timeframe = node.value.value
-
-            source = fix_header(source, name, timeframe)
+            fixed_source = try_fix_header(tree, fixed_source, filepath)
             fixed_something = True
-            print("  [FIX] Added/Updated header docstring.")
             # Re-parse
-            tree = ast.parse(source)
+            tree = ast.parse(fixed_source)
         else:
             errors.append(err)
 
@@ -218,28 +255,47 @@ def audit_file(filepath, fix=False):
     ok, err = check_mixin(tree)
     if not ok:
         if fix and "does not inherit" in err:
-            source = fix_mixin(source, tree)
+            fixed_source = fix_mixin(fixed_source, tree)
             fixed_something = True
             print("  [FIX] Added AuditedStrategyMixin inheritance.")
             # Re-parse
-            tree = ast.parse(source)
+            tree = ast.parse(fixed_source)
         else:
             errors.append(err)
 
-    # 4. Logic
-    logic_errs = check_logic(tree)
+    # 4. Logic Complexity
+    logic_errs = check_logic_complexity(tree)
     errors.extend(logic_errs)
 
     # 5. Repainting
     if "process_only_new_candles" not in source and "closed candle" not in source.lower():
-         errors.append("Missing 'process_only_new_candles = True' or 'closed candle' note.")
+        errors.append("Missing 'process_only_new_candles = True' or 'closed candle' note.")
+
+    # 6. Comments in critical methods
+    if not check_comments_in_method(filepath, "populate_entry_trend"):
+        errors.append("Missing comments in populate_entry_trend explaining market thesis.")
+    if not check_comments_in_method(filepath, "populate_exit_trend"):
+        errors.append("Missing comments in populate_exit_trend explaining market thesis.")
+
+    return errors, fixed_source, fixed_something
+
+
+def audit_file(filepath, fix=False):
+    print(f"Auditing {filepath}...")
+    try:
+        with Path(filepath).open() as f:
+            source = f.read()
+        tree = ast.parse(source)
+    except Exception as exc:
+        print(f"FAIL: Parse Error in {filepath}: {exc}")
+        return False
+
+    errors, fixed_source, fixed_something = audit_content(tree, source, filepath, fix)
 
     if fixed_something:
         with Path(filepath).open("w") as f:
-            f.write(source)
+            f.write(fixed_source)
         print("  Changes saved.")
-        # Re-audit to verify?
-        # For now, just mark as fixed but might still have errors (like missing fields in header)
 
     if errors:
         for e in errors:
@@ -274,7 +330,11 @@ def main():
     else:
         for root, _, files in os.walk(target):
             for file in files:
-                if file.endswith(".py") and not file.startswith("__") and file != "AuditedStrategyMixin.py":
+                if (
+                    file.endswith(".py")
+                    and not file.startswith("__")
+                    and file != "AuditedStrategyMixin.py"
+                ):
                     if not audit_file(str(Path(root) / file), fix):
                         failed = True
 

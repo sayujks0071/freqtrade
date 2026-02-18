@@ -21,9 +21,11 @@
     - Only acts on closed candles.
 """
 
+from __future__ import annotations
+
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import talib.abstract as ta
@@ -80,16 +82,18 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Check whitelist using Mixin
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             if not self.assert_pair_in_whitelist(metadata["pair"], self.config["exchange"]["pair_whitelist"]):
+            if not self.assert_pair_in_whitelist(
+                metadata["pair"], self.config["exchange"]["pair_whitelist"]
+            ):
                 return dataframe
 
         # Check pair format
         if not self.validate_pair_format(metadata["pair"]):
-             return dataframe
+            return dataframe
 
         # Named conditions for clarity (Auditor Requirement)
-        rsi_oversold = (dataframe["rsi"] < 30)
-        has_volume = (dataframe["volume"] > 0)
+        rsi_oversold = dataframe["rsi"] < 30
+        has_volume = dataframe["volume"] > 0
 
         dataframe.loc[(rsi_oversold & has_volume), "enter_long"] = 1
 
@@ -97,8 +101,8 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Named conditions for clarity
-        rsi_overbought = (dataframe["rsi"] > 70)
-        has_volume = (dataframe["volume"] > 0)
+        rsi_overbought = dataframe["rsi"] > 70
+        has_volume = dataframe["volume"] > 0
 
         dataframe.loc[(rsi_overbought & has_volume), "exit_long"] = 1
         return dataframe
@@ -132,7 +136,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side=side,
             reason=entry_tag or "Signal Confirmed",
             ts_utc=last_candle.get("date", current_time),
-            indicators_snapshot=snapshot
+            indicators_snapshot=snapshot,
         )
         return True
 
@@ -157,7 +161,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         snapshot = {
             "rsi": last_candle.get("rsi"),
             "close": last_candle.get("close"),
-            "profit_ratio": trade.calc_profit_ratio(rate) if trade else 0.0
+            "profit_ratio": trade.calc_profit_ratio(rate) if trade else 0.0,
         }
 
         self.log_signal(
@@ -165,6 +169,6 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             side="exit",
             reason=exit_reason,
             ts_utc=last_candle.get("date", current_time),
-            indicators_snapshot=snapshot
+            indicators_snapshot=snapshot,
         )
         return True
