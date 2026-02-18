@@ -7,6 +7,7 @@ Automatically discovers and shortlists the best open-source Python crypto tradin
 import argparse
 import datetime
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,14 @@ SEARCH_QUERIES = [
     "FreqAI strategy",
     "crypto trading strategy python freqtrade",
 ]
-KNOWN_SOURCES = ["freqtrade/freqtrade-strategies"]
+KNOWN_SOURCES = [
+    "freqtrade/freqtrade-strategies",
+    "iterativ/freqtrade-strategies",
+    "werkkrew/freqtrade-strategies",
+    "hansen1015/freqtrade_strategies",
+    "i1ya/freqtrade-strategies",
+    "paulcpk/freqtrade-strategies-that-work",
+]
 REQUIRED_FILES = ["user_data/reports", "user_data/strategies_vendor"]
 RATE_LIMIT_BUFFER = 5
 TIMEOUT = 10
@@ -47,7 +55,7 @@ class StrategyScout:
                 reset = core["reset"]
                 print(f"DEBUG: Rate limit remaining: {remaining}")
                 if remaining < RATE_LIMIT_BUFFER:
-                    reset_time = datetime.datetime.fromtimestamp(reset)
+                    reset_time = datetime.datetime.fromtimestamp(reset, datetime.UTC)
                     print(f"WARNING: Rate limit low. Resets at {reset_time}. halting or degrading.")
                     return False
             return True
@@ -100,6 +108,8 @@ class StrategyScout:
                     )
                     if resp.status_code == 200:
                         found_repos[source] = resp.json()
+                    elif resp.status_code == 404:
+                         print(f"Source not found: {source}")
                 except Exception as e:
                     print(f"Error fetching source {source}: {e}")
 
@@ -125,21 +135,32 @@ class StrategyScout:
                 license_name = "Other (Check manually)"
                 score += 1
             else:
-                if full_name not in KNOWN_SOURCES:
-                    continue
+                # If specifically known, allow it even if license metadata is weird
+                if full_name in KNOWN_SOURCES:
+                    score += 5
+                    license_name = "See Repo (Known Source)"
+                else:
+                    # Prefer clear licenses
+                    pass
 
             # 2. Recency
             if pushed_at:
-                pushed_dt = datetime.datetime.strptime(pushed_at, "%Y-%m-%dT%H:%M:%SZ")
-                age_days = (datetime.datetime.now() - pushed_dt).days
-                if age_days < 30:
-                    score += 5
-                elif age_days < 90:
-                    score += 3
-                elif age_days < 365:
-                    score += 1
-                else:
-                    score -= 2  # Stale
+                try:
+                    # GitHub API returns UTC ISO 8601
+                    pushed_dt = datetime.datetime.strptime(
+                        pushed_at, "%Y-%m-%dT%H:%M:%SZ"
+                    ).replace(tzinfo=datetime.UTC)
+                    age_days = (datetime.datetime.now(datetime.UTC) - pushed_dt).days
+                    if age_days < 30:
+                        score += 5
+                    elif age_days < 90:
+                        score += 3
+                    elif age_days < 365:
+                        score += 1
+                    else:
+                        score -= 2  # Stale
+                except ValueError:
+                    age_days = 9999
             else:
                 age_days = 9999
 
@@ -189,29 +210,57 @@ class StrategyScout:
         """Helper to download and analyze strategy content."""
         try:
             download_url = strat_file.get("download_url")
-            if download_url:
-                content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
-                if content_resp.status_code == 200:
-                    content = content_resp.text
+            if not download_url:
+                return
 
-                    # Check heuristics
-                    if "stoploss" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has stoploss")
-                    if "minimal_roi" in content:
-                        repo["scout_score"] += 2
-                        repo["scout_notes"].append("Has ROI")
-                    if "populate_indicators" in content:
-                        repo["scout_score"] += 2
-                    if "can_short" in content:
-                        repo["scout_notes"].append("Futures/Shorts mentioned")
+            content_resp = requests.get(download_url, timeout=REQUEST_TIMEOUT)
+            if content_resp.status_code != 200:
+                return
 
-                    # Negative heuristics
-                    if "martingale" in content.lower():
-                        repo["scout_score"] -= 10
-                        repo["scout_notes"].append("Martingale detected (Risk!)")
+            content = content_resp.text
+            self._apply_heuristics(content, repo)
+
         except Exception as e:
             print(f"Failed to read file {strat_file['name']}: {e}")
+
+    def _apply_heuristics(self, content, repo):
+        # Check heuristics
+        if "stoploss" in content:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has stoploss")
+        if "minimal_roi" in content:
+            repo["scout_score"] += 2
+            repo["scout_notes"].append("Has ROI")
+        if "populate_indicators" in content:
+            repo["scout_score"] += 2
+        if "can_short" in content:
+            repo["scout_notes"].append("Futures/Shorts mentioned")
+
+        # Timeframe detection
+        tf_match = re.search(r"timeframe\s*=\s*['\"]([^'\"]+)['\"]", content)
+        if tf_match:
+                repo["timeframe"] = tf_match.group(1)
+                repo["scout_notes"].append(f"Timeframe: {tf_match.group(1)}")
+
+        # Indicator detection
+        indicators = []
+        if "talib" in content:
+            indicators.append("talib")
+        if "qtpylib" in content:
+            indicators.append("qtpylib")
+        if "technical" in content:
+            indicators.append("technical")
+        if "pandas_ta" in content:
+            indicators.append("pandas_ta")
+
+        if indicators:
+            repo["scout_notes"].append(f"Indicators: {', '.join(indicators)}")
+            repo["scout_score"] += 1
+
+        # Negative heuristics
+        if "martingale" in content.lower():
+            repo["scout_score"] -= 10
+            repo["scout_notes"].append("Martingale detected (Risk!)")
 
     def deep_inspect(self, limit=15):
         print(f"Deep inspecting top {limit} candidates...")
@@ -235,8 +284,13 @@ class StrategyScout:
 
             if len(strategies) > 0:
                 repo["scout_score"] += min(len(strategies), 5) * 1  # +1 per strategy up to 5
-                # Check the first strategy file for content
-                self._analyze_strategy_content(strategies[0], repo)
+
+                # Check up to 3 strategy files for content to get better coverage
+                for strat_file in strategies[:3]:
+                     self._analyze_strategy_content(strat_file, repo)
+
+                # Deduplicate notes
+                repo["scout_notes"] = list(set(repo["scout_notes"]))
             else:
                 repo["scout_score"] -= 5
 
@@ -250,7 +304,7 @@ class StrategyScout:
         report_dir = Path("user_data/reports")
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
         filename = report_dir / f"strategy_shortlist_{date_str}.md"
 
         top_10 = self.candidates[:10]
@@ -284,6 +338,9 @@ class StrategyScout:
                 else:
                     adoption.append("Check for `can_short` if trading futures.")
                 adoption.append("Verify `stoploss` and `leverage` settings for Delta futures.")
+                adoption.append(
+                    "Ensure pair format matches your exchange (e.g. `BTC/USDT:USDT` for futures)."
+                )
                 f.write(" ".join(adoption) + "\n")
                 f.write("\n")
 
@@ -332,35 +389,54 @@ class StrategyScout:
                 resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
                 if resp.status_code == 200:
                     contents = resp.json()
-                    downloaded = 0
-                    for file_info in contents:
-                        fname = file_info.get("name", "")
-                        if not fname.endswith(".py") or fname == "__init__.py":
-                            continue
+                    downloaded = self._process_vendor_contents(
+                        contents, vendor_dir, repo, repo_name
+                    )
 
-                        if downloaded >= 3:
-                            # Limit to 3 files per repo to save bandwidth/noise
-                            break
+                    if downloaded > 0:
+                        count += 1
+                    else:
+                        for item in vendor_dir.iterdir():
+                            item.unlink()
+                        vendor_dir.rmdir()
 
-                        raw_url = file_info.get("download_url")
-                        if raw_url:
-                            r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
-                            if r.status_code == 200:
-                                file_path = vendor_dir / file_info["name"]
-                                with file_path.open("w") as f:
-                                    f.write(r.text)
-                                downloaded += 1
-
-                    license_file = vendor_dir / "LICENSE_NOTE.md"
-                    with license_file.open("w") as f:
-                        f.write(f"# License Note for {repo_name}\n\n")
-                        f.write(f"Source: {repo['html_url']}\n")
-                        f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
-                        f.write("Please check the original repository for full license details.\n")
-
-                    count += 1
             except Exception as e:
                 print(f"Error vendoring {full_name}: {e}")
+
+    def _process_vendor_contents(self, contents, vendor_dir, repo, repo_name):
+        downloaded = 0
+
+        # Filter for strategy files first
+        strategy_files = [
+            f for f in contents
+            if f.get("name", "").endswith(".py") and f.get("name") != "__init__.py"
+        ]
+
+        if not strategy_files:
+            return 0
+
+        # Create license note
+        license_file = vendor_dir / "LICENSE_NOTE.md"
+        with license_file.open("w") as f:
+            f.write(f"# License Note for {repo_name}\n\n")
+            f.write(f"Source: {repo['html_url']}\n")
+            f.write(f"License: {repo.get('license_name', 'Unknown')}\n")
+            f.write("Please check the original repository for full license details.\n")
+
+        for file_info in strategy_files:
+            if downloaded >= 3:
+                break
+
+            raw_url = file_info.get("download_url")
+            if raw_url:
+                r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
+                if r.status_code == 200:
+                    file_path = vendor_dir / file_info["name"]
+                    with file_path.open("w") as f:
+                        f.write(r.text)
+                    downloaded += 1
+
+        return downloaded
 
 
 def main():
