@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+
 # Configuration defaults
 DEFAULT_MIN_MARKETS = 20
 DEFAULT_MAX_REMOVAL_RATIO = 0.25
@@ -270,9 +271,7 @@ def is_eligible(market, filter_mode, allowlist_regex):
         return "/USDT:USDT" in symbol
 
 
-def _generate_report_content(
-    args, status, markets, symbols, eligible_symbols, drift_info, errors
-):
+def _generate_report_content(args, status, markets, symbols, eligible_symbols, drift_info, errors):
     report_lines = [
         "# Markets Schema Validation Report",
         f"Date: {datetime.now(UTC).isoformat()}",
