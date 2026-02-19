@@ -2,27 +2,21 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
-export FREQTRADE_CONFIG_FILE="config.delta.dryrun.json"
+echo "Starting Dry-Run Mode ($DELTA_ENV)..."
 
-echo "Starting Freqtrade in DRY-RUN mode..."
-docker compose up -d
-
-echo "Container started."
-echo "View logs: docker compose logs -f"
-set -e
-
-# Ensure we are in the root
-cd "$(dirname "$0")/.."
-
-# Check whitelist
-if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Running bootstrap..."
-    ./scripts/bootstrap.sh
+echo "Running Preflight Checks..."
+if ! "$DIR/validate_exchange.sh"; then
+    echo "ERROR: Preflight checks failed! Aborting startup."
+    exit 1
 fi
 
-echo "Switching to DRY-RUN config..."
-cp user_data/configs/config.delta.dryrun.json user_data/config.json
+export FREQTRADE_CONFIG_FILE="config.delta.dryrun.json"
 
-echo "Starting Freqtrade in Docker..."
-docker compose up -d --remove-orphans
-docker compose logs -f
+# Check if config exists
+if [ ! -f "user_data/configs/$FREQTRADE_CONFIG_FILE" ]; then
+    echo "Error: Config file user_data/configs/$FREQTRADE_CONFIG_FILE not found!"
+    exit 1
+fi
+
+docker compose up -d
+echo "Bot started. View logs with: docker compose logs -f"

@@ -1,152 +1,66 @@
-# Freqtrade Delta Exchange Stack
+# Delta Exchange Freqtrade Bot
 
-This repository contains a production-ready setup for trading on Delta Exchange (Global or India) using Freqtrade.
-
-## ⚠️ Financial Risk Warning
-
-**Trading cryptocurrencies involves significant risk.** You can lose all of your capital.
-This software is for educational purposes. Use at your own risk.
-**ALWAYS** test with `dry_run: true` before enabling live trading.
+This repository contains a production-ready Freqtrade setup for trading on Delta Exchange (Futures).
 
 ## Prerequisites
 
 - Docker & Docker Compose
-- A Delta Exchange Account (Global or India)
-- API Keys (Trading permissions only, **NO** withdrawal permissions)
+- Delta Exchange API Keys (with Read & Trade permissions, NO Withdrawal)
 
 ## Setup Guide
 
 ### 1. Bootstrap
-
-Run the bootstrap script to initialize directories and configuration:
+Run the bootstrap script to create directories and the initial `.env` file:
 ```bash
 ./scripts/bootstrap.sh
 ```
 
-### 2. Configuration
-
-Edit the generated `.env` file:
+### 2. Configure Environment
+Edit `.env` with your API credentials and environment choice:
 ```bash
 nano .env
 ```
-- Set `DELTA_ENV`:
-  - `india_prod` for Delta India (api.india.delta.exchange)
-  - `global_prod` for Delta Global (api.delta.exchange)
-  - `india_testnet` for Testnet
-- Enter your `DELTA_API_KEY` and `DELTA_API_SECRET`.
+- `DELTA_ENV`: `india_prod` (default), `global_prod`, or `india_testnet`.
+- `DELTA_API_KEY` & `DELTA_API_SECRET`: Your API keys.
+- `FREQTRADE_API_PASSWORD`: Password for the web UI.
 
-### 3. Validate Exchange Connection
-
-Before starting, verify your credentials and market data availability:
+### 3. Validate Connection & Markets
+Run the validation script to check connectivity, fetch markets, and verify your whitelist:
 ```bash
 ./scripts/validate_exchange.sh
 ```
-This script will:
-1. Fetch available markets from Delta.
-2. Save the market list to `user_data/reports/`.
-3. Verify that the pairs in `user_data/configs/config.delta.dryrun.json` exist and are active.
+This will:
+- Check if Delta exchange is available.
+- Fetch active futures markets.
+- Save a report to `user_data/reports/markets_<timestamp>.json`.
+- Warn if any whitelisted pairs are invalid.
 
-If validation fails, update the whitelist in `user_data/configs/config.delta.dryrun.json` and retry.
-
-### 4. Start Dry-Run
-
-Start the bot in Dry-Run mode (simulated trading with live data):
+### 4. Start in Dry-Run Mode
+Start the bot with virtual money to test your strategy and connection:
 ```bash
 ./scripts/run_dryrun.sh
 ```
-- The bot will launch in the background.
-- Logs can be viewed with: `docker compose logs -f`
-- Access the UI at: http://localhost:8080 (Default login: `freqtrader` / `password` - Change this in config!)
+- Access the UI at: http://localhost:8080
+- Login with `freqtrader` / `<your_password>`
 
-### 5. Go Live 🚀
+## Going Live
 
-**WARNING:** This will trade with REAL funds.
+**WARNING: Real money will be used!**
 
-1. Ensure you have tested thoroughly in Dry-Run.
-2. Stop the dry-run bot:
-   ```bash
-   docker compose down
-   ```
+To switch to live trading:
+1. Ensure your strategy is tested and you have sufficient balance in your Delta Futures wallet (USDT).
+2. Stop the dry-run bot: `docker compose down`
 3. Run the live script:
-   ```bash
-   ./scripts/run_live.sh
-   ```
-   Confirm the prompt to start.
+```bash
+./scripts/run_live.sh
+```
 
 ## Troubleshooting
 
-- **Validation Fails:** Check if `DELTA_ENV` matches your account type. Ensure API keys have correct permissions.
-- **Symbol Mismatch:** Delta Futures symbols usually look like `BTC/USDT:USDT`. Check `user_data/reports/markets_*.json` for valid symbols.
-- **Rate Limits:** If you see 429 errors, increase `process_throttle_secs` in the config.
-- **Time Drift:** Ensure your server time is synced (`ntp`).
+- **"Exchange 'delta' not available"**: Ensure you are using the latest Freqtrade image.
+- **"Validation Failed"**: Check if your API keys are correct and if the pairs in `user_data/configs/config.delta.*.json` exist in the market report.
+- **"Time sync error"**: Ensure your system clock is synchronized (use NTP). Delta requires precise timing.
+- **"Invalid API Key"**: Verify permissions. Withdrawal permission should strictly be disabled.
 
-## Directory Structure
-
-- `docker-compose.yml`: Main service definition.
-- `user_data/configs/`: Configuration files (dryrun vs live).
-- `scripts/`: Helper scripts for management.
-- `.env`: Secrets (Git-ignored).
-# Delta Exchange Trading Stack (Freqtrade)
-
-This repository is configured as a production-ready crypto trading stack for Delta Exchange (India + Global), built on Freqtrade.
-
-## Quick Start
-
-1.  **Bootstrap**:
-    ```bash
-    ./scripts/bootstrap.sh
-    ```
-    This creates necessary directories and copies `.env.example` to `.env`.
-
-2.  **Configure**:
-    Edit `.env` with your Delta Exchange credentials.
-    - `DELTA_ENV`: `india_prod`, `global_prod`, or `india_testnet`.
-    - `DELTA_API_KEY` / `SECRET`.
-
-3.  **Fetch Markets & Whitelist**:
-    ```bash
-    ./scripts/update_markets_and_whitelist.sh
-    ```
-    This fetches active markets, validates schema, and generates `user_data/pairlists/whitelist.delta.json`.
-
-4.  **Run Dry-Run**:
-    ```bash
-    ./scripts/run_dryrun.sh
-    ```
-    Starts Freqtrade in Docker with `config.delta.dryrun.json`.
-
-5.  **Run Live**:
-    ```bash
-    ./scripts/run_live.sh
-    ```
-    **WARNING**: This uses real money. Ensure you have tested thoroughly.
-
-## Key Features
-
--   **Dockerized**: Safe, isolated execution.
--   **Strict Validation**: Markets are validated for schema correctness and drift.
--   **Risk Guardrails**:
-    -   Daily Loss Limit (stops trading if PnL < -X%).
-    -   Max Drawdown protection.
-    -   Hard caps on open trades and leverage.
--   **Strategy CI**: GitHub Actions block unsafe strategies.
--   **Observability**: Daily reports and structured logging.
--   **Audit Logs**: Strategy signals are logged with `AUDIT_SIGNAL` prefix in the logs (`user_data/logs/freqtrade.log`).
-
-## Tools
-
--   `tools/daily_report.py`: Generates daily trading summary.
--   `tools/strategy_scout.py`: Finds strategies on GitHub.
--   `tools/validate_markets_schema.py`: Validates market dumps.
--   `tools/strategy_auditor.py`: Audits strategy code for safety.
-
-## Documentation
-
--   [Risk Profile](user_data/reports/risk_profile.md)
--   [Freqtrade Documentation](https://www.freqtrade.io)
-
----
-
-# ![freqtrade](https://raw.githubusercontent.com/freqtrade/freqtrade/develop/docs/assets/freqtrade_poweredby.svg)
-
-[Original Freqtrade README follows...]
+## Risk Warning
+Trading futures involves significant risk and can result in the loss of your invested capital. Use at your own risk. This software is provided "as is".
