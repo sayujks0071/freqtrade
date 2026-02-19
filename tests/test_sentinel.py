@@ -1,3 +1,4 @@
+import importlib
 import json
 import sys
 import tempfile
@@ -7,13 +8,14 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-# Add scripts directory to path to import sentinel
-sys.path.append(str(Path(__file__).parent.parent / "scripts"))
-
-from sentinel import Sentinel  # isort:skip
-
-
 class TestSentinel(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Add scripts directory to path to import sentinel
+        scripts_path = str(Path(__file__).parent.parent / "scripts")
+        sys.path.append(scripts_path)
+        cls.sentinel_module = importlib.import_module("sentinel")
+
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
         self.config_path = Path(self.test_dir.name) / "config.json"
@@ -33,7 +35,10 @@ class TestSentinel(unittest.TestCase):
         with self.config_path.open("w") as f:
             json.dump(config, f)
 
-        self.sentinel = Sentinel(str(self.config_path), str(self.state_path))
+        # Use the imported module class
+        config_str = str(self.config_path)
+        state_str = str(self.state_path)
+        self.sentinel = self.sentinel_module.Sentinel(config_str, state_str)
         # Mock API calls and exchange
         self.sentinel.exchange = MagicMock()
         self.sentinel.exchange.fetch_ohlcv = MagicMock()
@@ -62,22 +67,26 @@ class TestSentinel(unittest.TestCase):
         # Check call arguments
         expected_url = "http://127.0.0.1:8080/api/v1/stop"
         mock_post.assert_called_with(
-            expected_url, headers={"Authorization": "Bearer mock_token"}, timeout=10
+            expected_url,
+            headers={"Authorization": "Bearer mock_token"},
+            timeout=10,
         )
 
     def test_drawdown_calculation(self):
         # Mock balance history: started at 100
         now = time.time()
-        self.sentinel.balance_history = [(now - 100, 100.0), (now - 50, 100.0)]
+        # Use simple list assignment to avoid long line issues
+        history = [(now - 100, 100.0), (now - 50, 100.0)]
+        self.sentinel.balance_history = history
         # Current balance 90 (10% drop)
         drawdown = self.sentinel.check_drawdown(90.0)
         self.assertAlmostEqual(drawdown, 0.10)
 
-        # Test 5% trigger threshold logic (not the trigger call itself, just the value)
+        # Test 5% trigger threshold logic
         self.assertTrue(drawdown > 0.05)
 
     def test_btc_crash_detection(self):
-        # Mock OHLCV: Highs were [100, 100, 100, 100], current close 80 (20% drop)
+        # Mock OHLCV: Highs were [100, 100, 100, 100], current close 80
         # ohlcv format: [timestamp, open, high, low, close, volume]
         self.sentinel.exchange.fetch_ohlcv.return_value = [
             [1000, 90, 100, 80, 95, 10],
@@ -93,12 +102,17 @@ class TestSentinel(unittest.TestCase):
         self.assertAlmostEqual(drop, 0.20)
         self.assertTrue(drop > 0.10)
 
-    @patch("sentinel.Sentinel.trigger_emergency")
     @patch("requests.get")
-    def test_monitoring_loop_logic(self, mock_get, mock_trigger):
+    def test_monitoring_loop_logic(self, mock_get):
+        # We need to mock trigger_emergency on the instance we created
+        # Instead, we'll attach a Mock to the instance method.
+        self.sentinel.trigger_emergency = MagicMock()
+
         # Mock balance response
         mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"total": 90.0}  # Current balance
+        # Split assignment to keep line length down
+        return_val = {"total": 90.0}  # Current balance
+        mock_get.return_value.json.return_value = return_val
 
         # Mock BTC crash condition
         self.sentinel.exchange.fetch_ohlcv.return_value = [
@@ -112,10 +126,11 @@ class TestSentinel(unittest.TestCase):
         # Run one iteration of logic manually
         btc_drop = self.sentinel._get_btc_price_drop()
         if btc_drop > 0.10:
-            self.sentinel.trigger_emergency(f"Bitcoin dropped {btc_drop * 100:.2f}%")
+            msg = f"Bitcoin dropped {btc_drop * 100:.2f}%"
+            self.sentinel.trigger_emergency(msg)
 
-        mock_trigger.assert_called_once()
-        args, _ = mock_trigger.call_args
+        self.sentinel.trigger_emergency.assert_called_once()
+        args, _ = self.sentinel.trigger_emergency.call_args
         self.assertIn("Bitcoin dropped 20.00%", args[0])
 
 
