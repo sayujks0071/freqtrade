@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 # Add scripts directory to path to import sentinel
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
-from sentinel import Sentinel
+from sentinel import Sentinel  # isort:skip # noqa: E402
 
 
 class TestSentinel(unittest.TestCase):
@@ -111,7 +111,7 @@ class TestSentinel(unittest.TestCase):
         # Run one iteration of logic manually
         btc_drop = self.sentinel._get_btc_price_drop()
         if btc_drop > 0.10:
-            self.sentinel.trigger_emergency(f"Bitcoin dropped {btc_drop*100:.2f}%")
+            self.sentinel.trigger_emergency(f"Bitcoin dropped {btc_drop * 100:.2f}%")
 
         mock_trigger.assert_called_once()
         args, _ = mock_trigger.call_args

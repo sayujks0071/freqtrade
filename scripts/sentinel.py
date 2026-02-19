@@ -55,7 +55,7 @@ class Sentinel:
             logger.error("API Server is not enabled in configuration.")
             sys.exit(1)
         ip = api_config.get("listen_ip_address", "127.0.0.1")
-        if ip == "0.0.0.0":
+        if ip == "0.0.0.0":  # noqa: S104
             ip = "127.0.0.1"
         port = api_config.get("listen_port", 8080)
         return f"http://{ip}:{port}/api/v1"
@@ -265,20 +265,20 @@ class Sentinel:
 
                 # Check BTC
                 btc_drop = self._get_btc_price_drop()
-                logger.info(f"BTC Drop (4h): {btc_drop*100:.2f}%")
+                logger.info(f"BTC Drop (4h): {btc_drop * 100:.2f}%")
                 if btc_drop > 0.10:
-                    self.trigger_emergency(f"Bitcoin dropped {btc_drop*100:.2f}% in last 4 hours")
+                    self.trigger_emergency(f"Bitcoin dropped {btc_drop * 100:.2f}% in last 4 hours")
 
                 # Check Balance / Drawdown
                 current_balance = self._get_balance()
                 if current_balance is not None:
                     drawdown = self.check_drawdown(current_balance)
                     logger.info(
-                        f"Current Balance: {current_balance}, Drawdown (1h): {drawdown*100:.2f}%"
+                        f"Current Balance: {current_balance}, Drawdown (1h): {drawdown * 100:.2f}%"
                     )
                     if drawdown > 0.05:
                         self.trigger_emergency(
-                            f"Drawdown {drawdown*100:.2f}% exceeds 5% limit in last hour"
+                            f"Drawdown {drawdown * 100:.2f}% exceeds 5% limit in last hour"
                         )
 
                 self.save_state()
