@@ -7,7 +7,6 @@ import ast
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Union
 
 
 def check_config(config_path: Path) -> bool:
@@ -34,15 +33,15 @@ def check_config(config_path: Path) -> bool:
         return False
 
 
-def _extract_value_from_node(node: ast.AST) -> Optional[Union[int, float]]:
+def _extract_value_from_node(node: ast.AST) -> int | float | None:
     """
     Extract numeric value from AST node.
     """
     if isinstance(node, ast.Constant):
         return node.value if isinstance(node.value, (int, float)) else None
     # For older Python versions, though 3.12+ uses Constant
-    elif isinstance(node, ast.Num):  # type: ignore[attr-defined]
-        return node.n  # type: ignore[attr-defined]
+    elif isinstance(node, ast.Num):
+        return node.n
     elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
         operand_val = _extract_value_from_node(node.operand)
         if operand_val is not None:
@@ -73,10 +72,7 @@ def _check_class_node(node: ast.ClassDef, strategy_path: Path) -> bool:
                     )
                     return False
                 else:
-                    print(
-                        f"OK: {strategy_path} strategy '{node.name}' "
-                        f"has stoploss={val}"
-                    )
+                    print(f"OK: {strategy_path} strategy '{node.name}' has stoploss={val}")
     return True
 
 
