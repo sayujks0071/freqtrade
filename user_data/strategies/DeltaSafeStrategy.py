@@ -1,6 +1,15 @@
 """
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+
+Strategy Name: DeltaSafeStrategy
+Author: Freqtrade
+Version: 1.0
+Timeframes: 1h
+Supported Pair Format: futures
+Timezone Rule: UTC
+Entry/Exit Definitions: RSI < 30 / RSI > 70
+No Repainting: process_only_new_candles = True
 """
 from datetime import datetime
 from typing import Optional

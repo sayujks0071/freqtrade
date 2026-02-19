@@ -34,26 +34,32 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         persist-credentials: false
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Create .env from Secrets
-      run: |
-        echo "DELTA_ENV=${{ github.event.inputs.delta_env || 'india_prod' }}" >> .env
-        echo "FILTER_MODE=${{ github.event.inputs.filter_mode || 'perps_usdt' }}" >> .env
-        echo "DELTA_API_KEY=${{ secrets.DELTA_API_KEY }}" >> .env
-        echo "DELTA_API_SECRET=${{ secrets.DELTA_API_SECRET }}" >> .env
-        echo "FREQTRADE__API_SERVER__PASSWORD=${{ secrets.FREQTRADE_API_SERVER_PASSWORD }}" >> .env
-        # Ensure minimal required vars are present
-        echo "MIN_MARKETS=20" >> .env
-        echo "MAX_REMOVAL_RATIO=0.25" >> .env
+      uses: docker/setup-buildx-action@65247204256b2d9e97565a0c0a324316d3f3f01b # v3.8.0
 
     - name: Set Date
       run: echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+    - name: Create .env from Secrets
+      env:
+        DELTA_ENV_INPUT: ${{ inputs.delta_env || 'india_prod' }}
+        FILTER_MODE_INPUT: ${{ inputs.filter_mode || 'perps_usdt' }}
+        DELTA_API_KEY: ${{ secrets.DELTA_API_KEY }}
+        DELTA_API_SECRET: ${{ secrets.DELTA_API_SECRET }}
+        FREQTRADE_API_SERVER_PASSWORD: ${{ secrets.FREQTRADE_API_SERVER_PASSWORD }}
+      run: |
+        echo "DELTA_ENV=${DELTA_ENV_INPUT}" >> .env
+        echo "FILTER_MODE=${FILTER_MODE_INPUT}" >> .env
+        echo "DELTA_API_KEY=${DELTA_API_KEY}" >> .env
+        echo "DELTA_API_SECRET=${DELTA_API_SECRET}" >> .env
+        echo "FREQTRADE__API_SERVER__PASSWORD=${FREQTRADE_API_SERVER_PASSWORD}" >> .env
+        # Ensure minimal required vars are present
+        echo "MIN_MARKETS=20" >> .env
+        echo "MAX_REMOVAL_RATIO=0.25" >> .env
 
     - name: Run Market Update
       run: |
@@ -63,7 +69,7 @@ jobs:
 
     - name: Upload Market Artifacts
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8dd1 # v4.6.1
       with:
         name: market-reports
         path: |
@@ -90,7 +96,7 @@ jobs:
 
     - name: Create Pull Request
       if: steps.git_diff.outputs.changes == 'true'
-      uses: peter-evans/create-pull-request@v6
+      uses: peter-evans/create-pull-request@67ccf781d68cd99b580ae25a5c18a1cc84ffff1f # v7.0.6
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: "chore(markets): Update Delta whitelist and reports"
