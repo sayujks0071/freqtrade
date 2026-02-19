@@ -176,10 +176,7 @@ def _load_prev_whitelist(prev_whitelist_path):
         # Previous whitelist might be a list of strings (symbols) or freqtrade config format
         if isinstance(prev_data, list):
             return set(prev_data), None
-        elif (
-            isinstance(prev_data, dict)
-            and "pair_whitelist" in prev_data.get("exchange", {})
-        ):
+        elif isinstance(prev_data, dict) and "pair_whitelist" in prev_data.get("exchange", {}):
             return set(prev_data["exchange"]["pair_whitelist"]), None
         elif isinstance(prev_data, dict) and "pairs" in prev_data:  # simple dict wrapper
             return set(prev_data["pairs"]), None
@@ -216,12 +213,8 @@ def validate_drift(current_symbols, prev_whitelist_path, max_removal_ratio):
     else:
         removal_ratio = 0.0
 
-    drift_info.append(
-        f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})"
-    )
-    drift_info.append(
-        f"Previous count: {len(prev_symbols)}, Current count: {len(current_symbols)}"
-    )
+    drift_info.append(f"Drift stats: +{len(added)} / -{len(removed)} (Ratio: {removal_ratio:.2f})")
+    drift_info.append(f"Previous count: {len(prev_symbols)}, Current count: {len(current_symbols)}")
 
     if removal_ratio > max_removal_ratio:
         drift_errors.append(
@@ -246,9 +239,7 @@ def validate_drift(current_symbols, prev_whitelist_path, max_removal_ratio):
                 format_changes.append(f"{r} -> {a}")
 
     if format_changes:
-        drift_errors.append(
-            f"Potential format changes detected for {len(format_changes)} pairs."
-        )
+        drift_errors.append(f"Potential format changes detected for {len(format_changes)} pairs.")
         drift_errors.append(f"Format change sample: {format_changes[:5]}")
         # The requirement says "If pair-format changed for any existing pair, FAIL"
         # So we treat this as an error.
@@ -279,7 +270,9 @@ def is_eligible(market, filter_mode, allowlist_regex):
         return "/USDT:USDT" in symbol
 
 
-def _generate_report_content(args, status, markets, symbols, eligible_symbols, drift_info, errors):
+def _generate_report_content(
+    args, status, markets, symbols, eligible_symbols, drift_info, errors
+):
     report_lines = [
         "# Markets Schema Validation Report",
         f"Date: {datetime.now(UTC).isoformat()}",
@@ -307,7 +300,7 @@ def _generate_report_content(args, status, markets, symbols, eligible_symbols, d
     return "\n".join(report_lines)
 
 
-def main():
+def parse_arguments():
     parser = argparse.ArgumentParser(description="Validate Market Schema")
     parser.add_argument("--markets", required=True, help="Path to markets.json")
     parser.add_argument(
@@ -317,31 +310,65 @@ def main():
     )
     parser.add_argument("--prev-whitelist", help="Path to previous whitelist.json")
     parser.add_argument("--out-report", required=True, help="Path to output report.md")
+    return parser.parse_args()
 
-    args = parser.parse_args()
+
+def load_markets_data(markets_path):
+    try:
+        with Path(markets_path).open() as f:
+            data = json.load(f)
+        return data
+    except Exception as exc:
+        return exc
+
+
+def validate_all_markets(markets, filter_mode, allowlist_regex, strict_volume):
+    symbols = set()
+    eligible_symbols = set()
+    errors = []
+    seen_symbols_lower = {}
+
+    strict_futures = filter_mode in ["perps_usdt", "all_futures"]
+
+    for i, m in enumerate(markets):
+        symbol = validate_market_structure(i, m, errors)
+        if not symbol:
+            continue
+
+        eligible = is_eligible(m, filter_mode, allowlist_regex)
+
+        if eligible:
+            validate_symbol_format(symbol, errors, strict_futures=strict_futures)
+            eligible_symbols.add(symbol)
+
+        s_lower = symbol.lower()
+        if s_lower in seen_symbols_lower:
+            errors.append(
+                f"Duplicate symbol '{symbol}' (conflicts with '{seen_symbols_lower[s_lower]}')"
+            )
+        seen_symbols_lower[s_lower] = symbol
+        symbols.add(symbol)
+
+        validate_numeric(m, symbol, errors, strict_volume)
+
+    return symbols, eligible_symbols, errors
+
+
+def main():
+    args = parse_arguments()
 
     # Load config from env
     min_markets = int(os.environ.get("MIN_MARKETS", DEFAULT_MIN_MARKETS))
-    max_removal_ratio = float(
-        os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO)
-    )
-    strict_volume = (
-        os.environ.get("STRICT_VOLUME", str(DEFAULT_STRICT_VOLUME)).lower() == "true"
-    )
+    max_removal_ratio = float(os.environ.get("MAX_REMOVAL_RATIO", DEFAULT_MAX_REMOVAL_RATIO))
+    strict_volume = os.environ.get("STRICT_VOLUME", str(DEFAULT_STRICT_VOLUME)).lower() == "true"
     filter_mode = os.environ.get("FILTER_MODE", "perps_usdt")
     allowlist_regex = os.environ.get("ALLOWLIST_REGEX", ".*")
 
-    # Determine strictness based on filter mode
-    strict_futures = filter_mode in ["perps_usdt", "all_futures"]
-
     print(f"Validating {args.markets} for {args.env} (Filter: {filter_mode})...")
 
-    # Load Markets
-    try:
-        with Path(args.markets).open() as f:
-            data = json.load(f)
-    except Exception as exc:
-        fail(f"Invalid JSON in markets file: {exc}")
+    data = load_markets_data(args.markets)
+    if isinstance(data, Exception):
+        fail(f"Invalid JSON in markets file: {data}")
 
     # Handle structure
     if isinstance(data, dict) and "markets" in data:
@@ -351,54 +378,21 @@ def main():
     else:
         fail("Root must be a list of markets or dict with 'markets' key")
 
-    # Basic count check
     if len(markets) < min_markets:
-        # Write basic report before failing
         fail(
             f"Market count {len(markets)} < MIN_MARKETS ({min_markets})",
             args.out_report,
             f"# FAIL\nMarket count {len(markets)} < MIN_MARKETS ({min_markets})",
         )
 
-    # Validate each market
-    symbols = set()
-    eligible_symbols = set()
-    errors = []
-
-    # Check for duplicate symbols
-    # Case insensitive check? Requirement says "case-insensitive symbol uniqueness".
-    seen_symbols_lower = {}
-
-    for i, m in enumerate(markets):
-        symbol = validate_market_structure(i, m, errors)
-        if not symbol:
-            continue
-
-        # Only strict format check on ELIGIBLE symbols?
-        # Or on all? Requirement: "For each market that will be eligible for whitelist".
-        eligible = is_eligible(m, filter_mode, allowlist_regex)
-
-        if eligible:
-            validate_symbol_format(symbol, errors, strict_futures=strict_futures)
-            eligible_symbols.add(symbol)
-
-        # Check uniqueness on all? Or eligible?
-        # Duplicate symbol in dump is bad regardless.
-        s_lower = symbol.lower()
-        if s_lower in seen_symbols_lower:
-            errors.append(
-                f"Duplicate symbol '{symbol}' "
-                f"(conflicts with '{seen_symbols_lower[s_lower]}')"
-            )
-        seen_symbols_lower[s_lower] = symbol
-        symbols.add(symbol)
-
-        validate_numeric(m, symbol, errors, strict_volume)
+    symbols, eligible_symbols, errors = validate_all_markets(
+        markets, filter_mode, allowlist_regex, strict_volume
+    )
 
     # Environment Sanity
     validate_env(markets, args.env, errors)
 
-    # Drift Check (on eligible symbols vs prev whitelist)
+    # Drift Check
     drift_info = []
     if args.prev_whitelist:
         d_errors, drift_info = validate_drift(
@@ -413,22 +407,15 @@ def main():
         args, status, markets, symbols, eligible_symbols, drift_info, errors
     )
 
-    # Write report
-    report_written = False
     try:
         with Path(args.out_report).open("w") as f:
             f.write(report_content)
         print(f"Report written to {args.out_report}")
-        report_written = True
     except Exception as exc:
         warn(f"Could not write report: {exc}")
 
     if errors:
-        if report_written:
-            fail("Validation failed. See report.")
-        else:
-            # Fallback if report writing failed
-            fail("Validation failed. Errors:\n" + "\n".join(errors[:10]))
+        fail("Validation failed. See report.")
 
     print("VALIDATION PASS")
     sys.exit(0)
