@@ -365,6 +365,33 @@ class StrategyScout:
         print(f"Report written to {filename}")
         return top_10
 
+    def _download_file(self, url, dest_path):
+        try:
+            r = requests.get(url, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                with dest_path.open("w") as f:
+                    f.write(r.text)
+                return True
+        except Exception:  # noqa: S110
+            pass
+        return False
+
+    def _process_repo_contents(self, contents, vendor_dir):
+        downloaded = 0
+        for file_info in contents:
+            fname = file_info.get("name", "")
+            if not fname.endswith(".py") or fname == "__init__.py":
+                continue
+
+            if downloaded >= 3:
+                break
+
+            raw_url = file_info.get("download_url")
+            if raw_url:
+                if self._download_file(raw_url, vendor_dir / file_info["name"]):
+                    downloaded += 1
+        return downloaded
+
     def _vendor_single_repo(self, repo, vendor_base_dir):
         full_name = repo["full_name"]
         repo_name = repo["name"]
@@ -384,23 +411,7 @@ class StrategyScout:
             resp = self.session.get(url, timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
                 contents = resp.json()
-                downloaded = 0
-                for file_info in contents:
-                    fname = file_info.get("name", "")
-                    if not fname.endswith(".py") or fname == "__init__.py":
-                        continue
-
-                    if downloaded >= 3:
-                        break
-
-                    raw_url = file_info.get("download_url")
-                    if raw_url:
-                        r = requests.get(raw_url, timeout=REQUEST_TIMEOUT)
-                        if r.status_code == 200:
-                            file_path = vendor_dir / file_info["name"]
-                            with file_path.open("w") as f:
-                                f.write(r.text)
-                            downloaded += 1
+                downloaded = self._process_repo_contents(contents, vendor_dir)
 
                 if downloaded > 0:
                     self._create_license_note(repo, repo_name, vendor_dir)
