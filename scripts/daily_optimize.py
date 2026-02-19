@@ -496,6 +496,10 @@ Examples:
             # Push log file
             target_branch = args.branch if args.branch else "main"
             print(f"\nPushing log to {target_branch}...")
+
+            # Pull latest changes to avoid conflicts
+            run_command(["git", "pull", "--rebase", "origin", target_branch], capture=True)
+
             push_cmd = ["git", "push", "origin"]
             if target_branch == "main":
                 push_cmd.append("HEAD:main")
