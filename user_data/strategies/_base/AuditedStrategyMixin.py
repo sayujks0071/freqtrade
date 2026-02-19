@@ -5,9 +5,8 @@ Mixin class for strategies to enforce audit logging and safety checks.
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
-from freqtrade.strategy import IStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ class AuditedStrategyMixin:
     """
 
     # Type hint for the config attribute expected from IStrategy
-    config: Dict[str, Any]
+    config: dict[str, Any]
     dp: Any  # DataProvider
 
     def log_signal(
@@ -28,7 +27,7 @@ class AuditedStrategyMixin:
         direction: str,
         reason: str,
         candle_date: datetime,
-        snapshot: dict = None
+        snapshot: dict | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -66,7 +65,7 @@ class AuditedStrategyMixin:
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: Optional[str],
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -76,7 +75,7 @@ class AuditedStrategyMixin:
         last_candle = dataframe.iloc[-1].to_dict() if not dataframe.empty else {}
 
         # Snapshot key indicators (RSI, etc. - generic fallback)
-        snapshot = {k: v for k, v in last_candle.items() if k in ['rsi', 'close', 'volume', 'adx']}
+        snapshot = {k: v for k, v in last_candle.items() if k in ["rsi", "close", "volume", "adx"]}
 
         self.log_signal(pair, self.timeframe, side, entry_tag or "entry", current_time, snapshot)
 
@@ -98,7 +97,7 @@ class AuditedStrategyMixin:
         # Snapshot
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-1].to_dict() if not dataframe.empty else {}
-        snapshot = {k: v for k, v in last_candle.items() if k in ['rsi', 'close', 'volume', 'adx']}
+        snapshot = {k: v for k, v in last_candle.items() if k in ["rsi", "close", "volume", "adx"]}
 
         self.log_signal(pair, self.timeframe, "exit", exit_reason, current_time, snapshot)
 

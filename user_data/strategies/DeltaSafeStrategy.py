@@ -11,16 +11,14 @@ Timezone Rule: UTC
 Entry/Exit Definitions: RSI < 30 / RSI > 70
 No Repainting: process_only_new_candles = True
 """
-from datetime import datetime
-from typing import Optional
 
 import talib.abstract as ta
-from pandas import DataFrame
-
-from freqtrade.strategy import IStrategy
 
 # Import from _base (user_data/strategies/_base)
 from _base.AuditedStrategyMixin import AuditedStrategyMixin
+from pandas import DataFrame
+
+from freqtrade.strategy import IStrategy
 
 
 class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):

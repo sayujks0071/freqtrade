@@ -8,14 +8,15 @@ import json
 import logging
 import os
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 import ccxt
 
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -33,15 +34,6 @@ def main():
     }
 
     # URL Overrides
-    # Check for specific environment variables set by common.sh or docker-compose
-    # Note: CCXT expects 'urls': {'api': ...}
-    # We can rely on standard CCXT if DELTA_ENV matches standard delta URLs
-    # But for India/Global split, we might need overrides.
-
-    # If using freqtrade docker environment, these might be set.
-    # But here we are running a standalone script.
-    # Let's check environment vars.
-
     base_url = os.environ.get("DELTA_BASE_URL")
     if not base_url:
         if delta_env == "india_prod":
@@ -62,11 +54,6 @@ def main():
             "www": "https://www.delta.exchange",
         }
 
-    if args.sandbox or "testnet" in delta_env:
-        # CCXT delta might not have 'set_sandbox_mode' or it might be different.
-        # Delta testnet is usually just a different URL.
-        pass
-
     logger.info(f"Connecting to Delta ({delta_env}) at {base_url}...")
 
     try:
@@ -76,21 +63,16 @@ def main():
         # Convert to list of dicts
         market_list = []
         for symbol, m in markets.items():
-            # Add implicit fields if missing or ensure consistency
-            entry = {
-                "symbol": m["symbol"],
-                "base": m["base"],
-                "quote": m["quote"],
-                "active": m["active"],
-                "contract": m.get("contract", False) or m.get("future", False) or m.get("swap", False),
-                "spot": m.get("spot", False),
-                "details": m  # Full details if needed, but keeps file large
-            }
-            # Remove full details to keep it clean, or keep it?
-            # Schema validator checks keys on the top level.
-            # I will keep the full 'm' but ensure top level keys are accessible.
-            # Actually, let's just dump the full 'm' but make sure required fields are there.
-            # CCXT market structure usually has 'symbol', 'base', 'quote', 'active'.
+            # Ensure consistency for schema validator
+            # We just need to ensure m contains the fields we expect or enrich it
+            # The 'entry' variable was unused, so we just use 'm' directly
+            # We can optionally validate here but the schema validator does that.
+
+            # Just ensure contract field logic if needed, but 'm' usually has it.
+            # Schema validator checks: symbol, base, quote, active, contract.
+            if "contract" not in m:
+                m["contract"] = m.get("future", False) or m.get("swap", False)
+
             market_list.append(m)
 
         logger.info(f"Fetched {len(market_list)} markets.")
@@ -103,6 +85,7 @@ def main():
     except Exception as e:
         logger.error(f"Failed to fetch markets: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

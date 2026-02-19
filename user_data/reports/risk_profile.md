@@ -1,66 +1,45 @@
-# Risk Profile & Guardrails
+# Risk Profile
 
-This document outlines the risk management configuration for the Delta Exchange bot.
+This document outlines the risk management parameters configured for the Delta Exchange trading bot.
 
-## Hard Limits (Config Level)
+## Core Protections
 
-These limits are enforced by the bot core and cannot be overridden by strategies.
+The bot uses the following protections:
 
-- **Max Open Trades**: `5` (Configurable via `MAX_OPEN_TRADES` env)
-- **Stake Amount**: `20` USDT (Configurable via `STAKE_AMOUNT` env)
-- **Leverage**: `2x` (Configurable via `LEVERAGE` env)
-- **Trading Mode**: `Futures Isolated`
-- **Margin Mode**: `Isolated` (Risk is limited to allocated margin per position)
+### 1. Cooldown Period
+Prevents re-entry into a pair immediately after a trade closes.
+- **Duration:** 5 minutes (default)
 
-## Protections (Circuit Breakers)
+### 2. Stoploss Guard
+Prevents entering trades if the market is moving too fast against the position (slippage protection).
+- **Threshold:** 5% price movement within 1 minute (configurable)
 
-The bot implements several layers of protections to stop trading during adverse conditions.
+### 3. Max Drawdown Protection
+Stops trading completely if the account equity drops below a certain percentage within a timeframe.
+- **Max Drawdown:** 20% (configurable)
+- **Timeframe:** 1 day
 
-### 1. Daily Loss Limit
-**Stops trading for the rest of the day (UTC)** if realized losses exceed a threshold.
-- **Threshold**: `5%` of capital (default).
-- **Behavior**: Locks all pairs until 00:00 UTC next day.
-- **Configuration**: `max_daily_loss` in `config.delta.*.json`.
+### 4. Low Profit Pairs
+Avoids trading pairs that consistently produce low profit or losses.
+- **Lookback:** 6 trades
+- **Min Profit:** 0.0%
 
-### 2. Max Drawdown Protection
-**Stops trading temporarily** if a drawdown occurs within a short period.
-- **Limit**: `20%` drawdown within 48 candles.
-- **Action**: Stop trading for 12 candles.
-- **Purpose**: Prevent rapid account depletion during market crashes.
+### 5. Daily Loss Limit (Custom Protection)
+A custom protection module located at `user_data/protections/daily_loss_limit.py` stops ALL trading for the rest of the day (UTC) if the realized loss exceeds a specific percentage of the account balance.
 
-### 3. Cooldown Period
-**Enforces a pause** after a trade exits.
-- **Duration**: `5` candles.
-- **Purpose**: Prevent revenge trading or re-entering too quickly.
+- **Trigger:** Realized PnL < -5% (default) of `dry_run_wallet` (dry-run) or `capital` (live).
+- **Action:** Locks trading until 00:00 UTC next day.
+- **Configuration:** Set `max_daily_loss` (e.g., 0.05 for 5%) in `config.delta.*.json`.
 
-### 4. Stoploss Guard
-**Stops trading a specific pair** if it hits stoploss too frequently.
-- **Limit**: `4` stoplosses within 24 candles.
-- **Action**: Lock pair for 12 candles.
+## Exchange Limits (Delta)
 
-## Execution Guardrails
+- **Leverage:** Max 2x (hard cap in config).
+- **Margin Mode:** Isolated (prevents cross-contamination of margin).
+- **Order Types:** Limit orders preferred for entry/exit to avoid slippage. Market orders only used for stoploss/emergency exit.
+- **Pricing:** `last` price used for entry/exit signals.
 
-### Entry & Exit Logic
-- **Order Type**: `Limit` orders for entries and exits.
-- **Time in Force**: `GTC` (Good Till Cancelled) or strategy defined.
-- **Timeout**: If a limit order is not filled within `entry_pricing.check_depth_of_market` logic or timeout, it is cancelled (or replaced with market if configured).
-- **Price Check**: `entry_pricing.check_depth_of_market` checks if the order book has liquidity.
+## Operational Safety
 
-### Slippage Control
-- **Market Orders**: Only used for `stoploss` and `emergency_exit`.
-- **Limit Orders**: Placed at `same` side or `other` side depending on `entry_pricing`.
-
-## How to Tune
-
-### Environment Variables (.env)
-- `MAX_OPEN_TRADES`: Increase/decrease concurrency.
-- `STAKE_AMOUNT`: Position size.
-- `LEVERAGE`: Risk multiplier.
-
-### Configuration Files
-- `user_data/configs/config.delta.live.json`: Live settings.
-- `user_data/protections/daily_loss_limit.py`: Custom logic for daily loss.
-
-## Drift Detection
-- The `update_markets_and_whitelist.sh` script runs daily to check for delisted pairs.
-- If >25% of pairs are removed, the update is blocked to prevent accidents.
+- **Dry Run:** Always start with `dry_run=true` to verify strategy behavior.
+- **Whitelist:** Only trade pairs from the validated `whitelist.delta.*.json`.
+- **Drift Check:** Daily market validation ensures delisted pairs are removed automatically.

@@ -11,8 +11,10 @@ import re
 import sys
 from pathlib import Path
 
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -60,11 +62,7 @@ def main():
         logger.info(f"Selected {len(whitelist)} pairs.")
 
         # Write JSON Config
-        config = {
-            "exchange": {
-                "pair_whitelist": whitelist
-            }
-        }
+        config = {"exchange": {"pair_whitelist": whitelist}}
         with args.out_json.open("w") as f:
             json.dump(config, f, indent=4)
 
@@ -75,6 +73,7 @@ def main():
     except Exception as e:
         logger.error(f"Failed to generate whitelist: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
