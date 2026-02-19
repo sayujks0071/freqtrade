@@ -143,7 +143,37 @@ This repository is configured as a production-ready crypto trading stack for Del
 ## Documentation
 
 -   [Risk Profile](user_data/reports/risk_profile.md)
+-   [Symbol Mapping](user_data/reports/symbol_mapping.md)
 -   [Freqtrade Documentation](https://www.freqtrade.io)
+
+## How to Choose Pairs on Delta
+
+**Crucial:** Never hand-type pairs blindly.
+Always refer to the generated market dump or the symbol mapping report.
+
+1. Run `./scripts/update_markets_and_whitelist.sh` (or `validate_exchange.sh`) to fetch the latest markets.
+2. Check `user_data/reports/markets_*.json` for the list of active pairs.
+3. Consult `user_data/reports/symbol_mapping.md` to understand the difference between Delta contract symbols (e.g., `BTCUSDT`) and Freqtrade pairs (`BTC/USDT:USDT`).
+4. Update your `pair_whitelist` in `user_data/configs/config.delta.*.json` using the **Freqtrade format** (`BASE/QUOTE:SETTLE`).
+
+## How to Interpret Logs
+
+This stack includes an "Audit Layer" for strategy transparency.
+Every trade decision is logged with a structured format in the main log file.
+
+**Search for `AUDIT_SIGNAL` in your logs:**
+
+```text
+AUDIT_SIGNAL | 2023-10-27T10:00:00+00:00 | BTC/USDT:USDT | long | Signal Confirmed (Tag: entry_tag) | {'rsi': 25.5, 'volume': 1500}
+```
+
+- **Timestamp**: UTC ISO-8601 time of the signal/candle.
+- **Pair**: The pair being traded.
+- **Side**: `long` or `short`.
+- **Reason**: The specific condition or tag that triggered the signal.
+- **Indicators**: A snapshot of key indicator values at the time of the signal.
+
+Use these logs to trace back why a trade was entered or exited.
 
 ---
 

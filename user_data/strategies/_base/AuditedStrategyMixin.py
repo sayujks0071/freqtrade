@@ -22,35 +22,48 @@ class AuditedStrategyMixin:
     def log_signal(
         self,
         pair: str,
-        timeframe: str,
-        direction: str,
+        side: str,
         reason: str,
-        candle_date: datetime,
+        ts_utc: datetime,
+        indicators_snapshot: dict[str, Any] | None = None,
     ) -> None:
         """
         Log entry/exit signals to audit log.
-        """
-        # This logs to standard freqtrade log, but could be directed to a separate file or DB.
-        # Freqtrade logs are captured.
-        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | DIRECTION | REASON | CANDLE
-        msg = (
-            f"AUDIT_SIGNAL | {datetime.now(UTC).isoformat()} | {pair} | "
-            f"{direction} | {reason} | {candle_date}"
-        )
-        logger.info(msg)
 
-    def check_whitelist(self, pair: str) -> bool:
+        :param pair: The pair being traded (e.g. BTC/USDT:USDT)
+        :param side: 'long' or 'short'
+        :param reason: Description of the signal (e.g. "RSI < 30 & Volume > 0")
+        :param ts_utc: The timestamp of the signal (candle time or current time) in UTC
+        :param indicators_snapshot: Dictionary of key indicator values at the time of signal
         """
-        Assert pair is in current whitelist.
-        """
-        if self.config.get("exchange", {}).get("pair_whitelist"):
-            if pair not in self.config["exchange"]["pair_whitelist"]:
-                logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
-                return False
-        return True
+        snapshot_str = str(indicators_snapshot) if indicators_snapshot else "{}"
+
+        # Ensure ts_utc is timezone-aware
+        if ts_utc.tzinfo is None:
+            ts_utc = ts_utc.replace(tzinfo=UTC)
+
+        # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot_str}"
+        logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:
         """
         Normalize pair to uppercase.
+        Add specific normalization logic if needed (e.g. stripping spaces).
         """
-        return pair.upper()
+        return pair.upper().strip()
+
+    def assert_pair_in_whitelist(self, pair: str, whitelist: list[str]) -> None:
+        """
+        Assert pair is in the provided whitelist.
+        Raises ValueError if not found.
+        """
+        normalized_pair = self.normalize_pair(pair)
+        # Normalize whitelist as well just in case
+        normalized_whitelist = [self.normalize_pair(p) for p in whitelist]
+
+        if normalized_pair not in normalized_whitelist:
+            # Also try to match simple symbol if whitelist has full pairs or vice versa?
+            # For now, strict match.
+            # If specific format is required (e.g. BTC/USDT:USDT), exact match is best.
+            raise ValueError(f"AUDIT_ERROR: Pair {pair} not in whitelist! Aborting signal.")
