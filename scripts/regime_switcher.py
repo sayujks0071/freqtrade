@@ -8,7 +8,7 @@ and updates the active strategy in the configuration.
 import json
 import logging
 import sys
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import ccxt
