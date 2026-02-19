@@ -1,58 +1,38 @@
 #!/bin/bash
 
-# Load .env
+# Load .env file
 if [ -f .env ]; then
-    # echo "Loading .env..."
-    set -a
-    . .env
-    set +a
-else
-    echo "No .env file found. Proceeding with environment variables..."
+    export $(grep -v '^#' .env | xargs)
 fi
 
-if [ -z "$DELTA_ENV" ]; then
-    echo "DELTA_ENV is not set. Defaulting to global_prod."
-    DELTA_ENV="global_prod"
-fi
+# Delta Exchange Environment URL Logic
+DELTA_ENV=${DELTA_ENV:-india_testnet}
 
-# Determine Base URL
-case "$DELTA_ENV" in
-    india_prod)
-        BASE_URL="https://api.india.delta.exchange"
-        WWW_URL="https://india.delta.exchange"
-        ;;
-    global_prod)
-        BASE_URL="https://api.delta.exchange"
-        WWW_URL="https://www.delta.exchange"
-        ;;
-    india_testnet)
-        BASE_URL="https://cdn-ind.testnet.deltaex.org"
-        WWW_URL="https://testnet.delta.exchange"
-        # Note: Testnet URL might vary, using best guess or standard.
-        ;;
-    *)
-        echo "Unknown DELTA_ENV: $DELTA_ENV"
-        echo "Supported: india_prod, global_prod, india_testnet"
-        exit 1
-        ;;
-esac
-
-# Override if set
 if [ -n "$DELTA_BASE_URL" ]; then
     BASE_URL="$DELTA_BASE_URL"
+else
+    case "$DELTA_ENV" in
+        "india_prod")
+            BASE_URL="https://api.india.delta.exchange"
+            ;;
+        "global_prod")
+            BASE_URL="https://api.delta.exchange"
+            ;;
+        "india_testnet")
+            BASE_URL="https://cdn-ind.testnet.deltaex.org"
+            ;;
+        *)
+            echo "Unknown DELTA_ENV: $DELTA_ENV. Using default global."
+            BASE_URL="https://api.delta.exchange"
+            ;;
+    esac
 fi
 
-echo "Configuration: ENV=$DELTA_ENV | URL=$BASE_URL"
-
-# Export Freqtrade Variables
-export FREQTRADE__EXCHANGE__KEY="$DELTA_API_KEY"
-export FREQTRADE__EXCHANGE__SECRET="$DELTA_API_SECRET"
-
-# CCXT Config for URLs
+# Export CCXT URL overrides for Freqtrade (Docker)
+# CCXT structure for Delta might differ, but generally:
+# 'api': {'public': '...', 'private': '...'}
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__public="$BASE_URL"
 export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__API__private="$BASE_URL"
-export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="$WWW_URL"
+export FREQTRADE__EXCHANGE__CCXT_CONFIG__URLS__www="https://www.delta.exchange"
 
-if [ -z "$FREQTRADE__EXCHANGE__KEY" ] || [ -z "$FREQTRADE__EXCHANGE__SECRET" ]; then
-    echo "WARNING: API Key or Secret is missing!"
-fi
+echo "Using Delta Environment: $DELTA_ENV ($BASE_URL)"

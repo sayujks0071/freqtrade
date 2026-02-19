@@ -1,0 +1,1 @@
+[{"symbol": "BTC/USDT:USDT", "base": "BTC", "quote": "USDT", "settle": "USDT", "type": "swap", "spot": false, "margin": false, "future": false, "swap": true, "contract": true, "id": "1", "active": true, "info": {"symbol": "BTCUSDT", "contract_type": "perpetual_future"}}]

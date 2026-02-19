@@ -1,36 +1,45 @@
-# Risk Profile & Guardrails
+# Risk Profile
 
-## Overview
-This trading stack is configured with strict risk controls to ensure capital preservation and safe execution on Delta Exchange.
+This document outlines the risk management parameters configured for the Delta Exchange trading bot.
 
-## Core Config Guardrails
-- **Max Open Trades**: Hard cap on simultaneous positions.
-- **Stake Amount**: Fixed amount per trade (or % of balance).
-- **Leverage**: Capped at 2x by default.
-- **Stoploss**: Hard stoploss required for all strategies.
-- **Order Types**: Limit orders preferred for entry/exit to avoid slippage.
+## Core Protections
 
-## Protections
-Active protections in `config.json` (must be enabled in `protections` list):
-1. **CooldownPeriod**: Prevents re-entering a pair immediately after exit.
-2. **StoplossGuard**: Stops trading a pair if it hits stoploss too frequently.
-3. **MaxDrawdown**: Stops all trading if account drawdown exceeds threshold.
-4. **DailyLossLimit** (Custom): Stops all trading for the day if realized daily loss exceeds X%.
-   - **Note**: The percentage is calculated based on `dry_run_wallet`. For precise control over risk, especially in live trading, consider using `max_daily_loss_abs` (absolute value).
+The bot uses the following protections:
 
-## Daily Limits
-- **Max Removal Ratio**: {MAX_REMOVAL_RATIO} (fails market update if too many pairs removed).
-- **Min Markets**: {MIN_MARKETS} (fails if exchange dump is too small).
+### 1. Cooldown Period
+Prevents re-entry into a pair immediately after a trade closes.
+- **Duration:** 5 minutes (default)
 
-## Execution Safety
-- **Strict Whitelist**: Only trade pairs present in the validated daily dump.
-- **Drift Detection**: Any change in market schema or large delisting triggers alerts (PR checks).
-- **Dry Run First**: Always test changes in dry-run mode before live.
+### 2. Stoploss Guard
+Prevents entering trades if the market is moving too fast against the position (slippage protection).
+- **Threshold:** 5% price movement within 1 minute (configurable)
 
-## How to Tune
-To adjust risk parameters:
-1. Edit `user_data/configs/config.delta.live.json` or `.dryrun.json`.
-2. Update `protections` section.
-3. Restart the bot.
+### 3. Max Drawdown Protection
+Stops trading completely if the account equity drops below a certain percentage within a timeframe.
+- **Max Drawdown:** 20% (configurable)
+- **Timeframe:** 1 day
 
-**Warning**: Increasing leverage or stake amount increases risk of liquidation. Always keep `tradable_balance_ratio` < 1.0 to leave margin for fees and funding.
+### 4. Low Profit Pairs
+Avoids trading pairs that consistently produce low profit or losses.
+- **Lookback:** 6 trades
+- **Min Profit:** 0.0%
+
+### 5. Daily Loss Limit (Custom Protection)
+A custom protection module located at `user_data/protections/daily_loss_limit.py` stops ALL trading for the rest of the day (UTC) if the realized loss exceeds a specific percentage of the account balance.
+
+- **Trigger:** Realized PnL < -5% (default) of `dry_run_wallet` (dry-run) or `capital` (live).
+- **Action:** Locks trading until 00:00 UTC next day.
+- **Configuration:** Set `max_daily_loss` (e.g., 0.05 for 5%) in `config.delta.*.json`.
+
+## Exchange Limits (Delta)
+
+- **Leverage:** Max 2x (hard cap in config).
+- **Margin Mode:** Isolated (prevents cross-contamination of margin).
+- **Order Types:** Limit orders preferred for entry/exit to avoid slippage. Market orders only used for stoploss/emergency exit.
+- **Pricing:** `last` price used for entry/exit signals.
+
+## Operational Safety
+
+- **Dry Run:** Always start with `dry_run=true` to verify strategy behavior.
+- **Whitelist:** Only trade pairs from the validated `whitelist.delta.*.json`.
+- **Drift Check:** Daily market validation ensures delisted pairs are removed automatically.

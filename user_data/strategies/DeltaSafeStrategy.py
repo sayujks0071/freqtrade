@@ -1,23 +1,27 @@
 """
 DeltaSafeStrategy
 A basic strategy for Delta Exchange Futures ensuring compliance with the stack.
+
+Strategy Name: DeltaSafeStrategy
+Author: Freqtrade
+Version: 1.0
+Timeframes: 1h
+Supported Pair Format: futures
+Timezone Rule: UTC
+Entry/Exit Definitions: RSI < 30 / RSI > 70
+No Repainting: process_only_new_candles = True
 """
 
-import sys
-from pathlib import Path
-
 import talib.abstract as ta
+
+# Import from _base (user_data/strategies/_base)
+from _base.AuditedStrategyMixin import AuditedStrategyMixin
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
 
 
-# Add _base to path to allow import
-sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
-
-
-class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
+class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -63,29 +67,12 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
 
         dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
 
-        # Log signal check (manual for now as vectorization is fast)
-        # In live mode, we might want to log if a signal is generated for the current candle.
-
+        # Log signal check handled by AuditedStrategyMixin.confirm_trade_entry
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
         return dataframe
 
-    def confirm_trade_entry(
-        self,
-        pair: str,
-        order_type: str,
-        amount: float,
-        rate: float,
-        time_in_force: str,
-        current_time,
-        entry_tag,
-        side: str,
-        **kwargs,
-    ) -> bool:
-        """
-        Called right before placing a trade.
-        """
-        self.log_signal(pair, self.timeframe, side, "Signal Confirmed", current_time)
-        return True
+    # No need to override confirm_trade_entry as Mixin handles it.
+    # If we need custom logic, call super().confirm_trade_entry(...)

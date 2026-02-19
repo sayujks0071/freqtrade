@@ -1,28 +1,30 @@
 #!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$DIR/common.sh"
-
-export FREQTRADE_CONFIG_FILE="config.delta.dryrun.json"
-
-echo "Starting Freqtrade in DRY-RUN mode..."
-docker compose up -d
-
-echo "Container started."
-echo "View logs: docker compose logs -f"
 set -e
 
-# Ensure we are in the root
+# Change directory to repo root
 cd "$(dirname "$0")/.."
+source scripts/common.sh
 
-# Check whitelist
+echo "------------------------------------------------"
+echo "Starting Freqtrade - DRY RUN Mode"
+echo "Exchange: Delta ($DELTA_ENV)"
+echo "------------------------------------------------"
+
+# Pre-flight checks
 if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
-    echo "Whitelist not found. Running bootstrap..."
+    echo "Whitelist missing. Running bootstrap..."
     ./scripts/bootstrap.sh
 fi
 
-echo "Switching to DRY-RUN config..."
-cp user_data/configs/config.delta.dryrun.json user_data/config.json
+echo "Validating Exchange Connection..."
+./scripts/validate_exchange.sh
 
-echo "Starting Freqtrade in Docker..."
+# Set Config File for Docker
+export FREQTRADE_CONFIG_FILE="config.delta.dryrun.json"
+
+echo "Launching Docker Containers..."
+# Env vars from common.sh are passed to docker-compose
 docker compose up -d --remove-orphans
+
+echo "Bot is running!"
 docker compose logs -f

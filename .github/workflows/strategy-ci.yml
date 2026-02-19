@@ -2,32 +2,48 @@ name: Strategy CI
 
 on:
   pull_request:
-    branches: [ main, master ]
     paths:
-      - 'user_data/strategies/**'
+      - 'user_data/strategies/**.py'
       - 'tools/strategy_auditor.py'
 
-permissions:
-  contents: read
-
 jobs:
-  audit_strategies:
+  audit-strategies:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-        with:
-          persist-credentials: false
+    - name: Checkout Code
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
-        with:
-          python-version: '3.12'
+    - name: Set up Python
+      uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+      with:
+        python-version: '3.11'
 
-      - name: Compile Check
-        run: |
-          python3 -m compileall user_data/strategies/
+    - name: Install Dependencies
+      run: |
+        pip install pandas numpy ccxt tabulate requests
 
-      - name: Run Strategy Auditor
-        run: |
-          # Audit the strategies folder
-          python3 tools/strategy_auditor.py user_data/strategies/
+    - name: Syntax Check (compileall)
+      run: |
+        python -m compileall user_data/strategies/
+
+    - name: Run Strategy Auditor
+      run: |
+        # Run auditor on all modified or new strategy files
+        # We can find modified files using git diff
+        # But for simplicity, we audit ALL strategies in user_data/strategies (excluding vendor if desired)
+
+        # We need to exclude _base and vendor?
+        # Let's audit everything in user_data/strategies/*.py
+
+        python tools/strategy_auditor.py user_data/strategies/*.py
+
+    - name: Report Status
+      if: failure()
+      run: |
+        echo "::error::Strategy Audit Failed! Please fix the issues listed above."
+        exit 1
