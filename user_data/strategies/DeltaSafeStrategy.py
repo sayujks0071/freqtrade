@@ -55,13 +55,20 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        # ADX
+        dataframe["adx"] = ta.ADX(dataframe)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        # Only enter when RSI is low (oversold) AND ADX is low (ranging market/weak trend)
+        # This avoids buying into strong downtrends ("catching a falling knife").
+        dataframe.loc[
+            ((dataframe["rsi"] < 30) & (dataframe["adx"] < 25) & (dataframe["volume"] > 0)),
+            "enter_long",
+        ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.
