@@ -137,9 +137,7 @@ class ApiServer(RPCHandler):
             "somethingrandom",
         ):
             api_config["jwt_secret_key"] = secrets.token_urlsafe(32)
-            logger.info(
-                    "Random `jwt_secret_key` generated, as it was not set or set to a default value."
-            )
+            logger.info("Random `jwt_secret_key` generated as it was missing or default.")
 
         self.app = FastAPI(
             title="Freqtrade API",
