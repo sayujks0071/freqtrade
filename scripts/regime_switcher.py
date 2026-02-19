@@ -8,7 +8,7 @@ and updates the active strategy in the configuration.
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 import ccxt
@@ -48,9 +48,7 @@ def get_btc_data():
             logger.error("No data received from exchange.")
             return None
 
-        df = pd.DataFrame(
-            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["date"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         return df
     except Exception as e:
@@ -180,7 +178,7 @@ def log_decision(regime, strategy):
     """
     Log the decision to regime_log.md
     """
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     message = f"| {timestamp} | {regime} | {strategy} |"
 
     # Check if file exists and has header
