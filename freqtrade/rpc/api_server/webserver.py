@@ -138,8 +138,7 @@ class ApiServer(RPCHandler):
         ):
             api_config["jwt_secret_key"] = secrets.token_urlsafe(32)
             logger.info(
-                "Random `jwt_secret_key` generated, as it was not set "
-                "or set to a default value."
+                    "Random `jwt_secret_key` generated, as it was not set or set to a default value."
             )
 
         self.app = FastAPI(
