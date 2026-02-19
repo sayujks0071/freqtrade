@@ -38,10 +38,10 @@ def _extract_value_from_node(node: ast.AST) -> int | float | None:
     Extract numeric value from AST node.
     """
     if isinstance(node, ast.Constant):
-        return node.value if isinstance(node.value, (int, float)) else None
-    # For older Python versions, though 3.12+ uses Constant
-    elif isinstance(node, ast.Num):
-        return node.n
+        val = node.value
+        if isinstance(val, (int, float)):
+            return val
+        return None
     elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
         operand_val = _extract_value_from_node(node.operand)
         if operand_val is not None:
