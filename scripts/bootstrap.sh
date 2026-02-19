@@ -1,44 +1,57 @@
 #!/bin/bash
 set -e
 
-echo "Bootstrapping Freqtrade Delta Stack..."
+echo "Bootstrapping Freqtrade Environment..."
 
 # Create directories
-mkdir -p user_data/configs user_data/reports user_data/logs user_data/data
-
-# Copy .env if not exists
-if [ ! -f .env ]; then
-    echo "Copying .env.example to .env..."
-    cp .env.example .env
-    echo "Please edit .env with your Delta API keys!"
-echo "Bootstrapping Delta Exchange Freqtrade Stack..."
-
-# Create directories
-mkdir -p user_data/logs
+mkdir -p user_data/configs
 mkdir -p user_data/pairlists
 mkdir -p user_data/reports
+mkdir -p user_data/strategies
 mkdir -p user_data/strategies/_base
+mkdir -p user_data/logs
+mkdir -p user_data/protections
 mkdir -p user_data/strategies_vendor
-mkdir -p user_data/db
 
-# Copy env if missing
-if [ ! -f .env ]; then
-    echo "Creating .env from .env.example..."
-    cp .env.example .env
-    echo "PLEASE EDIT .env WITH YOUR CREDENTIALS!"
-else
-    echo ".env already exists."
-fi
-
-echo "Bootstrap complete."
-echo "Next steps:"
-echo "1. Edit .env with your API credentials."
-echo "2. Run 'scripts/validate_exchange.sh' to verify connectivity and markets."
-echo "3. Run 'scripts/run_dryrun.sh' to start the bot in dry-run mode."
-# Create dummy whitelist if missing to allow startup
+# Create initial whitelist if missing
 if [ ! -f user_data/pairlists/whitelist.delta.json ]; then
     echo "Creating dummy whitelist..."
-    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT", "ETH/USDT:USDT"]}}' > user_data/pairlists/whitelist.delta.json
+    # Minimal valid whitelist to allow startup before first refresh
+    echo '{"exchange": {"pair_whitelist": ["BTC/USDT:USDT"]}}' > user_data/pairlists/whitelist.delta.json
 fi
+
+if [ ! -f user_data/pairlists/whitelist.delta.txt ]; then
+    echo "BTC/USDT:USDT" > user_data/pairlists/whitelist.delta.txt
+fi
+
+# Ensure SampleStrategy exists (to avoid crashes if config references it)
+if [ ! -f user_data/strategies/SampleStrategy.py ]; then
+    echo "Creating SampleStrategy..."
+    cat <<EOF > user_data/strategies/SampleStrategy.py
+from freqtrade.strategy import IStrategy
+from pandas import DataFrame
+import talib.abstract as ta
+import freqtrade.vendor.qtpylib.indicators as qtpylib
+
+class SampleStrategy(IStrategy):
+    INTERFACE_VERSION = 3
+    minimal_roi = {"0": 0.1}
+    stoploss = -0.1
+    timeframe = '1h'
+
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        dataframe.loc[:, 'enter_long'] = 0
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        dataframe.loc[:, 'exit_long'] = 0
+        return dataframe
+EOF
+fi
+
+chmod +x scripts/*.sh
 
 echo "Bootstrap complete."
