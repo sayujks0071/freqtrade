@@ -74,7 +74,8 @@ def analyze_market(df):
     # Get last closed candle (second to last row, as last row is current/open candle)
     # Wait, fetch_ohlcv returns closed candles usually? No, it returns up to current time.
     # The last candle might be incomplete.
-    # Safe to use the last completed candle (-2) or just assume -1 if running at 00:00 UTC and daily close just happened.
+    # Safe to use the last completed candle (-2) or just assume -1 if running at 00:00 UTC
+    # and daily close just happened.
     # I'll use -2 to be safe against open candle volatility, or -1 if I'm sure it's closed.
     # Since this runs at 00:00 UTC Monday, the daily candle for Sunday just closed.
     # So -1 (index -1) should be the Sunday candle if fetch_ohlcv includes it.
@@ -96,12 +97,13 @@ def analyze_market(df):
 
     # Determine Regime
     regime = "Unknown"
-    strategy = STRATEGY_SIDEWAYS # Default
+    strategy = STRATEGY_SIDEWAYS  # Default
 
     if close < ema200:
         # Bear/Volatile Regime
         # Note: The prompt mentioned "VIX spike", but VIX data is not natively available via CCXT.
-        # We use Price < EMA200 as a proxy for Bear/Risk-Off conditions, often associated with volatility.
+        # We use Price < EMA200 as a proxy for Bear/Risk-Off conditions,
+        # often associated with volatility.
         regime = "Bear/Volatile"
         strategy = STRATEGY_BEAR
     elif (close > ema200) and (adx_val > 25):
@@ -139,7 +141,7 @@ def update_config(strategy_name):
 
     if CONFIG_TARGET.exists():
         try:
-            with open(CONFIG_TARGET, "r") as f:
+            with CONFIG_TARGET.open() as f:
                 config_data = json.load(f)
         except Exception as e:
             logger.error(f"Error reading {CONFIG_TARGET}: {e}")
@@ -150,7 +152,7 @@ def update_config(strategy_name):
 
     if not config_data and source_used.exists():
         try:
-            with open(source_used, "r") as f:
+            with source_used.open() as f:
                 config_data = json.load(f)
         except Exception as e:
             logger.error(f"Error reading {source_used}: {e}")
@@ -165,7 +167,7 @@ def update_config(strategy_name):
 
     # Write to Target
     try:
-        with open(CONFIG_TARGET, "w") as f:
+        with CONFIG_TARGET.open("w") as f:
             json.dump(config_data, f, indent=4)
         logger.info(f"Updated {CONFIG_TARGET} with strategy: {strategy_name}")
         return True
@@ -185,7 +187,7 @@ def log_decision(regime, strategy):
     file_exists = LOG_FILE.exists()
 
     try:
-        with open(LOG_FILE, "a") as f:
+        with LOG_FILE.open("a") as f:
             if not file_exists:
                 f.write("| Timestamp | Regime | Strategy |\n")
                 f.write("| --- | --- | --- |\n")
