@@ -1,8 +1,7 @@
 import sys
 import unittest
-import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+
 
 # Add scripts to path to allow importing daily_optimize
 # We assume the test is run from repo root
@@ -27,7 +26,7 @@ class TestDailyOptimize(unittest.TestCase):
                 "StratC": {"sharpe": 2.0, "max_drawdown_account": 0.05},
             }
         }
-        name, sharpe, stats = daily_optimize.find_worst_strategy(backtest_data)
+        name, sharpe, _ = daily_optimize.find_worst_strategy(backtest_data)
         self.assertEqual(name, "StratB")
         self.assertEqual(sharpe, 0.5)
 
@@ -39,7 +38,7 @@ class TestDailyOptimize(unittest.TestCase):
                 "StratC": {"sharpe": 0.1, "max_drawdown_account": 0.05},
             }
         }
-        name, sharpe, stats = daily_optimize.find_worst_strategy(backtest_data)
+        name, sharpe, _ = daily_optimize.find_worst_strategy(backtest_data)
         self.assertEqual(name, "StratB")
         self.assertEqual(sharpe, -1.5)
 
@@ -80,7 +79,7 @@ class TestDailyOptimize(unittest.TestCase):
 
         # Case 2: Negative Sharpe, not improved enough
         current_sharpe = -1.0
-        new_sharpe = -1.02 # Worse than current (-1.0) but better than -1.05 target?
+        new_sharpe = -1.02  # Worse than current (-1.0) but better than -1.05 target?
         # new > -1.05 is True.
         # But new > current is False (-1.02 < -1.0).
         improved = (new_sharpe > current_sharpe) and (new_sharpe > current_sharpe * 1.05)
@@ -88,7 +87,7 @@ class TestDailyOptimize(unittest.TestCase):
 
         # Case 3: Negative Sharpe, improved
         current_sharpe = -1.0
-        new_sharpe = -0.9 # Better than -1.0
+        new_sharpe = -0.9  # Better than -1.0
         # -0.9 > -1.0 is True.
         # -0.9 > -1.05 is True.
         improved = (new_sharpe > current_sharpe) and (new_sharpe > current_sharpe * 1.05)
@@ -106,6 +105,7 @@ class TestDailyOptimize(unittest.TestCase):
         new_dd = 0.01
         dd_improved = new_dd < current_dd if current_dd > 0 else new_dd <= current_dd
         self.assertFalse(dd_improved)
+
 
 if __name__ == "__main__":
     unittest.main()
