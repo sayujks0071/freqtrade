@@ -7,6 +7,7 @@ import ast
 import json
 import sys
 from pathlib import Path
+from typing import Optional, Union
 
 
 def check_config(config_path: Path) -> bool:
@@ -33,6 +34,52 @@ def check_config(config_path: Path) -> bool:
         return False
 
 
+def _extract_value_from_node(node: ast.AST) -> Optional[Union[int, float]]:
+    """
+    Extract numeric value from AST node.
+    """
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, (int, float)) else None
+    # For older Python versions, though 3.12+ uses Constant
+    elif isinstance(node, ast.Num):  # type: ignore[attr-defined]
+        return node.n  # type: ignore[attr-defined]
+    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        operand_val = _extract_value_from_node(node.operand)
+        if operand_val is not None:
+            return -operand_val
+    return None
+
+
+def _check_class_node(node: ast.ClassDef, strategy_path: Path) -> bool:
+    """
+    Check a ClassDef node for stoploss compliance.
+    Returns False if a violation is found, True otherwise.
+    """
+    for item in node.body:
+        if not isinstance(item, ast.Assign):
+            continue
+
+        for target in item.targets:
+            if not isinstance(target, ast.Name) or target.id != "stoploss":
+                continue
+
+            val = _extract_value_from_node(item.value)
+
+            if val is not None:
+                if val < -0.10:  # strictly looser than -0.10
+                    print(
+                        f"VIOLATION: {strategy_path} strategy '{node.name}' "
+                        f"has stoploss={val} < -0.10"
+                    )
+                    return False
+                else:
+                    print(
+                        f"OK: {strategy_path} strategy '{node.name}' "
+                        f"has stoploss={val}"
+                    )
+    return True
+
+
 def check_strategy(strategy_path: Path) -> bool:
     """
     Check if strategy file has stoploss >= -0.10.
@@ -41,48 +88,12 @@ def check_strategy(strategy_path: Path) -> bool:
         with strategy_path.open() as f:
             tree = ast.parse(f.read())
 
-        found_stoploss = False
         compliant = True
 
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                # Check class-level assignments
-                for item in node.body:
-                    if isinstance(item, ast.Assign):
-                        for target in item.targets:
-                            if isinstance(target, ast.Name) and target.id == "stoploss":
-                                found_stoploss = True
-                                val = None
-                                # Extract value
-                                if isinstance(item.value, ast.Constant):  # Python 3.8+
-                                    val = item.value.value
-                                elif isinstance(item.value, ast.Num):  # Python < 3.8
-                                    val = item.value.n
-                                elif isinstance(item.value, ast.UnaryOp) and isinstance(
-                                    item.value.op, ast.USub
-                                ):
-                                    if isinstance(item.value.operand, (ast.Constant, ast.Num)):
-                                        val = -(
-                                            item.value.operand.value
-                                            if isinstance(item.value.operand, ast.Constant)
-                                            else item.value.operand.n
-                                        )
-
-                                if val is not None:
-                                    if val < -0.10:  # strictly looser than -0.10
-                                        print(
-                                            f"VIOLATION: {strategy_path} strategy '{node.name}' has stoploss={val} < -0.10"
-                                        )
-                                        compliant = False
-                                    else:
-                                        print(
-                                            f"OK: {strategy_path} strategy '{node.name}' has stoploss={val}"
-                                        )
-
-        if not found_stoploss:
-            # Strategies without explicit stoploss use default (usually -0.10 or defined in base)
-            # We can warn or check base classes, but for now assuming default is safe or base handles it
-            pass
+                if not _check_class_node(node, strategy_path):
+                    compliant = False
 
         return compliant
 
