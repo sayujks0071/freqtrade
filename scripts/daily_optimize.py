@@ -370,8 +370,15 @@ Examples:
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
-    sharpe_improved = new_sharpe > (current_sharpe * 1.05)
-    drawdown_improved = new_drawdown < current_drawdown
+    # Improve Sharpe logic: strictly > current AND > current * 1.05
+    # This prevents regression if current_sharpe is negative (where * 1.05 is smaller/more negative)
+    sharpe_improved = (new_sharpe > current_sharpe) and (new_sharpe > (current_sharpe * 1.05))
+
+    # Improve Drawdown logic: if current is 0, allow staying at 0 (<=)
+    if current_drawdown > 0:
+        drawdown_improved = new_drawdown < current_drawdown
+    else:
+        drawdown_improved = new_drawdown <= current_drawdown
 
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
