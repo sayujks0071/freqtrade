@@ -82,11 +82,7 @@ class Sentinel:
     def _authenticate(self):
         """Authenticate with Freqtrade API to get JWT token."""
         try:
-            response = requests.post(
-                f"{self.api_url}/token/login",
-                auth=self.api_auth,
-                timeout=10
-            )
+            response = requests.post(f"{self.api_url}/token/login", auth=self.api_auth, timeout=10)
             response.raise_for_status()
             data = response.json()
             self.jwt_token = data.get("access_token")
@@ -105,16 +101,12 @@ class Sentinel:
         """Fetch current total balance from Freqtrade API."""
         try:
             response = requests.get(
-                f"{self.api_url}/balance",
-                headers=self._get_headers(),
-                timeout=10
+                f"{self.api_url}/balance", headers=self._get_headers(), timeout=10
             )
             if response.status_code == 401:  # Token expired
                 self._authenticate()
                 response = requests.get(
-                    f"{self.api_url}/balance",
-                    headers=self._get_headers(),
-                    timeout=10
+                    f"{self.api_url}/balance", headers=self._get_headers(), timeout=10
                 )
             response.raise_for_status()
             data = response.json()
@@ -169,9 +161,7 @@ class Sentinel:
         try:
             # Prune entries older than 1 hour
             cutoff = time.time() - 3600
-            self.balance_history = [
-                entry for entry in self.balance_history if entry[0] > cutoff
-            ]
+            self.balance_history = [entry for entry in self.balance_history if entry[0] > cutoff]
 
             with self.state_file.open("w") as f:
                 json.dump({"balance_history": self.balance_history}, f)
@@ -228,9 +218,7 @@ class Sentinel:
         logger.warning("Attempting to liquidate all positions...")
         try:
             response = requests.post(
-                f"{self.api_url}/forceexit",
-                headers=self._get_headers(),
-                timeout=10
+                f"{self.api_url}/forceexit", headers=self._get_headers(), timeout=10
             )
             if response.status_code == 200:
                 logger.info("Liquidation command sent successfully.")
@@ -243,9 +231,7 @@ class Sentinel:
         logger.critical("Stopping Freqtrade bot...")
         try:
             response = requests.post(
-                f"{self.api_url}/stop",
-                headers=self._get_headers(),
-                timeout=10
+                f"{self.api_url}/stop", headers=self._get_headers(), timeout=10
             )
             if response.status_code == 200:
                 logger.info("Bot stopped successfully.")
@@ -292,14 +278,10 @@ class Sentinel:
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Sentinel")
     parser.add_argument(
-        "--config",
-        default="user_data/configs/config.delta.live.json",
-        help="Path to config file"
+        "--config", default="user_data/configs/config.delta.live.json", help="Path to config file"
     )
     parser.add_argument(
-        "--state",
-        default="user_data/sentinel_state.json",
-        help="Path to state file"
+        "--state", default="user_data/sentinel_state.json", help="Path to state file"
     )
     args = parser.parse_args()
 

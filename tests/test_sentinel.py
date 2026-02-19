@@ -6,10 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+
 # Add scripts directory to path to import sentinel
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
-from sentinel import Sentinel  # isort:skip # noqa: E402
+from sentinel import Sentinel  # isort:skip
 
 
 class TestSentinel(unittest.TestCase):
