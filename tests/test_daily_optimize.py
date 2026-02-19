@@ -10,11 +10,11 @@ if str(scripts_path) not in sys.path:
     sys.path.append(str(scripts_path))
 
 try:
-    import daily_optimize
+    import daily_optimize  # noqa: E402
 except ImportError:
     # If scripts/ is not in path correctly, try relative to file
     sys.path.append(str(Path(__file__).parent.parent / "scripts"))
-    import daily_optimize
+    import daily_optimize  # noqa: E402
 
 
 class TestDailyOptimize(unittest.TestCase):
