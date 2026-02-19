@@ -3,6 +3,7 @@
 Strategy Auditor
 Enforces strict clarity and correctness in strategies.
 """
+
 import argparse
 import ast
 import sys
@@ -120,9 +121,7 @@ class StrategyAuditor(ast.NodeVisitor):
                                 elif isinstance(body_item.value, ast.Str):
                                     timeframe = body_item.value.s
 
-        header = (
-            '"""' + DEFAULT_HEADER.format(name=class_name, timeframe=timeframe) + '"""\n'
-        )
+        header = '"""' + DEFAULT_HEADER.format(name=class_name, timeframe=timeframe) + '"""\n'
 
         # Handle shebang/encoding
         lines = self.source.splitlines(keepends=True)
@@ -148,16 +147,11 @@ class StrategyAuditor(ast.NodeVisitor):
                         if isinstance(item.value, ast.Constant) and item.value.value is True:
                             has_process_new = True
                         # Python < 3.8
-                        elif (
-                            isinstance(item.value, ast.NameConstant)
-                            and item.value.value is True
-                        ):
+                        elif isinstance(item.value, ast.NameConstant) and item.value.value is True:
                             has_process_new = True
 
         if not has_process_new:
-            self.errors.append(
-                f"Class {node.name} missing 'process_only_new_candles = True'"
-            )
+            self.errors.append(f"Class {node.name} missing 'process_only_new_candles = True'")
 
         self.generic_visit(node)
 

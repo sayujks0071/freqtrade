@@ -66,6 +66,4 @@ class AuditedStrategyMixin:
             # Also try to match simple symbol if whitelist has full pairs or vice versa?
             # For now, strict match.
             # If specific format is required (e.g. BTC/USDT:USDT), exact match is best.
-            raise ValueError(
-                f"AUDIT_ERROR: Pair {pair} not in whitelist! Aborting signal."
-            )
+            raise ValueError(f"AUDIT_ERROR: Pair {pair} not in whitelist! Aborting signal.")

@@ -80,7 +80,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         """
         if ":" not in pair:
             # Just a warning or strict fail?
-            # Prompt says: "Any symbol mismatch causes a clear startup failure before trading begins."
+            # Prompt says: "Any symbol mismatch causes a clear startup failure..."
             # But populate_entry_trend is called per pair.
             # We can raise an error here.
             raise ValueError(
@@ -95,9 +95,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         # Note: self.config is available in IStrategy
         if self.config.get("exchange", {}).get("pair_whitelist"):
             try:
-                self.assert_pair_in_whitelist(
-                    pair, self.config["exchange"]["pair_whitelist"]
-                )
+                self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"])
             except ValueError as e:
                 # Log error and return empty? Or let it crash?
                 # If we crash, it stops the bot. That is what "fail fast" implies.
@@ -113,9 +111,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         dataframe.loc[(is_oversold & has_volume), "enter_long"] = 1
 
         # Log reason tag
-        dataframe.loc[
-            (is_oversold & has_volume), "enter_tag"
-        ] = "rsi_oversold_volume"
+        dataframe.loc[(is_oversold & has_volume), "enter_tag"] = "rsi_oversold_volume"
 
         return dataframe
 
@@ -127,9 +123,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
 
         dataframe.loc[(is_overbought & has_volume), "exit_long"] = 1
 
-        dataframe.loc[
-            (is_overbought & has_volume), "exit_tag"
-        ] = "rsi_overbought_volume"
+        dataframe.loc[(is_overbought & has_volume), "exit_tag"] = "rsi_overbought_volume"
 
         return dataframe
 
@@ -196,7 +190,6 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         current_time: datetime,
         **kwargs,
     ) -> bool:
-
         indicators = {}
         if self.dp:
             try:
