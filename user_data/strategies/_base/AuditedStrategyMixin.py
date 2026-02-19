@@ -19,6 +19,7 @@ class AuditedStrategyMixin:
     # Type hint for the config attribute expected from IStrategy
     config: dict[str, Any]
     dp: Any  # DataProvider
+    timeframe: str
 
     def log_signal(
         self,
@@ -69,7 +70,6 @@ class AuditedStrategyMixin:
         side: str,
         **kwargs,
     ) -> bool:
-
         # Get latest candle for snapshot
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-1].to_dict() if not dataframe.empty else {}
@@ -93,7 +93,6 @@ class AuditedStrategyMixin:
         current_time: datetime,
         **kwargs,
     ) -> bool:
-
         # Snapshot
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-1].to_dict() if not dataframe.empty else {}
