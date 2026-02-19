@@ -439,6 +439,11 @@ def test_api_run(default_conf, mocker, caplog):
 
     assert log_has("Starting HTTP Server at 127.0.0.1:8080", caplog)
     assert log_has("Starting Local Rest Server.", caplog)
+    assert log_has(
+        "Random `jwt_secret_key` generated, as it was not set "
+        "or set to a default value.",
+        caplog,
+    )
 
     # Test binding to public
     caplog.clear()
@@ -474,7 +479,6 @@ def test_api_run(default_conf, mocker, caplog):
         "Please make sure that this is intentional!",
         caplog,
     )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
 
     server_mock.reset_mock()
     apiserver._standalone = True
