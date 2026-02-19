@@ -210,6 +210,23 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def log_optimization_attempt(strategy, status, roi_change, sharpe_change, drawdown_change):
+    """
+    Logs the optimization attempt to a file in JSON Lines format.
+    """
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "strategy": strategy,
+        "status": status,
+        "roi_change": roi_change,
+        "sharpe_change": sharpe_change,
+        "drawdown_change": drawdown_change,
+    }
+    log_file = Path("optimization_log.txt")
+    with log_file.open("a") as f:
+        f.write(json.dumps(log_entry) + "\n")
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -367,6 +384,10 @@ Examples:
     # Get profit % for commit message
     avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
 
+    # Calculate ROI improvement
+    current_roi = current_stats.get("profit_total_pct", 0.0) * 100
+    roi_change = avg_profit_pct - current_roi
+
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
@@ -378,6 +399,16 @@ Examples:
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
+
+        # Log success
+        log_optimization_attempt(
+            worst_strategy,
+            "success",
+            roi_change,
+            new_sharpe - current_sharpe,
+            new_drawdown - current_drawdown,
+        )
+
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
         if args.dry_run:
@@ -395,6 +426,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", "optimization_log.txt"])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -433,11 +465,47 @@ Examples:
 
     else:
         print("Evaluation FAILED. Reverting changes.")
+
+        # Log failure
+        log_optimization_attempt(
+            worst_strategy,
+            "failed",
+            0.0,
+            new_sharpe - current_sharpe,
+            new_drawdown - current_drawdown,
+        )
+
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        if not args.dry_run:
+            # Commit log file
+            run_command(["git", "add", "optimization_log.txt"])
+            run_command(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    f"chore: log failed optimization for {worst_strategy}",
+                ]
+            )
+
+            # Push log file
+            target_branch = args.branch if args.branch else "main"
+            print(f"\nPushing log to {target_branch}...")
+
+            # Pull latest changes to avoid conflicts
+            run_command(["git", "pull", "--rebase", "origin", target_branch], capture=True)
+
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
 
 
 if __name__ == "__main__":
