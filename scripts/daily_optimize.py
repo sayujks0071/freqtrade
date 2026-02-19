@@ -401,7 +401,13 @@ Examples:
         print("Evaluation PASSED. Committing changes.")
 
         # Log success
-        log_optimization_attempt(worst_strategy, "success", roi_change, new_sharpe - current_sharpe, new_drawdown - current_drawdown)
+        log_optimization_attempt(
+            worst_strategy,
+            "success",
+            roi_change,
+            new_sharpe - current_sharpe,
+            new_drawdown - current_drawdown,
+        )
 
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
@@ -461,7 +467,13 @@ Examples:
         print("Evaluation FAILED. Reverting changes.")
 
         # Log failure
-        log_optimization_attempt(worst_strategy, "failed", 0.0, new_sharpe - current_sharpe, new_drawdown - current_drawdown)
+        log_optimization_attempt(
+            worst_strategy,
+            "failed",
+            0.0,
+            new_sharpe - current_sharpe,
+            new_drawdown - current_drawdown,
+        )
 
         if not created_new:
             shutil.move(backup_json, strategy_json)
@@ -472,7 +484,14 @@ Examples:
         if not args.dry_run:
             # Commit log file
             run_command(["git", "add", "optimization_log.txt"])
-            run_command(["git", "commit", "-m", f"chore: log failed optimization for {worst_strategy}"])
+            run_command(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    f"chore: log failed optimization for {worst_strategy}",
+                ]
+            )
 
             # Push log file
             target_branch = args.branch if args.branch else "main"

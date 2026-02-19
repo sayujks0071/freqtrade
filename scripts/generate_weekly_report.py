@@ -5,7 +5,6 @@ Generate Weekly Report
 
 import json
 import re
-import sys
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -124,7 +123,10 @@ def main():
     report_lines.append("")
     report_lines.append("## 3. Stuck Strategies")
     if stuck_strategies:
-        report_lines.append("The following strategies failed to improve despite optimization attempts (candidates for deletion):")
+        report_lines.append(
+            "The following strategies failed to improve despite optimization "
+            "attempts (candidates for deletion):"
+        )
         for s in stuck_strategies:
             report_lines.append(f"- {s}")
     else:
