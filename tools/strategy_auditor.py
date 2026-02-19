@@ -3,10 +3,11 @@
 Strategy Auditor
 Enforces strict clarity and correctness in strategies.
 """
-import ast
 import argparse
+import ast
 import sys
 from pathlib import Path
+
 
 REQUIRED_HEADER_FIELDS = [
     "Strategy Name",
@@ -24,7 +25,8 @@ DEFAULT_HEADER = """
     Author: Unknown
     Version: 1.0
     Timeframes: {timeframe}
-    Supported Pair Format: Delta contract symbols (e.g., BTCUSDT) vs Freqtrade/CCXT futures pair format (base/quote:settle like BTC/USDT:USDT)
+    Supported Pair Format: Delta contract symbols (e.g., BTCUSDT) vs Freqtrade/CCXT
+    futures pair format (base/quote:settle like BTC/USDT:USDT)
     Timezone Rule: all timestamps logged as UTC ISO-8601
     Entry/Exit Definitions:
       - Long entry conditions: Explain here
@@ -114,10 +116,13 @@ class StrategyAuditor(ast.NodeVisitor):
                             if isinstance(target, ast.Name) and target.id == "timeframe":
                                 if isinstance(body_item.value, ast.Constant):
                                     timeframe = body_item.value.value
-                                elif isinstance(body_item.value, ast.Str): # Python < 3.8
+                                # Python < 3.8
+                                elif isinstance(body_item.value, ast.Str):
                                     timeframe = body_item.value.s
 
-        header = '"""' + DEFAULT_HEADER.format(name=class_name, timeframe=timeframe) + '"""\n'
+        header = (
+            '"""' + DEFAULT_HEADER.format(name=class_name, timeframe=timeframe) + '"""\n'
+        )
 
         # Handle shebang/encoding
         lines = self.source.splitlines(keepends=True)
@@ -142,18 +147,27 @@ class StrategyAuditor(ast.NodeVisitor):
                     if isinstance(target, ast.Name) and target.id == "process_only_new_candles":
                         if isinstance(item.value, ast.Constant) and item.value.value is True:
                             has_process_new = True
-                        elif isinstance(item.value, ast.NameConstant) and item.value.value is True: # Python < 3.8
-                             has_process_new = True
+                        # Python < 3.8
+                        elif (
+                            isinstance(item.value, ast.NameConstant)
+                            and item.value.value is True
+                        ):
+                            has_process_new = True
 
         if not has_process_new:
-             self.errors.append(f"Class {node.name} missing 'process_only_new_candles = True'")
+            self.errors.append(
+                f"Class {node.name} missing 'process_only_new_candles = True'"
+            )
 
         self.generic_visit(node)
 
     def check_complex_conditions(self):
         # Validate populate_entry_trend and populate_exit_trend
         for node in ast.walk(self.tree):
-            if isinstance(node, ast.FunctionDef) and node.name in ["populate_entry_trend", "populate_exit_trend"]:
+            if isinstance(node, ast.FunctionDef) and node.name in [
+                "populate_entry_trend",
+                "populate_exit_trend",
+            ]:
                 self.check_function_conditions(node)
                 self.check_function_comments(node)
 
@@ -170,23 +184,26 @@ class StrategyAuditor(ast.NodeVisitor):
         elif isinstance(node, ast.BinOp):
             # Allow BitAnd (&), BitOr (|)
             if isinstance(node.op, (ast.BitAnd, ast.BitOr)):
-                return (self.is_clean_boolean_expression(node.left) and
-                        self.is_clean_boolean_expression(node.right))
-            return False # Other BinOps like Add/Sub imply math, not boolean logic usually
+                return self.is_clean_boolean_expression(
+                    node.left
+                ) and self.is_clean_boolean_expression(node.right)
+            # Other BinOps like Add/Sub imply math, not boolean logic usually
+            return False
         elif isinstance(node, ast.BoolOp):
             # Allow And, Or
             return all(self.is_clean_boolean_expression(v) for v in node.values)
         else:
-            # Everything else (Compare, Call, Constant, Attribute, Subscript, etc.) is disallowed inline
+            # Everything else (Compare, Call, Constant, Attribute, Subscript, etc.)
+            # is disallowed inline
             return False
 
     def check_function_conditions(self, func_node):
         for node in ast.walk(func_node):
             if isinstance(node, ast.Assign):
-                 # Check if assigning to dataframe loc/iloc
+                # Check if assigning to dataframe loc/iloc
                 for target in node.targets:
                     if isinstance(target, ast.Subscript):
-                         # Check if index is complex bool op
+                        # Check if index is complex bool op
                         slice_node = target.slice
                         # Handle python < 3.9
                         if isinstance(slice_node, ast.Index):
@@ -194,19 +211,24 @@ class StrategyAuditor(ast.NodeVisitor):
 
                         nodes_to_check = []
                         if isinstance(slice_node, (ast.Tuple, ast.List)):
-                             nodes_to_check.extend(slice_node.elts)
+                            nodes_to_check.extend(slice_node.elts)
                         else:
-                             nodes_to_check.append(slice_node)
+                            nodes_to_check.append(slice_node)
 
                         for sub_node in nodes_to_check:
-                             if isinstance(sub_node, (ast.BinOp, ast.BoolOp, ast.Compare, ast.UnaryOp)):
+                            if isinstance(
+                                sub_node, (ast.BinOp, ast.BoolOp, ast.Compare, ast.UnaryOp)
+                            ):
                                 if not self.is_clean_boolean_expression(sub_node):
-                                    self.errors.append(f"Complex inline condition in {func_node.name} at line {node.lineno}. Use named boolean variables.")
+                                    self.errors.append(
+                                        f"Complex inline condition in {func_node.name} at "
+                                        f"line {node.lineno}. Use named boolean variables."
+                                    )
 
     def check_function_comments(self, func_node):
         # Heuristic: Check if the function body lines contain '#'
-        if not hasattr(func_node, 'lineno') or not hasattr(func_node, 'end_lineno'):
-            return # Cannot check without line numbers
+        if not hasattr(func_node, "lineno") or not hasattr(func_node, "end_lineno"):
+            return  # Cannot check without line numbers
 
         start_line = func_node.lineno - 1
         end_line = func_node.end_lineno
@@ -219,7 +241,10 @@ class StrategyAuditor(ast.NodeVisitor):
                 break
 
         if not has_comment:
-            self.errors.append(f"Method {func_node.name} missing comments explaining market thesis (line {func_node.lineno})")
+            self.errors.append(
+                f"Method {func_node.name} missing comments explaining market thesis "
+                f"(line {func_node.lineno})"
+            )
 
 
 def main():
@@ -245,6 +270,7 @@ def main():
 
     if failed:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

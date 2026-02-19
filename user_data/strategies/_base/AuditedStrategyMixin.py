@@ -4,8 +4,9 @@ Mixin class for strategies to enforce audit logging and safety checks.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +40,10 @@ class AuditedStrategyMixin:
 
         # Ensure ts_utc is timezone-aware
         if ts_utc.tzinfo is None:
-            ts_utc = ts_utc.replace(tzinfo=timezone.utc)
+            ts_utc = ts_utc.replace(tzinfo=UTC)
 
         # Format: AUDIT_SIGNAL | TIMESTAMP | PAIR | SIDE | REASON | INDICATORS
-        msg = (
-            f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | "
-            f"{side} | {reason} | {snapshot_str}"
-        )
+        msg = f"AUDIT_SIGNAL | {ts_utc.isoformat()} | {pair} | {side} | {reason} | {snapshot_str}"
         logger.info(msg)
 
     def normalize_pair(self, pair: str) -> str:
@@ -65,7 +63,9 @@ class AuditedStrategyMixin:
         normalized_whitelist = [self.normalize_pair(p) for p in whitelist]
 
         if normalized_pair not in normalized_whitelist:
-             # Also try to match simple symbol if whitelist has full pairs or vice versa?
-             # For now, strict match.
-             # If specific format is required (e.g. BTC/USDT:USDT), exact match is best.
-             raise ValueError(f"AUDIT_ERROR: Pair {pair} not in whitelist! Aborting signal.")
+            # Also try to match simple symbol if whitelist has full pairs or vice versa?
+            # For now, strict match.
+            # If specific format is required (e.g. BTC/USDT:USDT), exact match is best.
+            raise ValueError(
+                f"AUDIT_ERROR: Pair {pair} not in whitelist! Aborting signal."
+            )

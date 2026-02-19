@@ -3,7 +3,8 @@ Strategy Name: DeltaSafeStrategy
 Author: Freqtrade User
 Version: 1.1
 Timeframes: 1h
-Supported Pair Format: Delta contract symbols (e.g., BTCUSDT) vs Freqtrade/CCXT futures pair format (base/quote:settle like BTC/USDT:USDT)
+Supported Pair Format: Delta contract symbols (e.g., BTCUSDT) vs Freqtrade/CCXT
+futures pair format (base/quote:settle like BTC/USDT:USDT)
 Timezone Rule: all timestamps logged as UTC ISO-8601
 Entry/Exit Definitions:
   - Long entry conditions: RSI < 30 and Volume > 0
@@ -13,15 +14,19 @@ Entry/Exit Definitions:
 No Repainting: only act on closed candles (no incomplete candle usage)
 """
 
+import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import talib.abstract as ta
 from pandas import DataFrame
 
 from freqtrade.strategy import IStrategy
+
+
+logger = logging.getLogger(__name__)
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
@@ -74,11 +79,13 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         Delta Futures format: BASE/QUOTE:SETTLE (e.g. BTC/USDT:USDT)
         """
         if ":" not in pair:
-             # Just a warning or strict fail?
-             # Prompt says: "Any symbol mismatch causes a clear startup failure before trading begins."
-             # But populate_entry_trend is called per pair.
-             # We can raise an error here.
-             raise ValueError(f"AUDIT_FAIL: Pair '{pair}' does not look like a futures pair (missing :settle).")
+            # Just a warning or strict fail?
+            # Prompt says: "Any symbol mismatch causes a clear startup failure before trading begins."
+            # But populate_entry_trend is called per pair.
+            # We can raise an error here.
+            raise ValueError(
+                f"AUDIT_FAIL: Pair '{pair}' does not look like a futures pair (missing :settle)."
+            )
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         pair = metadata["pair"]
@@ -87,29 +94,27 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         # Check whitelist using mixin
         # Note: self.config is available in IStrategy
         if self.config.get("exchange", {}).get("pair_whitelist"):
-             try:
-                 self.assert_pair_in_whitelist(pair, self.config["exchange"]["pair_whitelist"])
-             except ValueError as e:
-                 # Log error and return empty? Or let it crash?
-                 # If we crash, it stops the bot. That is what "fail fast" implies.
-                 raise e
+            try:
+                self.assert_pair_in_whitelist(
+                    pair, self.config["exchange"]["pair_whitelist"]
+                )
+            except ValueError as e:
+                # Log error and return empty? Or let it crash?
+                # If we crash, it stops the bot. That is what "fail fast" implies.
+                raise e
 
         # Named boolean conditions
         # RSI < 30 indicates oversold conditions
-        is_oversold = (dataframe["rsi"] < 30)
+        is_oversold = dataframe["rsi"] < 30
         # Volume > 0 ensures there is liquidity
-        has_volume = (dataframe["volume"] > 0)
+        has_volume = dataframe["volume"] > 0
 
         # Combine
-        dataframe.loc[
-            (is_oversold & has_volume),
-            "enter_long"
-        ] = 1
+        dataframe.loc[(is_oversold & has_volume), "enter_long"] = 1
 
         # Log reason tag
         dataframe.loc[
-            (is_oversold & has_volume),
-            "enter_tag"
+            (is_oversold & has_volume), "enter_tag"
         ] = "rsi_oversold_volume"
 
         return dataframe
@@ -117,17 +122,13 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Named boolean conditions
         # RSI > 70 indicates overbought conditions
-        is_overbought = (dataframe["rsi"] > 70)
-        has_volume = (dataframe["volume"] > 0)
+        is_overbought = dataframe["rsi"] > 70
+        has_volume = dataframe["volume"] > 0
+
+        dataframe.loc[(is_overbought & has_volume), "exit_long"] = 1
 
         dataframe.loc[
-            (is_overbought & has_volume),
-            "exit_long"
-        ] = 1
-
-        dataframe.loc[
-            (is_overbought & has_volume),
-            "exit_tag"
+            (is_overbought & has_volume), "exit_tag"
         ] = "rsi_overbought_volume"
 
         return dataframe
@@ -140,7 +141,7 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         rate: float,
         time_in_force: str,
         current_time: datetime,
-        entry_tag: Optional[str],
+        entry_tag: str | None,
         side: str,
         **kwargs,
     ) -> bool:
@@ -151,7 +152,8 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
         # We can't easily get the *exact* dataframe row here efficiently without lookup.
         # But we can log what we know.
 
-        # For simplicity, we just log "check logs for indicators" or pass empty dict if not easily available.
+        # For simplicity, we just log "check logs for indicators" or pass empty dict
+        # if not easily available.
         # However, we can try to get the last analyzed candle if we had the dataframe.
         # IStrategy doesn't pass dataframe to confirm_trade_entry.
         # But self.dp.get_analyzed_dataframe(pair, timeframe) is available if dataprovider is set.
@@ -164,20 +166,21 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
                 indicators = {
                     "rsi": last_candle.get("rsi"),
                     "volume": last_candle.get("volume"),
-                    "close": last_candle.get("close")
+                    "close": last_candle.get("close"),
                 }
-            except Exception:
+            except Exception:  # noqa: S110
+                # Fallback if dataframe retrieval fails
                 pass
 
         if current_time.tzinfo is None:
-            current_time = current_time.replace(tzinfo=timezone.utc)
+            current_time = current_time.replace(tzinfo=UTC)
 
         self.log_signal(
             pair=pair,
             side=side,
             reason=f"Signal Confirmed (Tag: {entry_tag})",
-            ts_utc=current_time, # confirm_trade_entry passes datetime object
-            indicators_snapshot=indicators
+            ts_utc=current_time,  # confirm_trade_entry passes datetime object
+            indicators_snapshot=indicators,
         )
         return True
 
@@ -202,13 +205,14 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
                 indicators = {
                     "rsi": last_candle.get("rsi"),
                     "volume": last_candle.get("volume"),
-                    "close": last_candle.get("close")
+                    "close": last_candle.get("close"),
                 }
-            except Exception:
+            except Exception:  # noqa: S110
+                # Fallback if dataframe retrieval fails
                 pass
 
         if current_time.tzinfo is None:
-            current_time = current_time.replace(tzinfo=timezone.utc)
+            current_time = current_time.replace(tzinfo=UTC)
 
         # Determine side based on trade object
         # Assuming trade object has is_short (Freqtrade standard)
@@ -219,6 +223,6 @@ class DeltaSafeStrategy(AuditedStrategyMixin, IStrategy):
             side=side,
             reason=f"Exit Confirmed (Reason: {exit_reason})",
             ts_utc=current_time,
-            indicators_snapshot=indicators
+            indicators_snapshot=indicators,
         )
         return True
