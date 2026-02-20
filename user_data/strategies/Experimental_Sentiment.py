@@ -70,19 +70,12 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Long if Whales are accumulating (MFI < 30) AND Twitter is buzzing (Volume > SMA)
         dataframe.loc[
-            (
-                (dataframe["whale_index"] < 30) &
-                (dataframe["twitter_volume"] > 1.0)
-            ),
-            "enter_long"
+            ((dataframe["whale_index"] < 30) & (dataframe["twitter_volume"] > 1.0)), "enter_long"
         ] = 1
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Exit if Whales are distributing (MFI > 70)
-        dataframe.loc[
-            (dataframe["whale_index"] > 70),
-            "exit_long"
-        ] = 1
+        dataframe.loc[(dataframe["whale_index"] > 70), "exit_long"] = 1
         return dataframe
