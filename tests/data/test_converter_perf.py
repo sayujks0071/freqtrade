@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from freqtrade.data.converter import reduce_dataframe_footprint
