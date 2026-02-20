@@ -1,7 +1,6 @@
 import logging
-import sys
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from freqtrade.loggers.std_err_stream_handler import FTStdErrStreamHandler
 
@@ -43,6 +42,7 @@ def test_ft_std_err_stream_handler_emit_exception():
             handler.emit(record)
             mock_handle_error.assert_called_once_with(record)
 
+
 def test_ft_std_err_stream_handler_recursion_error():
     handler = FTStdErrStreamHandler()
     record = logging.LogRecord(
@@ -62,4 +62,4 @@ def test_ft_std_err_stream_handler_recursion_error():
         except RecursionError:
             pass
         else:
-            assert False, "RecursionError should have been raised"
+            raise AssertionError("RecursionError should have been raised")
