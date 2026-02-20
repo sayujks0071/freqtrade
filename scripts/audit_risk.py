@@ -29,17 +29,13 @@ def check_config_file(filepath: Path) -> bool:
                     print(f"VIOLATION: {filepath} - max_open_trades ({max_open_trades}) > 5")
                     return False
             else:
-                print(
-                    f"WARNING: {filepath} - max_open_trades is not a number: "
-                    f"{max_open_trades}"
-                )
+                print(f"WARNING: {filepath} - max_open_trades is not a number: {max_open_trades}")
                 # Treat non-numeric as potentially unsafe if we can't verify?
                 # Usually max_open_trades is int.
                 # If it's -1 (unlimited), that's > 5 logically.
                 if max_open_trades == -1:
                     print(
-                        f"VIOLATION: {filepath} - max_open_trades is unlimited (-1), "
-                        "which is > 5"
+                        f"VIOLATION: {filepath} - max_open_trades is unlimited (-1), which is > 5"
                     )
                     return False
 
