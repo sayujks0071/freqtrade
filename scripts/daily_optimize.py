@@ -118,6 +118,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -251,20 +253,14 @@ Examples:
             sys.exit(1)
 
     # 1. Establish Baseline
-    latest_file = get_latest_backtest_file()
+    # Always run a fresh backtest on all strategies to ensure we pick the worst performer from the current state
+    print("Establishing baseline by running backtest on all strategies...")
+    strategies = find_available_strategies()
+    if not strategies:
+        print("No strategy file found.")
+        sys.exit(1)
 
-    backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
-
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
-        strategies = find_available_strategies()
-        if not strategies:
-            print("No strategy file found.")
-            sys.exit(1)
-        backtest_data = run_backtest_job(strategies)
+    backtest_data = run_backtest_job(strategies)
 
     if not backtest_data:
         print("Failed to produce backtest baseline.")
@@ -294,6 +290,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -371,7 +369,11 @@ Examples:
     print(f"New Drawdown: {new_drawdown}")
 
     sharpe_improved = new_sharpe > (current_sharpe * 1.05)
-    drawdown_improved = new_drawdown < current_drawdown
+
+    if current_drawdown == 0.0:
+        drawdown_improved = new_drawdown <= 0.0
+    else:
+        drawdown_improved = new_drawdown < current_drawdown
 
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
