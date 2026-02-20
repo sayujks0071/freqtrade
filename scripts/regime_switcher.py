@@ -13,7 +13,7 @@ import pandas_ta as ta  # noqa: F401
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -27,17 +27,14 @@ def fetch_btc_data():
     try:
         try:
             exchange = ccxt.binance()
-            ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1d', limit=300)
+            ohlcv = exchange.fetch_ohlcv("BTC/USDT", timeframe="1d", limit=300)
         except Exception:
             logger.warning("Binance failed, trying Gate.io")
             exchange = ccxt.gateio()
-            ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1d', limit=300)
+            ohlcv = exchange.fetch_ohlcv("BTC/USDT", timeframe="1d", limit=300)
 
-        df = pd.DataFrame(
-            ohlcv,
-            columns=['timestamp', 'open', 'high', 'low', 'close', 'volume']
-        )
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
     except Exception as e:
         logger.error(f"Error fetching data: {e}")
@@ -70,10 +67,10 @@ def detect_regime(df):
     """
     latest = df.iloc[-1]
 
-    close = latest['close']
-    ema200 = latest['EMA_200']
-    adx = latest['ADX_14']
-    atr = latest['ATRr_14']
+    close = latest["close"]
+    ema200 = latest["EMA_200"]
+    adx = latest["ADX_14"]
+    atr = latest["ATRr_14"]
 
     # ATR threshold for volatility?
     # "Volatile/Crashing: VIX spike".
@@ -126,7 +123,7 @@ def update_config(strategy_name, unidirectional):
     # 1. Try to load existing production config
     if PRODUCTION_CONFIG_PATH.exists():
         try:
-            with PRODUCTION_CONFIG_PATH.open('r') as f:
+            with PRODUCTION_CONFIG_PATH.open("r") as f:
                 config = json.load(f)
             logger.info(f"Loaded existing config from {PRODUCTION_CONFIG_PATH}")
         except json.JSONDecodeError:
@@ -136,7 +133,7 @@ def update_config(strategy_name, unidirectional):
     if not config:
         if CONFIG_PATH.exists():
             try:
-                with CONFIG_PATH.open('r') as f:
+                with CONFIG_PATH.open("r") as f:
                     config = json.load(f)
                 logger.info(f"Loaded template config from {CONFIG_PATH}")
             except json.JSONDecodeError:
@@ -150,14 +147,14 @@ def update_config(strategy_name, unidirectional):
         sys.exit(1)
 
     # Update strategy
-    config['strategy'] = strategy_name
-    config['unidirectional_only'] = unidirectional
+    config["strategy"] = strategy_name
+    config["unidirectional_only"] = unidirectional
 
     # Ensure directory exists
     PRODUCTION_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     # Save to production config
-    with PRODUCTION_CONFIG_PATH.open('w') as f:
+    with PRODUCTION_CONFIG_PATH.open("w") as f:
         json.dump(config, f, indent=4)
 
     logger.info(
@@ -168,15 +165,15 @@ def update_config(strategy_name, unidirectional):
 
 def log_decision(regime, strategy):
     """Logs the decision to regime_log.md."""
-    timestamp = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     message = f"| {timestamp} | {regime} | {strategy} |"
 
     if not LOG_FILE.exists():
-        with LOG_FILE.open('w') as f:
+        with LOG_FILE.open("w") as f:
             f.write("| Timestamp | Regime | Strategy |\n")
             f.write("|---|---|---|\n")
 
-    with LOG_FILE.open('a') as f:
+    with LOG_FILE.open("a") as f:
         f.write(message + "\n")
 
     logger.info(f"Logged decision to {LOG_FILE}")
