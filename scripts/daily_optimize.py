@@ -366,6 +366,7 @@ Examples:
 
     # Get profit % for commit message
     avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+    current_profit_pct = current_stats.get("profit_total_pct", 0.0) * 100
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
@@ -376,7 +377,25 @@ Examples:
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
+    status = "failed"
     if sharpe_improved and drawdown_improved:
+        status = "success"
+
+    # Log attempt
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "strategy": worst_strategy,
+        "status": status,
+        "roi_change": avg_profit_pct - current_profit_pct,
+        "sharpe_change": new_sharpe - current_sharpe,
+        "drawdown_change": new_drawdown - current_drawdown,
+    }
+
+    log_file = Path("optimization_log.txt")
+    with log_file.open("a") as f:
+        f.write(json.dumps(log_entry) + "\n")
+
+    if status == "success":
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
 
@@ -395,6 +414,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", str(log_file)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -402,6 +422,7 @@ Examples:
                 print(f"\nReady to push changes to branch '{target_branch}'")
                 print("This will:")
                 print(f"  - Push optimized strategy parameters for {worst_strategy}")
+                print("  - Push optimization log")
                 print(f"  - Update remote branch: {target_branch}")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
                 if response not in ["y", "yes"]:
@@ -411,6 +432,9 @@ Examples:
                     return
 
             print(f"\nPushing to {target_branch}...")
+
+            # Pull rebase before pushing to avoid conflicts on log file
+            run_command(["git", "pull", "--rebase", "origin", target_branch])
 
             push_cmd = ["git", "push", "origin"]
             # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
@@ -438,6 +462,44 @@ Examples:
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        # Log failure if not dry run
+        if not args.dry_run:
+            target_branch = args.branch if args.branch else "main"
+            msg = f"chore: update optimization log (failed attempt for {worst_strategy})"
+
+            run_command(["git", "add", str(log_file)])
+            run_command(["git", "commit", "-m", msg])
+
+            # Confirm before pushing
+            if not args.yes:
+                print(f"\nReady to push changes to branch '{target_branch}'")
+                print("This will:")
+                print("  - Push optimization log (failed attempt)")
+                print(f"  - Update remote branch: {target_branch}")
+                response = input("\nProceed with push? [y/N]: ").strip().lower()
+                if response not in ["y", "yes"]:
+                    print("Push cancelled. Changes are committed locally.")
+                    return
+
+            print(f"\nPushing to {target_branch}...")
+
+            # Pull rebase before pushing to avoid conflicts on log file
+            run_command(["git", "pull", "--rebase", "origin", target_branch])
+
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+
+            result = run_command(push_cmd, capture=True)
+
+            if result.returncode == 0:
+                print(f"\n✓ Successfully pushed log to branch: {target_branch}")
+            else:
+                print(f"\nFailed to push to {target_branch}")
+                print(result.stderr)
 
 
 if __name__ == "__main__":
