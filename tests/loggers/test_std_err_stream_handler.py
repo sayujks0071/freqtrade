@@ -1,6 +1,5 @@
 
 import logging
-import sys
 from unittest.mock import MagicMock
 
 from freqtrade.loggers.std_err_stream_handler import FTStdErrStreamHandler
