@@ -1,0 +1,800 @@
+2026-02-20 11:36:22,161 - freqtrade - INFO - freqtrade 2026.2-dev-a689a21
+2026-02-20 11:36:22,700 - numexpr.utils - INFO - NumExpr defaulting to 4 threads.
+2026-02-20 11:36:24,947 - freqtrade.configuration.load_config - INFO - Using config: user_data/configs/config_backtest.json ...
+2026-02-20 11:36:24,950 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-20 11:36:24,950 - freqtrade.loggers - INFO - Logfile configured
+2026-02-20 11:36:24,951 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-20 11:36:24,951 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20260120- ...
+2026-02-20 11:36:24,953 - freqtrade.configuration.configuration - INFO - Using user-data directory: /app/user_data ...
+2026-02-20 11:36:24,954 - freqtrade.configuration.directory_operations - INFO - Created data directory: None
+2026-02-20 11:36:24,954 - freqtrade.configuration.configuration - INFO - Using data directory: /app/user_data/data/gateio ...
+2026-02-20 11:36:24,955 - freqtrade.configuration.configuration - INFO - Detected --candle-types: ['futures']
+2026-02-20 11:36:24,955 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20260120-
+2026-02-20 11:36:24,957 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-20 11:36:24,970 - freqtrade.exchange.check_exchange - INFO - Exchange "gateio" is officially supported by the Freqtrade development team.
+2026-02-20 11:36:24,971 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-20 11:36:24,972 - freqtrade.configuration.deprecated_settings - WARNING - DEPRECATED: The `forcebuy_enable` setting is deprecated and will be removed in the next versions of Freqtrade. Please
+use the `force_entry_enable` setting in your configuration instead.
+2026-02-20 11:36:24,972 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-20 11:36:25,479 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-20 11:36:25,479 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-20 11:36:25,480 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'options': {'defaultType': 'swap'}, 'enableRateLimit': True}
+2026-02-20 11:36:25,493 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'options': {'defaultType': 'swap'}, 'enableRateLimit': True, 'rateLimit': 200}
+2026-02-20 11:36:25,509 - freqtrade.exchange.exchange - INFO - Using Exchange "Gate"
+2026-02-20 11:36:25,509 - freqtrade.resolvers.exchange_resolver - INFO - Using resolved exchange 'Gate'...
+2026-02-20 11:36:25,511 - freqtrade.exchange.exchange - INFO - Markets were not loaded. Loading them now..
+2026-02-20 11:36:36,266 - freqtrade.data.history.history_utils - INFO - About to download pairs: ['BTC/USDT:USDT', 'ETH/USDT:USDT'], intervals: ['1m', '5m'] to /app/user_data/data/gateio
+2026-02-20 11:36:36,299 - freqtrade.data.history.history_utils - INFO - Download history data for "BTC/USDT:USDT", 1m, futures and store in /app/user_data/data/gateio. From 2026-01-20T00:00:00 to now
+2026-02-20 11:36:36,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:36,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:37,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:37,253 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:37,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:37,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:37,853 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:38,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:38,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:38,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:38,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:38,853 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:39,053 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:39,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:39,453 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:39,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:39,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:40,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:41,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:41,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:41,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:41,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:42,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:42,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:42,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:42,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:42,853 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:43,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:43,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:43,453 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:43,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:43,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:44,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:44,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:44,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:44,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:36:44,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:45,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:45,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:45,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:45,653 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:45,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:46,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:46,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:46,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:46,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:46,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:47,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:47,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:47,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:47,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:47,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:48,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:48,253 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:36:48,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:48,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:48,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:49,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:49,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:49,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:49,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:49,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:50,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:50,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:50,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:50,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:50,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:51,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:51,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:51,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:51,653 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:51,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:36:52,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:52,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:52,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:52,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:52,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:53,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:53,252 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:53,452 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:53,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:53,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:54,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:54,253 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:54,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:54,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:54,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:55,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:55,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:55,453 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:36:55,454 - freqtrade.exchange.exchange - WARNING - Async code raised an exception: TemporaryError('Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}')
+2026-02-20 11:36:55,455 - freqtrade.data.history.history_utils - ERROR - Failed to download history data for pair: "BTC/USDT:USDT", timeframe: 1m.
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/data/history/history_utils.py", line 299, in _download_pair_history
+    new_dataframe = exchange.get_historic_ohlcv(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2556, in get_historic_ohlcv
+    pair, _, _, data, _ = self.loop.run_until_complete(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2610, in _async_get_historic_ohlcv
+    raise res
+  File "/app/freqtrade/exchange/common.py", line 149, in wrapper
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/common.py", line 149, in wrapper
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/common.py", line 149, in wrapper
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [Previous line repeated 1 more time]
+  File "/app/freqtrade/exchange/common.py", line 152, in wrapper
+    raise ex
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for BTC/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+2026-02-20 11:36:55,483 - freqtrade.data.history.history_utils - INFO - Download history data for "BTC/USDT:USDT", 5m, futures and store in /app/user_data/data/gateio. From 2026-01-20T00:00:00 to now
+2026-02-20 11:36:56,678 - freqtrade.data.history.history_utils - INFO - Downloaded data for BTC/USDT:USDT, 5m, futures with length 9067.
+2026-02-20 11:36:56,699 - freqtrade.data.history.history_utils - INFO - Download history data for "ETH/USDT:USDT", 1m, futures and store in /app/user_data/data/gateio. From 2026-01-20T00:00:00 to now
+2026-02-20 11:36:57,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:57,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:57,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:57,652 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:57,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:58,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:58,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:58,450 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:58,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:58,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:59,049 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:59,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:59,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:59,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:36:59,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:37:00,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:37:00,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:37:00,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 4 times.
+2026-02-20 11:37:01,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:01,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:02,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:02,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:02,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:02,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:02,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:03,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:03,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:03,450 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:03,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:03,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:04,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:04,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:04,450 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:04,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:04,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:05,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 3 times.
+2026-02-20 11:37:05,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:05,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:05,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:05,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:06,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:06,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:06,450 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:06,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:06,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:07,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:07,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:07,450 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:07,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:07,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:08,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:08,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:08,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:08,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 2 times.
+2026-02-20 11:37:08,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:09,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:09,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:09,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:09,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:09,849 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:10,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:10,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:10,449 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:10,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:10,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:11,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:11,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:11,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:11,650 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:11,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:12,052 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:12,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Retrying still for 1 times.
+2026-02-20 11:37:12,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:12,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:12,851 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:13,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:13,251 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:13,449 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:13,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:13,852 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:14,050 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:14,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:14,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:14,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:14,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:15,051 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:15,250 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:15,451 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:15,651 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:15,850 - freqtrade.exchange.common - WARNING - _async_get_candle_history() returned exception: "Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}". Giving up.
+2026-02-20 11:37:15,851 - freqtrade.exchange.exchange - WARNING - Async code raised an exception: TemporaryError('Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to
+InvalidOrder. Message: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}')
+2026-02-20 11:37:15,853 - freqtrade.data.history.history_utils - ERROR - Failed to download history data for pair: "ETH/USDT:USDT", timeframe: 1m.
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/exchange/exchange.py", line 2945, in _async_get_candle_history
+    data = await self._api_async.fetch_ohlcv(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 3279, in fetch_ohlcv
+    response = await self.publicFuturesGetSettleCandlesticks(self.extend(request, params))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 994, in request
+    return await self.fetch2(path, api, method, params, headers, body, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 990, in fetch2
+    raise e
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 978, in fetch2
+    return await self.fetch(request['url'], request['method'], request['headers'], request['body'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/base/exchange.py", line 263, in fetch
+    self.handle_errors(http_status_code, http_status_text, url, method, headers, http_response, json_response, request_headers, request_body)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/async_support/gate.py", line 7931, in handle_errors
+    self.throw_exactly_matched_exception(self.exceptions['exact'], label, feedback)
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ccxt/base/exchange.py", line 5420, in throw_exactly_matched_exception
+    raise exact[string](message)
+ccxt.base.errors.InvalidOrder: gateio {"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/freqtrade/data/history/history_utils.py", line 299, in _download_pair_history
+    new_dataframe = exchange.get_historic_ohlcv(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2556, in get_historic_ohlcv
+    pair, _, _, data, _ = self.loop.run_until_complete(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2610, in _async_get_historic_ohlcv
+    raise res
+  File "/app/freqtrade/exchange/common.py", line 149, in wrapper
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/common.py", line 149, in wrapper
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/common.py", line 149, in wrapper
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [Previous line repeated 1 more time]
+  File "/app/freqtrade/exchange/common.py", line 152, in wrapper
+    raise ex
+  File "/app/freqtrade/exchange/common.py", line 125, in wrapper
+    return await f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/freqtrade/exchange/exchange.py", line 2982, in _async_get_candle_history
+    raise TemporaryError(
+freqtrade.exceptions.TemporaryError: Could not fetch historical candle (OHLCV) data for ETH/USDT:USDT, 1m, futures due to InvalidOrder. Message: gateio
+{"label":"INVALID_PARAM_VALUE","message":"Candlestick too long ago. Maximum 10000 points recently are allowed"}
+2026-02-20 11:37:15,886 - freqtrade.data.history.history_utils - INFO - Download history data for "ETH/USDT:USDT", 5m, futures and store in /app/user_data/data/gateio. From 2026-01-20T00:00:00 to now
+2026-02-20 11:37:17,086 - freqtrade.data.history.history_utils - INFO - Downloaded data for ETH/USDT:USDT, 5m, futures with length 9067.
+Timeframe                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 100% • 0:00:20 • 0:00:00
+Downloading ETH/USDT:USDT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 100% • 0:00:40 • 0:00:00

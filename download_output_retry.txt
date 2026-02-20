@@ -1,0 +1,37 @@
+2026-02-20 11:37:47,136 - freqtrade - INFO - freqtrade 2026.2-dev-a689a21
+2026-02-20 11:37:47,502 - numexpr.utils - INFO - NumExpr defaulting to 4 threads.
+2026-02-20 11:37:48,730 - freqtrade.configuration.load_config - INFO - Using config: user_data/configs/config_backtest.json ...
+2026-02-20 11:37:48,732 - freqtrade.loggers - INFO - Enabling colorized output.
+2026-02-20 11:37:48,733 - freqtrade.loggers - INFO - Logfile configured
+2026-02-20 11:37:48,734 - freqtrade.loggers - INFO - Verbosity set to 0
+2026-02-20 11:37:48,734 - freqtrade.configuration.configuration - INFO - Parameter --timerange detected: 20260120- ...
+2026-02-20 11:37:48,735 - freqtrade.configuration.configuration - INFO - Using user-data directory: /app/user_data ...
+2026-02-20 11:37:48,736 - freqtrade.configuration.configuration - INFO - Using data directory: /app/user_data/data/gateio ...
+2026-02-20 11:37:48,737 - freqtrade.configuration.configuration - INFO - timeframes --timeframes: ['1h', '5m']
+2026-02-20 11:37:48,737 - freqtrade.configuration.configuration - INFO - Detected --candle-types: ['futures']
+2026-02-20 11:37:48,738 - freqtrade.configuration.configuration - INFO - Filter trades by timerange: 20260120-
+2026-02-20 11:37:48,738 - freqtrade.exchange.check_exchange - INFO - Checking exchange...
+2026-02-20 11:37:48,752 - freqtrade.exchange.check_exchange - INFO - Exchange "gateio" is officially supported by the Freqtrade development team.
+2026-02-20 11:37:48,753 - freqtrade.configuration.configuration - INFO - Using pairlist from configuration.
+2026-02-20 11:37:48,754 - freqtrade.configuration.deprecated_settings - WARNING - DEPRECATED: The `forcebuy_enable` setting is deprecated and will be removed in the next versions of Freqtrade. Please
+use the `force_entry_enable` setting in your configuration instead.
+2026-02-20 11:37:48,755 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-02-20 11:37:49,119 - freqtrade.exchange.exchange - INFO - Instance is running with dry_run enabled
+2026-02-20 11:37:49,120 - freqtrade.exchange.exchange - INFO - Using CCXT 4.5.34
+2026-02-20 11:37:49,120 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'options': {'defaultType': 'swap'}, 'enableRateLimit': True}
+2026-02-20 11:37:49,133 - freqtrade.exchange.exchange - INFO - Applying additional ccxt config: {'options': {'defaultType': 'swap'}, 'enableRateLimit': True, 'rateLimit': 200}
+2026-02-20 11:37:49,148 - freqtrade.exchange.exchange - INFO - Using Exchange "Gate"
+2026-02-20 11:37:49,148 - freqtrade.resolvers.exchange_resolver - INFO - Using resolved exchange 'Gate'...
+2026-02-20 11:37:49,150 - freqtrade.exchange.exchange - INFO - Markets were not loaded. Loading them now..
+2026-02-20 11:37:59,507 - freqtrade.data.history.history_utils - INFO - About to download pairs: ['BTC/USDT:USDT', 'ETH/USDT:USDT'], intervals: ['1h', '5m'] to /app/user_data/data/gateio
+2026-02-20 11:37:59,530 - freqtrade.data.history.history_utils - INFO - Downloading parallel candles for 1h for all pairs since 2026-01-20T00:00:00
+2026-02-20 11:38:00,223 - freqtrade.data.history.history_utils - INFO - Download history data for "BTC/USDT:USDT", 1h, futures and store in /app/user_data/data/gateio. From 2026-01-20T00:00:00 to now
+2026-02-20 11:38:00,736 - freqtrade.data.history.history_utils - INFO - Downloaded data for BTC/USDT:USDT, 1h, futures with length 755.
+2026-02-20 11:38:00,771 - freqtrade.data.history.history_utils - INFO - Download history data for "BTC/USDT:USDT", 5m, futures and store in /app/user_data/data/gateio. From 2026-02-20T11:25:00 to now
+2026-02-20 11:38:01,131 - freqtrade.data.history.history_utils - INFO - Downloaded data for BTC/USDT:USDT, 5m, futures with length 2.
+2026-02-20 11:38:01,156 - freqtrade.data.history.history_utils - INFO - Download history data for "ETH/USDT:USDT", 1h, futures and store in /app/user_data/data/gateio. From 2026-01-20T00:00:00 to now
+2026-02-20 11:38:01,670 - freqtrade.data.history.history_utils - INFO - Downloaded data for ETH/USDT:USDT, 1h, futures with length 755.
+2026-02-20 11:38:01,699 - freqtrade.data.history.history_utils - INFO - Download history data for "ETH/USDT:USDT", 5m, futures and store in /app/user_data/data/gateio. From 2026-02-20T11:25:00 to now
+2026-02-20 11:38:02,060 - freqtrade.data.history.history_utils - INFO - Downloaded data for ETH/USDT:USDT, 5m, futures with length 2.
+Timeframe                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 100% • 0:00:01 • 0:00:00
+Downloading ETH/USDT:USDT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2/2 100% • 0:00:02 • 0:00:00
