@@ -253,7 +253,8 @@ Examples:
             sys.exit(1)
 
     # 1. Establish Baseline
-    # Always run a fresh backtest on all strategies to ensure we pick the worst performer from the current state
+    # Always run a fresh backtest on all strategies to ensure we pick
+    # the worst performer from the current state
     print("Establishing baseline by running backtest on all strategies...")
     strategies = find_available_strategies()
     if not strategies:
