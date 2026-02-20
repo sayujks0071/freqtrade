@@ -14,7 +14,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -90,7 +90,7 @@ class Sentinel:
             json.dump(self.state, f, indent=4)
 
     def _prune_state(self, state: dict[str, Any]) -> dict[str, Any]:
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
 
         # Prune balance history (> 1 hour)
         one_hour_ago = now - 3600
@@ -112,7 +112,7 @@ class Sentinel:
             sys.exit(1)
 
         ip = api_config.get("listen_ip_address", "127.0.0.1")
-        if ip == "0.0.0.0":
+        if ip == "0.0.0.0":  # noqa: S104
             ip = "127.0.0.1"
         port = api_config.get("listen_port", 8080)
         return f"http://{ip}:{port}/api/v1"
@@ -171,7 +171,7 @@ class Sentinel:
             return None
 
     def check_drawdown(self, current_balance: float) -> bool:
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
 
         # Update history
         self.state["balance_history_1h"].append([now, current_balance])
@@ -196,7 +196,7 @@ class Sentinel:
         return False
 
     def check_btc_drop(self, current_price: float) -> bool:
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
 
         # Update history
         self.state["btc_price_history_4h"].append([now, current_price])

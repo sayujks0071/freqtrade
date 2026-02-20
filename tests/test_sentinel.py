@@ -33,7 +33,7 @@ class TestSentinel(unittest.TestCase):
             },
             "exchange": {"name": "binance"},
         }
-        with open(self.config_path, "w") as f:
+        with self.config_path.open("w") as f:
             json.dump(self.config_data, f)
 
         # Initialize Sentinel with mocked calls where necessary
