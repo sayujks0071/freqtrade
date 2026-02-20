@@ -11,7 +11,6 @@ import ast
 import json
 import sys
 from pathlib import Path
-from typing import Any, Union
 
 
 def check_config_file(filepath: Path) -> bool:
@@ -20,7 +19,7 @@ def check_config_file(filepath: Path) -> bool:
     Constraint: max_open_trades <= 5
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with filepath.open(encoding="utf-8") as f:
             config = json.load(f)
 
         max_open_trades = config.get("max_open_trades")
@@ -30,12 +29,19 @@ def check_config_file(filepath: Path) -> bool:
                     print(f"VIOLATION: {filepath} - max_open_trades ({max_open_trades}) > 5")
                     return False
             else:
-                print(f"WARNING: {filepath} - max_open_trades is not a number: {max_open_trades}")
+                print(
+                    f"WARNING: {filepath} - max_open_trades is not a number: "
+                    f"{max_open_trades}"
+                )
                 # Treat non-numeric as potentially unsafe if we can't verify?
-                # Usually max_open_trades is int. If it's -1 (unlimited), that's > 5 logically.
+                # Usually max_open_trades is int.
+                # If it's -1 (unlimited), that's > 5 logically.
                 if max_open_trades == -1:
-                     print(f"VIOLATION: {filepath} - max_open_trades is unlimited (-1), which is > 5")
-                     return False
+                    print(
+                        f"VIOLATION: {filepath} - max_open_trades is unlimited (-1), "
+                        "which is > 5"
+                    )
+                    return False
 
         return True
     except json.JSONDecodeError:
@@ -52,7 +58,7 @@ def check_strategy_file(filepath: Path) -> bool:
     Constraint: stoploss >= -0.10
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with filepath.open(encoding="utf-8") as f:
             content = f.read()
 
         tree = ast.parse(content)
@@ -66,7 +72,10 @@ def check_strategy_file(filepath: Path) -> bool:
                                 val = _get_value_from_node(item.value)
                                 if val is not None and isinstance(val, (int, float)):
                                     if val < -0.10:
-                                        print(f"VIOLATION: {filepath} - stoploss ({val}) is strictly looser than -0.10")
+                                        print(
+                                            f"VIOLATION: {filepath} - stoploss ({val}) "
+                                            "is strictly looser than -0.10"
+                                        )
                                         return False
                                     # Precision issue check: -0.10000000000000001 is < -0.10?
                                     # Floating point comparison.
@@ -78,7 +87,8 @@ def check_strategy_file(filepath: Path) -> bool:
 
     return True
 
-def _get_value_from_node(node: ast.AST) -> Union[int, float, None]:
+
+def _get_value_from_node(node: ast.AST) -> int | float | None:
     """
     Extracts numeric value from AST node.
     Handles positive numbers (Constant) and negative numbers (UnaryOp -> Constant).
@@ -97,7 +107,7 @@ def main():
     """
     Main execution function.
     """
-    root_dir = Path(".")
+    root_dir = Path()
     user_data_dir = root_dir / "user_data"
 
     violations = False
@@ -113,9 +123,6 @@ def main():
 
     # Check Strategies
     strategy_files = list(user_data_dir.glob("strategies/*.py"))
-    # Also check recursive? Memory says "user_data/strategies/*.py".
-    # But usually strategies are flat or in subdirs. I'll check subdirs too if needed,
-    # but based on `list_files`, they are in root of strategies/.
 
     for strategy_file in strategy_files:
         if not check_strategy_file(strategy_file):
@@ -126,6 +133,7 @@ def main():
     else:
         print("Audit passed: All configurations and strategies are compliant.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
