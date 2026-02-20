@@ -18,9 +18,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import ccxt
-import requests
-
 
 # Configure logging
 logging.basicConfig(
@@ -46,6 +43,8 @@ class Sentinel:
         self.state = self._load_state()
 
         # Initialize CCXT exchange for price monitoring
+        import ccxt
+
         self.exchange_id = self.config.get("exchange", {}).get("name", "binance").lower()
         try:
             exchange_class = getattr(ccxt, self.exchange_id)
@@ -118,6 +117,8 @@ class Sentinel:
         return f"http://{ip}:{port}/api/v1"
 
     def login(self):
+        import requests
+
         api_config = self.config.get("api_server", {})
         username = api_config.get("username")
         password = api_config.get("password")
@@ -144,6 +145,8 @@ class Sentinel:
         return {"Authorization": f"Bearer {self.auth_token}"}
 
     def fetch_balance(self) -> float | None:
+        import requests
+
         try:
             url = f"{self.api_url}/balance"
             response = requests.get(url, headers=self._get_headers(), timeout=10)
@@ -220,6 +223,8 @@ class Sentinel:
         return False
 
     def trigger_emergency(self, reason: str):
+        import requests
+
         logger.critical(f"EMERGENCY TRIGGERED: {reason}")
 
         # 1. Alert (OpenClaw)
