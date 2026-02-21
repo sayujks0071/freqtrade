@@ -3,6 +3,7 @@ Functions to convert data from one format to another
 """
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -287,14 +288,17 @@ def reduce_dataframe_footprint(df: DataFrame) -> DataFrame:
     logger.debug(f"Memory usage of dataframe is {df.memory_usage().sum() / 1024**2:.2f} MB")
 
     df_dtypes = df.dtypes
+    new_types: dict[str, Any] = {}
     for column, dtype in df_dtypes.items():
         if column in ["open", "high", "low", "close", "volume"]:
             continue
         if dtype == np.float64:
-            df_dtypes[column] = np.float32
+            new_types[column] = np.float32
         elif dtype == np.int64:
-            df_dtypes[column] = np.int32
-    df = df.astype(df_dtypes)
+            new_types[column] = np.int32
+    # If no types need changing, return original dataframe to avoid copy
+    if new_types:
+        df = df.astype(new_types)
 
     logger.debug(f"Memory usage after optimization is: {df.memory_usage().sum() / 1024**2:.2f} MB")
 
