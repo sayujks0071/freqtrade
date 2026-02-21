@@ -13,9 +13,6 @@ from freqtrade.loggers.ft_rich_handler import FtRichHandler
 from freqtrade.loggers.rich_console import get_rich_console
 
 
-# from freqtrade.loggers.std_err_stream_handler import FTStdErrStreamHandler
-
-
 logger = logging.getLogger(__name__)
 LOGFORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
@@ -48,7 +45,6 @@ def setup_logging_pre() -> None:
         level=logging.INFO,
         format=LOGFORMAT,
         handlers=[
-            # FTStdErrStreamHandler(),
             rh,
             bufferHandler,
         ],
