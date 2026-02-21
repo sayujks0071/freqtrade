@@ -17,9 +17,9 @@ import talib.abstract as ta
 # Add root to path to allow imports from freqtrade
 sys.path.append(str(Path(__file__).parent.parent))
 
-from freqtrade.configuration import Configuration
-from freqtrade.data.history import load_pair_history
-from freqtrade.enums import CandleType, TradingMode
+from freqtrade.configuration import Configuration  # noqa: E402, RUF100
+from freqtrade.data.history import load_pair_history  # noqa: E402, RUF100
+from freqtrade.enums import CandleType, TradingMode  # noqa: E402, RUF100
 
 
 # Setup logging
@@ -132,10 +132,7 @@ def main():
 
     try:
         data = load_pair_history(
-            datadir=datadir,
-            timeframe=TIMEFRAME,
-            pair=PAIR,
-            candle_type=candle_type
+            datadir=datadir, timeframe=TIMEFRAME, pair=PAIR, candle_type=candle_type
         )
     except Exception as e:
         logger.error(f"Error loading data: {e}")
