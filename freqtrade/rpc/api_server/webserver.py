@@ -1,4 +1,5 @@
 import logging
+import secrets
 from ipaddress import ip_address
 from typing import Any
 
@@ -302,11 +303,13 @@ class ApiServer(RPCHandler):
             )
 
         if self._config["api_server"].get("jwt_secret_key", "super-secret") in (
-            "super-secret, somethingrandom"
+            "super-secret", "somethingrandom"
         ):
-            logger.warning(
-                "SECURITY WARNING - `jwt_secret_key` seems to be default."
-                "Others may be able to log into your bot."
+            self._config["api_server"]["jwt_secret_key"] = secrets.token_urlsafe(32)
+            logger.info(
+                "Generated random `jwt_secret_key` as it was missing or default. "
+                "Please configure a strong `jwt_secret_key` in your config file "
+                "to persist sessions."
             )
 
         logger.info("Starting Local Rest Server.")
