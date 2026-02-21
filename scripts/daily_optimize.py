@@ -118,6 +118,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -294,6 +296,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -365,7 +369,14 @@ Examples:
     new_drawdown = new_stats.get("max_drawdown_account", 1.0)
 
     # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+    new_profit_pct = new_stats.get("profit_total_pct", 0.0)
+    avg_profit_pct = new_profit_pct * 100
+    current_profit_pct = current_stats.get("profit_total_pct", 0.0)
+
+    # Calculate ROI change (delta) in percentage points
+    roi_change = (new_profit_pct - current_profit_pct) * 100
+    sharpe_change = new_sharpe - current_sharpe
+    drawdown_change = new_drawdown - current_drawdown
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
@@ -375,6 +386,21 @@ Examples:
 
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
+
+    # Prepare log entry
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "strategy": worst_strategy,
+        "status": "success" if (sharpe_improved and drawdown_improved) else "failed",
+        "roi_change": roi_change,
+        "sharpe_change": sharpe_change,
+        "drawdown_change": drawdown_change,
+    }
+
+    # Append to optimization_log.txt
+    log_file = Path("optimization_log.txt")
+    with log_file.open("a") as f:
+        f.write(json.dumps(log_entry) + "\n")
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")
@@ -395,6 +421,7 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", "optimization_log.txt"])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -411,6 +438,11 @@ Examples:
                     return
 
             print(f"\nPushing to {target_branch}...")
+
+            # Pull rebase before pushing to handle concurrency
+            print("Pulling latest changes...")
+            pull_cmd = ["git", "pull", "--rebase", "origin", target_branch]
+            run_command(pull_cmd, capture=False)
 
             push_cmd = ["git", "push", "origin"]
             # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
@@ -438,6 +470,25 @@ Examples:
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        # Log failure if not dry run
+        if not args.dry_run:
+            target_branch = args.branch if args.branch else "main"
+            run_command(["git", "add", "optimization_log.txt"])
+            msg_failed = f"chore: update optimization log for {worst_strategy} (failed)"
+            run_command(["git", "commit", "-m", msg_failed])
+
+            print(f"\nPushing log to {target_branch}...")
+
+            # Pull rebase before pushing
+            run_command(["git", "pull", "--rebase", "origin", target_branch], capture=False)
+
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+            run_command(push_cmd, capture=True)
 
 
 if __name__ == "__main__":
