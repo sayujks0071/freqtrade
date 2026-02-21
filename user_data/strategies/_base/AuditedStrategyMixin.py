@@ -54,3 +54,26 @@ class AuditedStrategyMixin:
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    @property
+    def protections(self):
+        """
+        Define protections.
+        """
+        return [
+            {
+                "method": "CooldownPeriod",
+                "stop_duration_candles": 5,
+            },
+            {
+                "method": "MaxDrawdown",
+                "lookback_period_candles": 48,
+                "trade_limit": 20,
+                "stop_duration_candles": 12,
+                "max_allowed_drawdown": 0.2,
+            },
+            {
+                "method": "DailyLossLimit",
+                "max_daily_loss": 0.05,
+            },
+        ]
