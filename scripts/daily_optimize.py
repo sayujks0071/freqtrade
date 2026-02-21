@@ -12,7 +12,6 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -44,11 +43,14 @@ def get_latest_backtest_file():
         return None
     last_result_file = BACKTEST_RESULTS_DIR / ".last_result.json"
     if last_result_file.exists():
-        with last_result_file.open() as f:
-            data = json.load(f)
-            filename = data.get("latest_backtest")
-            if filename:
-                return BACKTEST_RESULTS_DIR / filename
+        try:
+            with last_result_file.open() as f:
+                data = json.load(f)
+                filename = data.get("latest_backtest")
+                if filename:
+                    return BACKTEST_RESULTS_DIR / filename
+        except json.JSONDecodeError:
+            pass
 
     files = list(BACKTEST_RESULTS_DIR.glob("backtest-result-*.zip"))
     if not files:
@@ -61,23 +63,27 @@ def get_latest_backtest_file():
 
 def read_backtest_result(filepath):
     data = None
-    if filepath.suffix == ".zip":
-        with zipfile.ZipFile(filepath, "r") as z:
-            json_files = [f for f in z.namelist() if f.endswith(".json")]
-            target_file = None
-            for fname in json_files:
-                if "backtest-result" in fname:
-                    target_file = fname
-                    break
-            if not target_file and json_files:
-                target_file = json_files[0]
+    try:
+        if filepath.suffix == ".zip":
+            with zipfile.ZipFile(filepath, "r") as z:
+                json_files = [f for f in z.namelist() if f.endswith(".json")]
+                target_file = None
+                for fname in json_files:
+                    if "backtest-result" in fname:
+                        target_file = fname
+                        break
+                if not target_file and json_files:
+                    target_file = json_files[0]
 
-            if target_file:
-                with z.open(target_file) as f:
-                    data = json.load(f)
-    else:
-        with filepath.open() as f:
-            data = json.load(f)
+                if target_file:
+                    with z.open(target_file) as f:
+                        data = json.load(f)
+        else:
+            with filepath.open() as f:
+                data = json.load(f)
+    except Exception as e:
+        print(f"Error reading backtest result {filepath}: {e}")
+        return None
     return data
 
 
@@ -118,6 +124,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -159,8 +167,6 @@ def check_git_status():
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
-        if result.stderr:
-            print(f"Error: {result.stderr}")
         return False
 
     # If there's any output, there are uncommitted changes
@@ -170,16 +176,6 @@ def check_git_status():
         return False
 
     return True
-
-
-def get_current_branch():
-    """Get the current git branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
-    return None
 
 
 def extract_hyperopt_params(output: str) -> dict:
@@ -192,7 +188,6 @@ def extract_hyperopt_params(output: str) -> dict:
     started = False
 
     # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
     for line in reversed(lines):
         if line.strip() == "}":
             started = True
@@ -214,17 +209,6 @@ def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Dry-run mode (no git operations):
-  %(prog)s --dry-run
-
-  # Push to a feature branch instead of main:
-  %(prog)s --branch optimize-strategy-$(date +%%Y%%m%%d)
-
-  # Skip confirmation prompts:
-  %(prog)s --yes
-        """,
     )
     parser.add_argument(
         "--dry-run",
@@ -276,10 +260,14 @@ Examples:
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+    # Check if profit_total exists, otherwise default to 0.0
+    # Note: profit_total is ratio (e.g. 0.05), * 100 for percentage (5.0%)
+    current_profit_ratio = current_stats.get("profit_total", 0.0)
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
     print(f"Current Drawdown: {current_drawdown}")
+    print(f"Current Profit: {current_profit_ratio * 100:.2f}%")
 
     # 2. Hyperopt Execution
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
@@ -294,6 +282,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -320,7 +310,7 @@ Examples:
 
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
-        print(result_hyperopt.stderr)  # Print stderr on failure
+        print(result_hyperopt.stderr)
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -335,11 +325,6 @@ Examples:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
-        # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -350,7 +335,7 @@ Examples:
     print("Running verification backtest with new parameters...")
     new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
 
-    if not new_backtest_data:
+    if not new_backtest_data or worst_strategy not in new_backtest_data.get("strategy", {}):
         print("Failed to run verification backtest.")
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
@@ -363,15 +348,24 @@ Examples:
     if new_sharpe is None:
         new_sharpe = -float("inf")
     new_drawdown = new_stats.get("max_drawdown_account", 1.0)
+    new_profit_ratio = new_stats.get("profit_total", 0.0)
 
     # Get profit % for commit message
-    avg_profit_pct = new_stats.get("profit_total_pct", 0.0) * 100
+    avg_profit_pct = new_profit_ratio * 100
 
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
+    # Evaluation Rules
+    # Rule 1: New_Sharpe > (Current_Sharpe * 1.05)
     sharpe_improved = new_sharpe > (current_sharpe * 1.05)
-    drawdown_improved = new_drawdown < current_drawdown
+
+    # Rule 2: New_Drawdown < Current_Drawdown
+    # Handle edge case where Current_Drawdown is 0 (cannot be less than 0)
+    if current_drawdown == 0:
+        drawdown_improved = new_drawdown == 0
+    else:
+        drawdown_improved = new_drawdown < current_drawdown
 
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
@@ -387,8 +381,13 @@ Examples:
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+                print(f"  Branch: main")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
+            # Cleanup dry run changes
+            if strategy_json.exists() and not created_new:
+                shutil.move(backup_json, strategy_json)
+            elif created_new and strategy_json.exists():
+                strategy_json.unlink()
         else:
             # Determine target branch
             target_branch = args.branch if args.branch else "main"
@@ -413,7 +412,6 @@ Examples:
             print(f"\nPushing to {target_branch}...")
 
             push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
             if target_branch == "main":
                 push_cmd.append("HEAD:main")
             else:
@@ -428,8 +426,8 @@ Examples:
                 print(result.stderr)
                 print("Changes are committed locally. You can manually push later.")
 
-        if backup_json.exists():
-            backup_json.unlink()
+            if backup_json.exists():
+                backup_json.unlink()
 
     else:
         print("Evaluation FAILED. Reverting changes.")
