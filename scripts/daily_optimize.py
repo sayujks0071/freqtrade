@@ -12,6 +12,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
@@ -381,7 +382,7 @@ def main():  # noqa: C901
             if args.branch:
                 print(f"  Branch: {args.branch}")
             else:
-                print(f"  Branch: main")
+                print("  Branch: main")
             print("\nNo changes were made. Use without --dry-run to apply changes.")
             # Cleanup dry run changes
             if strategy_json.exists() and not created_new:
