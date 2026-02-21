@@ -1,5 +1,7 @@
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
+import pytest
 
 from freqtrade.loggers.std_err_stream_handler import FTStdErrStreamHandler
 
@@ -32,12 +34,8 @@ def test_std_err_stream_handler_exception():
 
     # Simulate recursion error
     with patch("sys.stderr.write", side_effect=RecursionError):
-        try:
+        with pytest.raises(RecursionError):
             handler.emit(record)
-        except RecursionError:
-            pass
-        else:
-            assert False, "RecursionError should be raised"
 
     # Simulate other exception
     with patch("sys.stderr.write", side_effect=ValueError):
