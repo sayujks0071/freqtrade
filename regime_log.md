@@ -1,0 +1,3 @@
+| Timestamp | Regime | Strategy |
+| --- | --- | --- |
+| 2026-02-21 19:00:50 UTC | Sideways | BollingerRSI |
