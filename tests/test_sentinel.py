@@ -23,15 +23,18 @@ class TestSentinel(unittest.TestCase):
 
         # Create dummy config
         with self.config_path.open("w") as f:
-            json.dump({
-                "api_server": {
-                    "enabled": True,
-                    "listen_ip_address": "127.0.0.1",
-                    "listen_port": 8080,
-                    "username": "user",
-                    "password": "pass"
-                }
-            }, f)
+            json.dump(
+                {
+                    "api_server": {
+                        "enabled": True,
+                        "listen_ip_address": "127.0.0.1",
+                        "listen_port": 8080,
+                        "username": "user",
+                        "password": "pass",
+                    }
+                },
+                f,
+            )
 
         # Create dummy state
         with self.state_path.open("w") as f:
@@ -94,6 +97,7 @@ class TestSentinel(unittest.TestCase):
     def test_check_drawdown_safe(self, mock_balance):
         # Max balance 1000, current 960 (4% drop)
         import time
+
         now = time.time()
         self.sentinel.state["balance_history"] = [(now - 1800, 1000.0)]
         mock_balance.return_value = 960.0
@@ -105,6 +109,7 @@ class TestSentinel(unittest.TestCase):
     def test_check_drawdown_trigger(self, mock_balance):
         # Max balance 1000, current 940 (6% drop)
         import time
+
         now = time.time()
         self.sentinel.state["balance_history"] = [(now - 1800, 1000.0)]
         mock_balance.return_value = 940.0

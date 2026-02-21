@@ -11,6 +11,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import ccxt
 import requests
@@ -35,7 +36,7 @@ class Sentinel:
         self.api_url = "http://127.0.0.1:8080"
         self.api_user = ""
         self.api_pass = ""
-        self.state = {"balance_history": []}
+        self.state: dict[str, Any] = {"balance_history": []}
         self.access_token = None
         self.token_expiry = 0
 
@@ -90,11 +91,7 @@ class Sentinel:
 
         try:
             auth_data = {"username": self.api_user, "password": self.api_pass}
-            resp = requests.post(
-                f"{self.api_url}/api/v1/token/login",
-                data=auth_data,
-                timeout=10
-            )
+            resp = requests.post(f"{self.api_url}/api/v1/token/login", data=auth_data, timeout=10)
             if resp.status_code == 200:
                 self.access_token = resp.json().get("access_token")
                 return self.access_token
@@ -118,11 +115,7 @@ class Sentinel:
             if not headers:
                 return 0.0
 
-            resp = requests.get(
-                f"{self.api_url}/api/v1/balance",
-                headers=headers,
-                timeout=10
-            )
+            resp = requests.get(f"{self.api_url}/api/v1/balance", headers=headers, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 return float(data.get("total", 0.0))
@@ -159,8 +152,7 @@ class Sentinel:
 
         drawdown = (max_balance - current_balance) / max_balance
         logger.info(
-            f"Current Balance: {current_balance}, Max (1h): {max_balance}, "
-            f"Drawdown: {drawdown:.2%}"
+            f"Current Balance: {current_balance}, Max (1h): {max_balance}, Drawdown: {drawdown:.2%}"
         )
 
         if drawdown > 0.05:
@@ -189,8 +181,7 @@ class Sentinel:
 
             drop = (max_high_4h - current_price) / max_high_4h
             logger.info(
-                f"BTC Price: {current_price}, Max High (4h): {max_high_4h}, "
-                f"Drop: {drop:.2%}"
+                f"BTC Price: {current_price}, Max High (4h): {max_high_4h}, Drop: {drop:.2%}"
             )
 
             if drop > 0.10:
@@ -218,7 +209,7 @@ class Sentinel:
                 f"{self.api_url}/api/v1/forceexit",
                 headers=headers,
                 json={"trade_id": "all"},
-                timeout=10
+                timeout=10,
             )
             if resp.status_code == 200:
                 logger.info("Force Exit executed successfully.")
@@ -230,11 +221,7 @@ class Sentinel:
         # 2. Kill Switch (Stop Bot)
         try:
             logger.info("Executing Kill Switch (Stop Bot)...")
-            resp = requests.post(
-                f"{self.api_url}/api/v1/stop",
-                headers=headers,
-                timeout=10
-            )
+            resp = requests.post(f"{self.api_url}/api/v1/stop", headers=headers, timeout=10)
             if resp.status_code == 200:
                 logger.info("Bot stopped successfully.")
             else:
@@ -243,9 +230,7 @@ class Sentinel:
             logger.error(f"Kill Switch error: {e}")
 
         # 3. Alert
-        self.send_alert(
-            f"CRITICAL ALERT: {reason}. Bot stopped and positions liquidated."
-        )
+        self.send_alert(f"CRITICAL ALERT: {reason}. Bot stopped and positions liquidated.")
 
         # 4. Journal
         self.log_to_journal(reason)
@@ -299,13 +284,13 @@ def main():
         "--config",
         type=Path,
         default=Path("user_data/configs/config.delta.live.json"),
-        help="Path to config file"
+        help="Path to config file",
     )
     parser.add_argument(
         "--state",
         type=Path,
         default=Path("user_data/sentinel_state.json"),
-        help="Path to state file"
+        help="Path to state file",
     )
     args = parser.parse_args()
 
