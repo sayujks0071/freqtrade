@@ -21,13 +21,13 @@ class TestSentinel(unittest.TestCase):
     def setUp(self):
         # Create a unique temporary directory for this test
         self.test_dir = tempfile.TemporaryDirectory()
-        self.test_path = Path(self.test_dir.name)
+        self.test_path = Path(self.test_dir.name).resolve()
 
         self.config_path = self.test_path / "test_config.json"
         self.state_path = self.test_path / "test_state.json"
 
         # Create dummy config
-        with self.config_path.open("w") as f:
+        with self.config_path.open("w", encoding="utf-8") as f:
             json.dump(
                 {
                     "api_server": {
@@ -40,10 +40,12 @@ class TestSentinel(unittest.TestCase):
                 },
                 f,
             )
+            f.flush()
 
         # Create dummy state
-        with self.state_path.open("w") as f:
+        with self.state_path.open("w", encoding="utf-8") as f:
             json.dump({"balance_history": []}, f)
+            f.flush()
 
         self.sentinel = Sentinel(self.config_path, self.state_path)
         # Mock logger to suppress output during tests
