@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -18,8 +19,12 @@ except ImportError:
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
-        self.config_path = Path("tests/test_config.json")
-        self.state_path = Path("tests/test_state.json")
+        # Create a unique temporary directory for this test
+        self.test_dir = tempfile.TemporaryDirectory()
+        self.test_path = Path(self.test_dir.name)
+
+        self.config_path = self.test_path / "test_config.json"
+        self.state_path = self.test_path / "test_state.json"
 
         # Create dummy config
         with self.config_path.open("w") as f:
@@ -45,10 +50,7 @@ class TestSentinel(unittest.TestCase):
         self.sentinel.logger = MagicMock()
 
     def tearDown(self):
-        if self.config_path.exists():
-            self.config_path.unlink()
-        if self.state_path.exists():
-            self.state_path.unlink()
+        self.test_dir.cleanup()
 
     @patch("requests.post")
     def test_get_api_token_success(self, mock_post):
