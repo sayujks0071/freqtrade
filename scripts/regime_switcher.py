@@ -42,8 +42,8 @@ def get_market_regime(dataframe: pd.DataFrame):
     Determine market regime based on indicators.
     """
     # Calculate indicators
-    dataframe["ema200"] = ta.EMA(dataframe, timeperiod=200)  # type: ignore
-    dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)  # type: ignore
+    dataframe["ema200"] = getattr(ta, "EMA")(dataframe, timeperiod=200)  # noqa: B009
+    dataframe["adx"] = getattr(ta, "ADX")(dataframe, timeperiod=14)  # noqa: B009
 
     # Get last closed candle (assuming data includes up to latest)
     last_candle = dataframe.iloc[-1]
