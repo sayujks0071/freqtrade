@@ -303,7 +303,8 @@ class ApiServer(RPCHandler):
             )
 
         if self._config["api_server"].get("jwt_secret_key", "super-secret") in (
-            "super-secret", "somethingrandom"
+            "super-secret",
+            "somethingrandom",
         ):
             self._config["api_server"]["jwt_secret_key"] = secrets.token_urlsafe(32)
             logger.info(
