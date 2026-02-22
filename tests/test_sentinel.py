@@ -1,8 +1,7 @@
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
-import json
+from unittest.mock import MagicMock, patch
 
 # Mock external dependencies before importing sentinel
 sys.modules["requests"] = MagicMock()
@@ -19,7 +18,8 @@ sys.modules["freqtrade_client.ft_rest_client"].FtRestClient = MagicMock()
 scripts_path = Path(__file__).parent.parent / "scripts"
 sys.path.append(str(scripts_path))
 
-import sentinel
+import sentinel  # noqa: E402
+
 
 class TestSentinel(unittest.TestCase):
     def test_prune_history(self):
@@ -51,8 +51,18 @@ class TestSentinel(unittest.TestCase):
     @patch("sentinel.save_state")
     @patch("sentinel.send_alert")
     @patch("sys.exit")
-    @patch("time.sleep") # Mock sleep to avoid waiting
-    def test_main_trigger(self, mock_sleep, mock_exit, mock_alert, mock_save, mock_load, mock_config, mock_btc, mock_client_cls):
+    @patch("time.sleep")  # Mock sleep to avoid waiting
+    def test_main_trigger(
+        self,
+        mock_sleep,
+        mock_exit,
+        mock_alert,
+        mock_save,
+        mock_load,
+        mock_config,
+        mock_btc,
+        mock_client_cls
+    ):
         # Setup
         mock_config.return_value = {"api_server": {"username": "u", "password": "p"}}
         mock_load.return_value = {"balance_history": [], "btc_history": []}
@@ -82,6 +92,7 @@ class TestSentinel(unittest.TestCase):
 
         # Verify Stop
         client_instance.stop.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()
