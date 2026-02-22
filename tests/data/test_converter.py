@@ -663,3 +663,24 @@ def test_order_book_to_dataframe_unequal_lengths():
 
     assert result["a_size"].tolist()[:2] == [4.0, 6.0]
     assert result["a_sum"].tolist()[:2] == [4.0, 10.0]
+
+
+def test_reduce_dataframe_footprint_idempotency():
+    data = generate_test_data("15m", 40)
+    data["open_copy"] = data["open"]
+
+    # First pass
+    df1 = reduce_dataframe_footprint(data)
+
+    assert df1["open_copy"].dtype == np.float32
+
+    # Second pass (idempotency)
+    df2 = reduce_dataframe_footprint(df1)
+
+    # Should be exact same object if no changes needed (optimization)
+    # or at least equal content
+    pd.testing.assert_frame_equal(df1, df2)
+
+    # Check if they are the same object (memory optimization)
+    # This confirms that we avoided a copy
+    assert df1 is df2
