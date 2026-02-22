@@ -89,8 +89,8 @@ def determine_regime(df):
     print(f"Analysis for {latest['timestamp']}: Price={price}, EMA200={ema200}, ADX={adx}")
 
     if pd.isna(ema200) or pd.isna(adx):
-         print("Indicators are NaN (not enough data?).")
-         return None, None
+        print("Indicators are NaN (not enough data?).")
+        return None, None
 
     # Logic
     # Bull Market: Price > EMA200, ADX > 25
@@ -147,7 +147,7 @@ def log_regime(regime, strategy):
     """
     Log the decision to regime_log.md.
     """
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017
     log_entry = f"| {timestamp} | {regime} | {strategy} |\n"
 
     if not LOG_FILE.exists():
@@ -176,10 +176,11 @@ def main():
         print(f"Detected Regime: {regime}")
         print(f"Selected Strategy: {strategy}")
 
-        updated = update_config(strategy)
+        update_config(strategy)
         log_regime(regime, strategy)
     else:
         print("Could not determine regime.")
+
 
 if __name__ == "__main__":
     main()
