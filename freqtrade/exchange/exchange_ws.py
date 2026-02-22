@@ -2,7 +2,6 @@ import asyncio
 import logging
 import time
 from copy import deepcopy
-from functools import partial
 from threading import Thread
 
 import ccxt
@@ -131,6 +130,9 @@ class ExchangeWS:
         if changed:
             logger.info(f"Removal done: new watch list ({len(self._klines_watching)})")
 
+    def _remove_background_task(self, task: asyncio.Task) -> None:
+        self._background_tasks.discard(task)
+
     async def _schedule_while_true(self) -> None:
         # For the ones we should be watching
         for p in self._klines_watching:
@@ -142,14 +144,7 @@ class ExchangeWS:
                     self._continuously_async_watch_ohlcv(pair, timeframe, candle_type)
                 )
                 self._background_tasks.add(task)
-                task.add_done_callback(
-                    partial(
-                        self._continuous_stopped,
-                        pair=pair,
-                        timeframe=timeframe,
-                        candle_type=candle_type,
-                    )
-                )
+                task.add_done_callback(self._remove_background_task)
 
     async def _unwatch_ohlcv(self, pair: str, timeframe: str, candle_type: CandleType) -> None:
         try:
@@ -159,25 +154,6 @@ class ExchangeWS:
             pass
         except Exception:
             logger.exception("Exception in _unwatch_ohlcv")
-
-    def _continuous_stopped(
-        self, task: asyncio.Task, pair: str, timeframe: str, candle_type: CandleType
-    ):
-        self._background_tasks.discard(task)
-        result = "done"
-        if task.cancelled():
-            result = "cancelled"
-        else:
-            if (result1 := task.result()) is not None:
-                result = str(result1)
-
-        logger.info(f"{pair}, {timeframe}, {candle_type} - Task finished - {result}")
-        asyncio.run_coroutine_threadsafe(
-            self._unwatch_ohlcv(pair, timeframe, candle_type), loop=self._loop
-        )
-
-        self._klines_scheduled.discard((pair, timeframe, candle_type))
-        self._pop_history((pair, timeframe, candle_type))
 
     async def _continuously_async_watch_ohlcv(
         self, pair: str, timeframe: str, candle_type: CandleType
@@ -195,8 +171,15 @@ class ExchangeWS:
             logger.debug("Exchange connection closed by user")
         except ccxt.BaseError:
             logger.exception(f"Exception in continuously_async_watch_ohlcv for {pair}, {timeframe}")
+        except asyncio.CancelledError:
+            logger.debug(f"Task cancelled {pair}, {timeframe}")
+            raise
         finally:
+            logger.info(f"{pair}, {timeframe}, {candle_type} - Task finished")
             self._klines_watching.discard((pair, timeframe, candle_type))
+            await self._unwatch_ohlcv(pair, timeframe, candle_type)
+            self._klines_scheduled.discard((pair, timeframe, candle_type))
+            self._pop_history((pair, timeframe, candle_type))
 
     def schedule_ohlcv(self, pair: str, timeframe: str, candle_type: CandleType) -> None:
         """
