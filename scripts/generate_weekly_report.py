@@ -8,6 +8,7 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 USER_DATA_DIR = Path("user_data")
 LOG_FILE = USER_DATA_DIR / "optimization_log.txt"
 REPORT_FILE = Path("WEEKLY_REPORT.md")
@@ -67,13 +68,8 @@ def parse_optimization_log(days=7):
     return entries
 
 
-def generate_report():
-    commits = get_git_commits()
-    log_entries = parse_optimization_log()
-
-    # Section 1: Updated Strategies
+def get_updated_strategies(commits, log_entries):
     updated_strategies = set()
-
     # From log
     for entry in log_entries:
         if entry.get("status") == "success":
@@ -87,15 +83,18 @@ def generate_report():
             parts = msg.split(" ")
             if len(parts) >= 3:
                 updated_strategies.add(parts[2])
+    return updated_strategies
 
-    # Section 2: Total ROI Improvement
+
+def get_roi_improvement(log_entries):
     total_roi_improvement = 0.0
     for entry in log_entries:
         if entry.get("status") == "success":
             total_roi_improvement += entry.get("roi_change", 0.0)
+    return total_roi_improvement
 
-    # Section 3: Stuck Strategies
-    # Strategies that failed and never succeeded in the period
+
+def get_stuck_strategies(log_entries):
     failed_attempts = set()
     successful_attempts = set()
 
@@ -106,7 +105,16 @@ def generate_report():
         elif entry.get("status") == "failed":
             failed_attempts.add(strategy)
 
-    stuck_strategies = failed_attempts - successful_attempts
+    return failed_attempts - successful_attempts
+
+
+def generate_report():
+    commits = get_git_commits()
+    log_entries = parse_optimization_log()
+
+    updated_strategies = get_updated_strategies(commits, log_entries)
+    total_roi_improvement = get_roi_improvement(log_entries)
+    stuck_strategies = get_stuck_strategies(log_entries)
 
     # Generate Markdown
     report_lines = [
@@ -127,7 +135,9 @@ def generate_report():
 
     report_lines.append("\n## 3. Stuck Strategies (Candidates for Deletion)")
     if stuck_strategies:
-        report_lines.append("The following strategies failed to improve despite optimization attempts:")
+        report_lines.append(
+            "The following strategies failed to improve despite optimization attempts:"
+        )
         for s in sorted(stuck_strategies):
             report_lines.append(f"- {s}")
     else:

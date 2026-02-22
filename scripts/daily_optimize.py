@@ -434,7 +434,7 @@ Examples:
             print("This will:")
             if status == "success":
                 print(f"  - Push optimized strategy parameters for {worst_strategy}")
-            print(f"  - Push optimization log update")
+            print("  - Push optimization log update")
             print(f"  - Update remote branch: {target_branch}")
             response = input("\nProceed with push? [y/N]: ").strip().lower()
             if response not in ["y", "yes"]:
@@ -469,7 +469,8 @@ Examples:
             print(result.stderr)
             print("Changes are committed locally. You can manually push later.")
 
-    # Revert strategy changes if failed (and not dry-run, which doesn't change anything anyway, but we skipped reverting earlier)
+    # Revert strategy changes if failed (and not dry-run, which doesn't change anything anyway,
+    # but we skipped reverting earlier)
     # Actually, in dry run we didn't change anything? Wait, hyperopt writes to file.
     # The logic above for dry run:
     # "Applying new parameters to ..." -> This writes to file.
@@ -486,7 +487,8 @@ Examples:
     # My new logic moved the revert to AFTER push or if dry run?
     # No, I need to make sure I revert the STRATEGY file if failed.
     # But I want to commit the LOG file.
-    # If I revert strategy file before committing log file, `git add` won't find changes in strategy file (correct).
+    # If I revert strategy file before committing log file, `git add` won't find changes
+    # in strategy file (correct).
 
     if status == "failed":
         if not created_new:
