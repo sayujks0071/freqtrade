@@ -21,7 +21,8 @@ def check_config_file(filepath: Path) -> bool:
                     return False
                 if max_open_trades > MAX_OPEN_TRADES_LIMIT:
                     print(
-                        f"VIOLATION in {filepath}: max_open_trades {max_open_trades} > {MAX_OPEN_TRADES_LIMIT}"
+                        f"VIOLATION in {filepath}: max_open_trades {max_open_trades} "
+                        f"> {MAX_OPEN_TRADES_LIMIT}"
                     )
                     return False
     except Exception as e:
