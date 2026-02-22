@@ -2,6 +2,7 @@
 Experimental_Sentiment
 Strategy attempting to find alpha using mocked sentiment signals.
 """
+
 import logging
 import sys
 from pathlib import Path
@@ -20,10 +21,12 @@ from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 logger = logging.getLogger(__name__)
 
+
 class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
     """
     Experimental strategy using mocked sentiment analysis.
     """
+
     INTERFACE_VERSION = 3
 
     # Minimal ROI
@@ -70,24 +73,24 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         # We define "whale_accumulation" as Volume / (High - Low)
         # Add epsilon to avoid division by zero
         range_eps = 0.00001
-        dataframe['price_range'] = dataframe['high'] - dataframe['low']
-        dataframe['whale_accumulation'] = (
-            dataframe['volume'] / (dataframe['price_range'] + range_eps)
+        dataframe["price_range"] = dataframe["high"] - dataframe["low"]
+        dataframe["whale_accumulation"] = dataframe["volume"] / (
+            dataframe["price_range"] + range_eps
         )
 
         # Normalize whale_accumulation using rolling mean/std to create a z-score or ratio
-        dataframe['whale_accumulation_mean'] = (
-            dataframe['whale_accumulation'].rolling(window=20).mean()
+        dataframe["whale_accumulation_mean"] = (
+            dataframe["whale_accumulation"].rolling(window=20).mean()
         )
-        dataframe['whale_accumulation_std'] = (
-            dataframe['whale_accumulation'].rolling(window=20).std()
+        dataframe["whale_accumulation_std"] = (
+            dataframe["whale_accumulation"].rolling(window=20).std()
         )
 
         # MOCK SIGNAL: "Twitter Volume"
         # Logic: High Volatility often correlates with high social media chatter.
         # We use Price Volatility (Standard Deviation of returns) as a proxy.
-        dataframe['twitter_hype'] = dataframe['close'].pct_change().rolling(window=5).std()
-        dataframe['twitter_hype_mean'] = dataframe['twitter_hype'].rolling(window=20).mean()
+        dataframe["twitter_hype"] = dataframe["close"].pct_change().rolling(window=5).std()
+        dataframe["twitter_hype_mean"] = dataframe["twitter_hype"].rolling(window=20).mean()
 
         return dataframe
 
@@ -101,26 +104,22 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         # 3. Twitter Hype is LOW (No one is talking about it yet - contrarian)
 
         conditions = []
-        conditions.append(dataframe['rsi'] < self.buy_rsi.value)
+        conditions.append(dataframe["rsi"] < self.buy_rsi.value)
 
         # Ensure we have data for accumulation (avoid NaN from startup)
         # Using a simpler condition for accumulation: Current accumulation > Mean + 1 StdDev
         conditions.append(
-            dataframe['whale_accumulation'] > (
-                dataframe['whale_accumulation_mean'] + dataframe['whale_accumulation_std']
-            )
+            dataframe["whale_accumulation"]
+            > (dataframe["whale_accumulation_mean"] + dataframe["whale_accumulation_std"])
         )
 
         # Contrarian: Buy when hype is low
-        conditions.append(dataframe['twitter_hype'] < dataframe['twitter_hype_mean'])
+        conditions.append(dataframe["twitter_hype"] < dataframe["twitter_hype_mean"])
 
-        conditions.append(dataframe['volume'] > 0)
+        conditions.append(dataframe["volume"] > 0)
 
         if conditions:
-            dataframe.loc[
-                (np.bitwise_and.reduce(conditions)),
-                "enter_long"
-            ] = 1
+            dataframe.loc[(np.bitwise_and.reduce(conditions)), "enter_long"] = 1
 
         return dataframe
 
@@ -129,13 +128,12 @@ class Experimental_Sentiment(IStrategy, AuditedStrategyMixin):
         # 1. RSI is HIGH (Overbought)
 
         conditions = []
-        conditions.append(dataframe['rsi'] > self.sell_rsi.value)
-        conditions.append(dataframe['volume'] > 0)
+        conditions.append(dataframe["rsi"] > self.sell_rsi.value)
+        conditions.append(dataframe["volume"] > 0)
 
         if conditions:
             dataframe.loc[
-                (dataframe['rsi'] > self.sell_rsi.value) & (dataframe['volume'] > 0),
-                "exit_long"
+                (dataframe["rsi"] > self.sell_rsi.value) & (dataframe["volume"] > 0), "exit_long"
             ] = 1
 
         return dataframe
