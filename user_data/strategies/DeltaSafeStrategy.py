@@ -55,13 +55,27 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+
+        # Bollinger Bands
+        bollinger = ta.BBANDS(dataframe, timeperiod=20, nbdevup=2.0, nbdevdn=2.0, matype=0)
+        dataframe["bb_lowerband"] = bollinger["lowerband"]
+        dataframe["bb_middleband"] = bollinger["middleband"]
+        dataframe["bb_upperband"] = bollinger["upperband"]
+
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        dataframe.loc[
+            (
+                (dataframe["rsi"] < 30)
+                & (dataframe["close"] < dataframe["bb_lowerband"])
+                & (dataframe["volume"] > 0)
+            ),
+            "enter_long",
+        ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.
