@@ -394,7 +394,9 @@ Examples:
     drawdown_change = new_drawdown - current_drawdown
 
     status = "success" if sharpe_improved and drawdown_improved else "failed"
-    log_optimization_result(worst_strategy, status, roi_change, drawdown_change)
+
+    if not args.dry_run:
+        log_optimization_result(worst_strategy, status, roi_change, drawdown_change)
 
     if status == "success":
         print("Evaluation PASSED. Committing changes.")
