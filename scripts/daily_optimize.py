@@ -26,6 +26,11 @@ HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
 def run_command(cmd, capture=True):
+    # Ensure we use the current python executable for freqtrade
+    # If the command starts with 'freqtrade', replace it with [sys.executable, '-m', 'freqtrade']
+    if cmd[0] == "freqtrade":
+        cmd = [sys.executable, "-m", "freqtrade"] + cmd[1:]
+
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
@@ -91,8 +96,11 @@ def find_worst_strategy(backtest_data):
     worst_stats = None
 
     for strategy_name, stats in strategies.items():
+        if strategy_name == "TOTAL":
+            continue
+
         sharpe = stats.get("sharpe", -float("inf"))
-        if sharpe is None:
+        if sharpe is None: # Handle None value which might occur if trades count is 0
             sharpe = -float("inf")
 
         if sharpe < min_sharpe:
@@ -113,7 +121,7 @@ def find_available_strategies():
     return strategies
 
 
-def run_backtest_job(strategy_name_or_list, extra_config=None):
+def run_backtest_job(strategy_name_or_list):
     """Runs a backtest job for a single strategy or a list of strategies."""
     timerange = get_timerange()
 
@@ -129,9 +137,6 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
         "--cache",
         "none",
     ]
-
-    if extra_config:
-        cmd.extend(["--config", str(extra_config)])
 
     if isinstance(strategy_name_or_list, list):
         print(f"Running backtest for {len(strategy_name_or_list)} strategies over {timerange}...")
@@ -159,11 +164,8 @@ def check_git_status():
     )
     if result.returncode != 0:
         print("Warning: Could not check git status")
-        if result.stderr:
-            print(f"Error: {result.stderr}")
         return False
 
-    # If there's any output, there are uncommitted changes
     if result.stdout.strip():
         print("Error: Repository has uncommitted changes:")
         print(result.stdout)
@@ -172,27 +174,28 @@ def check_git_status():
     return True
 
 
-def get_current_branch():
-    """Get the current git branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=False
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
-    return None
-
-
 def extract_hyperopt_params(output: str) -> dict:
     """
     Extracts the JSON parameters from the hyperopt output.
-    Finds the last JSON object in the output which typically contains the best parameters.
     """
     lines = output.splitlines()
+
+    # Try to find a line that is valid JSON (single line case)
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            params = json.loads(line)
+            if isinstance(params, dict) and ("params" in params or "minimal_roi" in params):
+                return params
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback to multi-line parsing
     json_str = ""
     started = False
 
-    # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
     for line in reversed(lines):
         if line.strip() == "}":
             started = True
@@ -201,30 +204,16 @@ def extract_hyperopt_params(output: str) -> dict:
             if line.strip() == "{":
                 try:
                     params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
                     if "params" in params or "minimal_roi" in params:
                         return params
                 except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                    continue
     return {}
 
 
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
-        description="Daily Optimization Routine for Freqtrade strategies",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Dry-run mode (no git operations):
-  %(prog)s --dry-run
-
-  # Push to a feature branch instead of main:
-  %(prog)s --branch optimize-strategy-$(date +%%Y%%m%%d)
-
-  # Skip confirmation prompts:
-  %(prog)s --yes
-        """,
+        description="Daily Optimization Routine for Freqtrade strategies"
     )
     parser.add_argument(
         "--dry-run",
@@ -232,27 +221,19 @@ Examples:
         help="Run optimization without committing or pushing changes",
     )
     parser.add_argument(
-        "--branch",
-        type=str,
-        default=None,
-        help=("Target branch for pushing changes (default: main)"),
-    )
-    parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompts before pushing"
     )
 
     args = parser.parse_args()
 
-    # Check git status before starting (unless in dry-run mode)
+    # check git status unless dry-run
     if not args.dry_run:
         if not check_git_status():
             print("\nPlease commit or stash your changes before running this script.")
-            print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
-
     backtest_data = None
     if latest_file:
         print(f"Using latest backtest file: {latest_file}")
@@ -276,6 +257,10 @@ Examples:
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
+
+    # Ensure current_sharpe is valid float
+    if current_sharpe == -float("inf"):
+         print(f"Warning: Current Sharpe is -inf for {worst_strategy}.")
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -320,7 +305,7 @@ Examples:
 
     if result_hyperopt.returncode != 0:
         print("Hyperopt failed.")
-        print(result_hyperopt.stderr)  # Print stderr on failure
+        print(result_hyperopt.stderr)
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
         elif created_new and strategy_json.exists():
@@ -328,27 +313,24 @@ Examples:
         sys.exit(1)
 
     # Apply new parameters
-    new_params = extract_hyperopt_params(result_hyperopt.stdout)
-    if new_params:
-        print(f"Applying new parameters to {strategy_json}")
-        with strategy_json.open("w") as f:
-            json.dump(new_params, f, indent=4)
-    else:
-        print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
-        # If capture failed to get json, we should probably revert and exit
-        if strategy_json.exists() and not created_new:
-            shutil.move(backup_json, strategy_json)
-        elif created_new and strategy_json.exists():
-            strategy_json.unlink()
-        sys.exit(1)
+    # Freqtrade Hyperopt writes the file automatically if it finds a result.
+    if not strategy_json.exists():
+        print("Hyperopt did not generate a new parameter file. Attempting to extract from output...")
+        new_params = extract_hyperopt_params(result_hyperopt.stdout)
+        if new_params:
+            print(f"Applying extracted parameters to {strategy_json}")
+            with strategy_json.open("w") as f:
+                json.dump(new_params, f, indent=4)
+        else:
+            print("Could not extract new parameters from hyperopt output.")
+            if not created_new:
+                shutil.move(backup_json, strategy_json)
+            sys.exit(0)
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
+    # Freqtrade will automatically pick up the .json file
+    new_backtest_data = run_backtest_job(worst_strategy)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")
@@ -370,7 +352,10 @@ Examples:
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
+    # Gatekeeper Logic
     sharpe_improved = new_sharpe > (current_sharpe * 1.05)
+
+    # Allow equality if both are 0 (rare for DD) or tiny
     drawdown_improved = new_drawdown < current_drawdown
 
     print(f"Sharpe Improved: {sharpe_improved}")
@@ -384,25 +369,18 @@ Examples:
             print("\n[DRY-RUN MODE] Would have committed and pushed:")
             print(f"  File: {strategy_json}")
             print(f"  Message: {msg}")
-            if args.branch:
-                print(f"  Branch: {args.branch}")
-            else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
-            print("\nNo changes were made. Use without --dry-run to apply changes.")
+            print("  Branch: main")
+            # In dry-run, we should revert the file so we don't leave mess
+            if backup_json.exists():
+                shutil.move(backup_json, strategy_json)
+            elif created_new:
+                strategy_json.unlink()
         else:
-            # Determine target branch
-            target_branch = args.branch if args.branch else "main"
-
-            # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
             run_command(["git", "commit", "-m", msg])
 
-            # Confirm before pushing
             if not args.yes:
-                print(f"\nReady to push changes to branch '{target_branch}'")
-                print("This will:")
-                print(f"  - Push optimized strategy parameters for {worst_strategy}")
-                print(f"  - Update remote branch: {target_branch}")
+                print("\nReady to push changes to branch 'main'")
                 response = input("\nProceed with push? [y/N]: ").strip().lower()
                 if response not in ["y", "yes"]:
                     print("Push cancelled. Changes are committed locally.")
@@ -410,26 +388,24 @@ Examples:
                         backup_json.unlink()
                     return
 
-            print(f"\nPushing to {target_branch}...")
+            print("\nPulling latest changes...")
+            pull_res = run_command(["git", "pull", "--rebase", "origin", "main"], capture=True)
+            if pull_res.returncode != 0:
+                 print("Error pulling changes. Please resolve conflicts manually.")
+                 return
 
-            push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
-            if target_branch == "main":
-                push_cmd.append("HEAD:main")
-            else:
-                push_cmd.append(target_branch)
-
+            print("Pushing to main...")
+            push_cmd = ["git", "push", "origin", "HEAD:main"]
             result = run_command(push_cmd, capture=True)
 
             if result.returncode == 0:
-                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
+                print("\n✓ Successfully pushed optimized strategy.")
             else:
-                print(f"\nFailed to push to {target_branch}")
+                print("\nFailed to push to main")
                 print(result.stderr)
-                print("Changes are committed locally. You can manually push later.")
 
-        if backup_json.exists():
-            backup_json.unlink()
+            if backup_json.exists():
+                backup_json.unlink()
 
     else:
         print("Evaluation FAILED. Reverting changes.")
