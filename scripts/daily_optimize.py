@@ -18,6 +18,7 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+LOG_FILE = USER_DATA_DIR / "optimization_log.txt"
 
 # Optimization Parameters
 EPOCHS = 200
@@ -31,6 +32,19 @@ def run_command(cmd, capture=True):
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
     return result
+
+
+def log_optimization_result(strategy, status, roi_change, drawdown_change):
+    """Logs the optimization result to a file."""
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "strategy": strategy,
+        "status": status,
+        "roi_change": roi_change,
+        "drawdown_change": drawdown_change,
+    }
+    with LOG_FILE.open("a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 def get_timerange():
@@ -376,68 +390,112 @@ Examples:
     print(f"Sharpe Improved: {sharpe_improved}")
     print(f"Drawdown Improved: {drawdown_improved}")
 
-    if sharpe_improved and drawdown_improved:
+    roi_change = new_stats.get("profit_total_pct", 0.0) - current_stats.get("profit_total_pct", 0.0)
+    drawdown_change = new_drawdown - current_drawdown
+
+    status = "success" if sharpe_improved and drawdown_improved else "failed"
+    log_optimization_result(worst_strategy, status, roi_change, drawdown_change)
+
+    if status == "success":
         print("Evaluation PASSED. Committing changes.")
         msg = f"perf: optimized {worst_strategy} (+{avg_profit_pct:.2f}% ROI)"
-
-        if args.dry_run:
-            print("\n[DRY-RUN MODE] Would have committed and pushed:")
-            print(f"  File: {strategy_json}")
-            print(f"  Message: {msg}")
-            if args.branch:
-                print(f"  Branch: {args.branch}")
-            else:
-                print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
-            print("\nNo changes were made. Use without --dry-run to apply changes.")
-        else:
-            # Determine target branch
-            target_branch = args.branch if args.branch else "main"
-
-            # Use -f to force add in case user_data is gitignored
-            run_command(["git", "add", "-f", str(strategy_json)])
-            run_command(["git", "commit", "-m", msg])
-
-            # Confirm before pushing
-            if not args.yes:
-                print(f"\nReady to push changes to branch '{target_branch}'")
-                print("This will:")
-                print(f"  - Push optimized strategy parameters for {worst_strategy}")
-                print(f"  - Update remote branch: {target_branch}")
-                response = input("\nProceed with push? [y/N]: ").strip().lower()
-                if response not in ["y", "yes"]:
-                    print("Push cancelled. Changes are committed locally.")
-                    if backup_json.exists():
-                        backup_json.unlink()
-                    return
-
-            print(f"\nPushing to {target_branch}...")
-
-            push_cmd = ["git", "push", "origin"]
-            # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
-            if target_branch == "main":
-                push_cmd.append("HEAD:main")
-            else:
-                push_cmd.append(target_branch)
-
-            result = run_command(push_cmd, capture=True)
-
-            if result.returncode == 0:
-                print(f"\n✓ Successfully pushed optimized strategy to branch: {target_branch}")
-            else:
-                print(f"\nFailed to push to {target_branch}")
-                print(result.stderr)
-                print("Changes are committed locally. You can manually push later.")
-
-        if backup_json.exists():
-            backup_json.unlink()
-
     else:
         print("Evaluation FAILED. Reverting changes.")
+        # We still want to commit the log file
+        msg = f"chore: log optimization failure for {worst_strategy}"
+
+    if args.dry_run:
+        print("\n[DRY-RUN MODE] Would have committed and pushed:")
+        if status == "success":
+            print(f"  File: {strategy_json}")
+        print(f"  File: {LOG_FILE}")
+        print(f"  Message: {msg}")
+        if args.branch:
+            print(f"  Branch: {args.branch}")
+        else:
+            print(f"  Branch: optimize-{datetime.now().strftime('%Y%m%d')}")
+        print("\nNo changes were made. Use without --dry-run to apply changes.")
+    else:
+        # Determine target branch
+        target_branch = args.branch if args.branch else "main"
+
+        # Use -f to force add in case user_data is gitignored
+        if status == "success":
+            run_command(["git", "add", "-f", str(strategy_json)])
+
+        run_command(["git", "add", "-f", str(LOG_FILE)])
+        run_command(["git", "commit", "-m", msg])
+
+        # Confirm before pushing
+        if not args.yes:
+            print(f"\nReady to push changes to branch '{target_branch}'")
+            print("This will:")
+            if status == "success":
+                print(f"  - Push optimized strategy parameters for {worst_strategy}")
+            print(f"  - Push optimization log update")
+            print(f"  - Update remote branch: {target_branch}")
+            response = input("\nProceed with push? [y/N]: ").strip().lower()
+            if response not in ["y", "yes"]:
+                print("Push cancelled. Changes are committed locally.")
+
+                if status == "failed":
+                    if not created_new:
+                        shutil.move(backup_json, strategy_json)
+                    else:
+                        if strategy_json.exists():
+                            strategy_json.unlink()
+                else:
+                    if backup_json.exists():
+                        backup_json.unlink()
+                return
+
+        print(f"\nPushing to {target_branch}...")
+
+        push_cmd = ["git", "push", "origin"]
+        # If target is main, assume we might be in detached HEAD in CI, so push to HEAD:main
+        if target_branch == "main":
+            push_cmd.append("HEAD:main")
+        else:
+            push_cmd.append(target_branch)
+
+        result = run_command(push_cmd, capture=True)
+
+        if result.returncode == 0:
+            print(f"\n✓ Successfully pushed to branch: {target_branch}")
+        else:
+            print(f"\nFailed to push to {target_branch}")
+            print(result.stderr)
+            print("Changes are committed locally. You can manually push later.")
+
+    # Revert strategy changes if failed (and not dry-run, which doesn't change anything anyway, but we skipped reverting earlier)
+    # Actually, in dry run we didn't change anything? Wait, hyperopt writes to file.
+    # The logic above for dry run:
+    # "Applying new parameters to ..." -> This writes to file.
+    # "Running verification backtest..." -> Uses file.
+    # So we MUST revert even in dry run or failure.
+
+    # In original code:
+    # if sharpe_improved ...:
+    #    ...
+    # else:
+    #    print("Evaluation FAILED. Reverting changes.")
+    #    if not created_new: shutil.move...
+
+    # My new logic moved the revert to AFTER push or if dry run?
+    # No, I need to make sure I revert the STRATEGY file if failed.
+    # But I want to commit the LOG file.
+    # If I revert strategy file before committing log file, `git add` won't find changes in strategy file (correct).
+
+    if status == "failed":
         if not created_new:
             shutil.move(backup_json, strategy_json)
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+    else:
+        # Success, cleanup backup
+        if backup_json.exists():
+            backup_json.unlink()
 
 
 if __name__ == "__main__":
