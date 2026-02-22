@@ -14,14 +14,14 @@ def check_config_file(filepath: Path) -> bool:
     try:
         with filepath.open("r") as f:
             config = json.load(f)
-            mot = config.get("max_open_trades")
-            if mot is not None:
-                if mot == -1 or mot == float("inf"):
+            max_open_trades = config.get("max_open_trades")
+            if max_open_trades is not None:
+                if max_open_trades == -1 or max_open_trades == float("inf"):
                     print(f"VIOLATION in {filepath}: max_open_trades is unlimited")
                     return False
-                if mot > MAX_OPEN_TRADES_LIMIT:
+                if max_open_trades > MAX_OPEN_TRADES_LIMIT:
                     print(
-                        f"VIOLATION in {filepath}: max_open_trades {mot} > {MAX_OPEN_TRADES_LIMIT}"
+                        f"VIOLATION in {filepath}: max_open_trades {max_open_trades} > {MAX_OPEN_TRADES_LIMIT}"
                     )
                     return False
     except Exception as e:
