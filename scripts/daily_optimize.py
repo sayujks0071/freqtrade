@@ -100,7 +100,7 @@ def find_worst_strategy(backtest_data):
             continue
 
         sharpe = stats.get("sharpe", -float("inf"))
-        if sharpe is None: # Handle None value which might occur if trades count is 0
+        if sharpe is None:  # Handle None value which might occur if trades count is 0
             sharpe = -float("inf")
 
         if sharpe < min_sharpe:
@@ -174,13 +174,8 @@ def check_git_status():
     return True
 
 
-def extract_hyperopt_params(output: str) -> dict:
-    """
-    Extracts the JSON parameters from the hyperopt output.
-    """
-    lines = output.splitlines()
-
-    # Try to find a line that is valid JSON (single line case)
+def _parse_single_line_json(lines):
+    """Helper to try parsing single-line JSON from reversed lines."""
     for line in reversed(lines):
         line = line.strip()
         if not line:
@@ -191,8 +186,11 @@ def extract_hyperopt_params(output: str) -> dict:
                 return params
         except json.JSONDecodeError:
             pass
+    return None
 
-    # Fallback to multi-line parsing
+
+def _parse_multi_line_json(lines):
+    """Helper to try parsing multi-line JSON from reversed lines."""
     json_str = ""
     started = False
 
@@ -208,6 +206,25 @@ def extract_hyperopt_params(output: str) -> dict:
                         return params
                 except json.JSONDecodeError:
                     continue
+    return None
+
+
+def extract_hyperopt_params(output: str) -> dict:
+    """
+    Extracts the JSON parameters from the hyperopt output.
+    """
+    lines = output.splitlines()
+
+    # Try single line first
+    params = _parse_single_line_json(lines)
+    if params:
+        return params
+
+    # Fallback to multi-line parsing
+    params = _parse_multi_line_json(lines)
+    if params:
+        return params
+
     return {}
 
 
@@ -260,7 +277,7 @@ def main():  # noqa: C901
 
     # Ensure current_sharpe is valid float
     if current_sharpe == -float("inf"):
-         print(f"Warning: Current Sharpe is -inf for {worst_strategy}.")
+        print(f"Warning: Current Sharpe is -inf for {worst_strategy}.")
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
@@ -315,7 +332,10 @@ def main():  # noqa: C901
     # Apply new parameters
     # Freqtrade Hyperopt writes the file automatically if it finds a result.
     if not strategy_json.exists():
-        print("Hyperopt did not generate a new parameter file. Attempting to extract from output...")
+        print(
+            "Hyperopt did not generate a new parameter file. "
+            "Attempting to extract from output..."
+        )
         new_params = extract_hyperopt_params(result_hyperopt.stdout)
         if new_params:
             print(f"Applying extracted parameters to {strategy_json}")
@@ -391,8 +411,8 @@ def main():  # noqa: C901
             print("\nPulling latest changes...")
             pull_res = run_command(["git", "pull", "--rebase", "origin", "main"], capture=True)
             if pull_res.returncode != 0:
-                 print("Error pulling changes. Please resolve conflicts manually.")
-                 return
+                print("Error pulling changes. Please resolve conflicts manually.")
+                return
 
             print("Pushing to main...")
             push_cmd = ["git", "push", "origin", "HEAD:main"]
