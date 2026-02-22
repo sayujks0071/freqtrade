@@ -1845,6 +1845,13 @@ def test_api_force_entry(botclient, mocker, fee, endpoint):
 
 
 def test_api_forceexit(botclient, mocker, ticker, fee, markets):
+    # Fix for Windows CI: unique timestamps for order_id generation
+    now = datetime.now(UTC)
+    mocker.patch(
+        "freqtrade.exchange.exchange.dt_now",
+        side_effect=[now + timedelta(microseconds=i * 10) for i in range(50)],
+    )
+
     ftbot, client = botclient
     mocker.patch.multiple(
         EXMS,
