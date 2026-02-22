@@ -31,9 +31,7 @@ def get_git_commits(days=7):
         for line in result.stdout.splitlines():
             parts = line.split("|", 2)
             if len(parts) == 3:
-                commits.append(
-                    {"hash": parts[0], "date": parts[1], "message": parts[2]}
-                )
+                commits.append({"hash": parts[0], "date": parts[1], "message": parts[2]})
         return commits
     except subprocess.CalledProcessError as e:
         print(f"Error getting git log: {e}")
