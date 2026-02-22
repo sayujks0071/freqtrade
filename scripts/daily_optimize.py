@@ -333,8 +333,7 @@ def main():  # noqa: C901
     # Freqtrade Hyperopt writes the file automatically if it finds a result.
     if not strategy_json.exists():
         print(
-            "Hyperopt did not generate a new parameter file. "
-            "Attempting to extract from output..."
+            "Hyperopt did not generate a new parameter file. Attempting to extract from output..."
         )
         new_params = extract_hyperopt_params(result_hyperopt.stdout)
         if new_params:
