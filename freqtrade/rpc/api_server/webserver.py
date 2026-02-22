@@ -310,7 +310,8 @@ class ApiServer(RPCHandler):
             logger.warning(
                 "SECURITY WARNING - `jwt_secret_key` seems to be default. "
                 "Generated random `jwt_secret_key` as it was missing or default. "
-                "Please configure a strong `jwt_secret_key` in your config file to persist sessions."
+                "Please configure a strong `jwt_secret_key` in your config file "
+                "to persist sessions."
             )
 
         logger.info("Starting Local Rest Server.")
