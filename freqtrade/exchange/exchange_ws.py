@@ -41,12 +41,24 @@ class ExchangeWS:
             if self._loop.is_running():
                 self._loop.stop()
 
+    async def _stop_tasks_async(self) -> None:
+        tasks = list(self._background_tasks)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            # Wait for tasks to finish
+            await asyncio.gather(*tasks, return_exceptions=True)
+
     def cleanup(self) -> None:
         logger.debug("Cleanup called - stopping")
         self._klines_watching.clear()
-        for task in self._background_tasks:
-            task.cancel()
         if hasattr(self, "_loop") and not self._loop.is_closed():
+            future = asyncio.run_coroutine_threadsafe(self._stop_tasks_async(), loop=self._loop)
+            try:
+                future.result(timeout=5.0)
+            except Exception:
+                logger.warning("Timeout waiting for background tasks to cancel")
+
             self.reset_connections()
 
             self._loop.call_soon_threadsafe(self._loop.stop)
