@@ -58,6 +58,7 @@ def save_state(state):
 def get_btc_price():
     try:
         import ccxt
+
         exchange = ccxt.kraken()  # Reliable public API
         ticker = exchange.fetch_ticker("BTC/USDT")
         return ticker["last"]
@@ -67,7 +68,8 @@ def get_btc_price():
 
 
 def prune_history(history, max_age_seconds):
-    # Use timezone.utc for compatibility. Suppress UP017 (use datetime.UTC) for older Python support.
+    # Use timezone.utc for compatibility.
+    # Suppress UP017 (use datetime.UTC) for older Python support.
     utc_tz = timezone.utc  # noqa: UP017
     now = datetime.now(utc_tz).timestamp()
     return [entry for entry in history if now - entry["timestamp"] < max_age_seconds]
@@ -99,6 +101,7 @@ def send_alert(message):
     if webhook_url:
         try:
             import requests
+
             requests.post(webhook_url, json={"text": message}, timeout=10)
         except Exception as e:
             logger.error(f"Failed to send webhook: {e}")
@@ -137,25 +140,25 @@ def execute_emergency_measures(client):
 
 def monitor_loop(client, state):
     """Single iteration of monitoring logic."""
-    # 1. Check Balance
-    try:
-        balance_data = client.balance()
-        # Freqtrade balance response has "value" for total estimated value in stake currency
-        current_balance = balance_data.get("value", 0.0)
-    except Exception as e:
-        logger.error(f"Failed to fetch balance: {e}")
-        current_balance = 0.0
-
-    # 2. Check BTC
-    current_btc = get_btc_price()
-
     utc_tz = timezone.utc  # noqa: UP017
     now_ts = datetime.now(utc_tz).timestamp()
 
+    # 1. Check Balance
+    current_balance = None
+    try:
+        balance_data = client.balance()
+        # Freqtrade balance response has "value" for total estimated value in stake currency
+        current_balance = balance_data.get("value")
+    except Exception as e:
+        logger.error(f"Failed to fetch balance: {e}")
+
+    # 2. Check BTC
+    current_btc = get_btc_price()  # Returns None on error
+
     # Update State
-    if current_balance > 0:
+    if current_balance is not None:
         state["balance_history"].append({"timestamp": now_ts, "value": current_balance})
-    if current_btc:
+    if current_btc is not None:
         state["btc_history"].append({"timestamp": now_ts, "value": current_btc})
 
     # Prune
@@ -169,12 +172,16 @@ def monitor_loop(client, state):
     reason = ""
 
     # Drawdown > 5% in 1h
-    if check_drawdown(state["balance_history"], current_balance, -0.05, 3600):
+    if current_balance is not None and check_drawdown(
+        state["balance_history"], current_balance, -0.05, 3600
+    ):
         triggered = True
         reason = f"Drawdown > 5% in last hour! Current: {current_balance}"
 
     # BTC Drop > 10% in 4h
-    if current_btc and check_drawdown(state["btc_history"], current_btc, -0.10, 3600 * 4):
+    if current_btc is not None and check_drawdown(
+        state["btc_history"], current_btc, -0.10, 3600 * 4
+    ):
         triggered = True
         reason = f"Bitcoin crash > 10% in last 4 hours! Current: {current_btc}"
 
@@ -182,7 +189,9 @@ def monitor_loop(client, state):
         send_alert(f"CRITICAL ALERT: {reason}")
         execute_emergency_measures(client)
 
-    logger.info(f"Status Normal. Balance: {current_balance:.2f}, BTC: {current_btc}")
+    balance_str = f"{current_balance:.2f}" if current_balance is not None else "N/A"
+    btc_str = f"{current_btc:.2f}" if current_btc is not None else "N/A"
+    logger.info(f"Status Normal. Balance: {balance_str}, BTC: {btc_str}")
 
 
 def main():

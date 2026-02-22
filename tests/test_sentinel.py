@@ -12,7 +12,7 @@ if str(scripts_path) not in sys.path:
 # Note: This requires freqtrade_client to be importable or mocked if dependencies are missing.
 # In the CI environment, dependencies are installed.
 try:
-    import sentinel  # noqa: E402
+    import sentinel
 except ImportError:
     # Fallback for environments where dependencies might be missing during collection
     # though CI should have them.
@@ -113,6 +113,33 @@ class TestSentinel(unittest.TestCase):
 
         # Verify Stop
         client_instance.stop.assert_called()
+
+    def test_monitor_loop_api_failure(self):
+        """Test that API failure does not trigger emergency measures."""
+        mock_client = MagicMock()
+        mock_client.balance.side_effect = Exception("API Error")
+
+        # History with high balance
+        mock_state = {
+            "balance_history": [{"timestamp": 1000, "value": 100}],
+            "btc_history": [],
+        }
+
+        with (
+            patch("sentinel.get_btc_price", return_value=None),
+            patch("sentinel.save_state"),
+            patch("sentinel.check_drawdown") as mock_check,
+            patch("sentinel.execute_emergency_measures") as mock_exec,
+            patch("sentinel.datetime") as mock_dt,
+        ):
+            mock_dt.now.return_value.timestamp.return_value = 2000
+
+            sentinel.monitor_loop(mock_client, mock_state)
+
+            # Ensure check_drawdown was NOT called (because balance is None and BTC is None)
+            mock_check.assert_not_called()
+            # Ensure emergency measures were NOT executed
+            mock_exec.assert_not_called()
 
 
 if __name__ == "__main__":
