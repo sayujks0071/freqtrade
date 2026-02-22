@@ -45,7 +45,7 @@ class ExchangeWS:
         logger.debug("Cleanup called - stopping")
         self._klines_watching.clear()
         for task in self._background_tasks:
-            task.cancel()
+            self._loop.call_soon_threadsafe(task.cancel)
         if hasattr(self, "_loop") and not self._loop.is_closed():
             self.reset_connections()
 
@@ -160,9 +160,7 @@ class ExchangeWS:
                 result = str(result1)
 
         logger.info(f"{pair}, {timeframe}, {candle_type} - Task finished - {result}")
-        asyncio.run_coroutine_threadsafe(
-            self._unwatch_ohlcv(pair, timeframe, candle_type), loop=self._loop
-        )
+        self._loop.create_task(self._unwatch_ohlcv(pair, timeframe, candle_type))
 
         self._klines_scheduled.discard((pair, timeframe, candle_type))
         self._pop_history((pair, timeframe, candle_type))
