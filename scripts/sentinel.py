@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 # Add ft_client to sys.path
 sys.path.append(str(Path(__file__).parent.parent / "ft_client"))
 try:
@@ -66,8 +67,8 @@ def get_btc_price():
 
 
 def prune_history(history, max_age_seconds):
-    # Use datetime.UTC if available (Python 3.11+), otherwise datetime.timezone.utc
-    utc_tz = getattr(datetime, 'UTC', timezone.utc)
+    # Use timezone.utc for compatibility. Suppress UP017 (use datetime.UTC) for older Python support.
+    utc_tz = timezone.utc  # noqa: UP017
     now = datetime.now(utc_tz).timestamp()
     return [entry for entry in history if now - entry["timestamp"] < max_age_seconds]
 
@@ -148,7 +149,7 @@ def monitor_loop(client, state):
     # 2. Check BTC
     current_btc = get_btc_price()
 
-    utc_tz = getattr(datetime, 'UTC', timezone.utc)
+    utc_tz = timezone.utc  # noqa: UP017
     now_ts = datetime.now(utc_tz).timestamp()
 
     # Update State
@@ -190,8 +191,8 @@ def main():
     api_config = config.get("api_server", {})
 
     # Default to localhost if not specified
-    ip = api_config.get('listen_ip_address', '127.0.0.1')
-    port = api_config.get('listen_port', 8080)
+    ip = api_config.get("listen_ip_address", "127.0.0.1")
+    port = api_config.get("listen_port", 8080)
     url = f"http://{ip}:{port}"
     user = api_config.get("username")
     password = api_config.get("password")
