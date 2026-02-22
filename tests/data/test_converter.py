@@ -664,6 +664,7 @@ def test_order_book_to_dataframe_unequal_lengths():
     assert result["a_size"].tolist()[:2] == [4.0, 6.0]
     assert result["a_sum"].tolist()[:2] == [4.0, 10.0]
 
+
 def test_reduce_dataframe_footprint_idempotency():
     data = generate_test_data("15m", 40)
     data["open_copy"] = data["open"]
