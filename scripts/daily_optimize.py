@@ -202,14 +202,8 @@ def get_current_branch():
     return None
 
 
-def extract_hyperopt_params(output: str) -> dict:
-    """
-    Extracts the JSON parameters from the hyperopt output.
-    Finds the last JSON object in the output which typically contains the best parameters.
-    """
-    lines = output.splitlines()
-
-    # 1. Try to find single-line JSON (compact format)
+def _extract_compact_json(lines: list[str]) -> dict | None:
+    """Try to find single-line JSON (compact format) in reversed lines."""
     for line in reversed(lines):
         line_clean = line.strip()
         if line_clean.startswith("{") and line_clean.endswith("}"):
@@ -219,8 +213,11 @@ def extract_hyperopt_params(output: str) -> dict:
                     return params
             except json.JSONDecodeError:
                 continue
+    return None
 
-    # 2. Try to find multi-line JSON (pretty format)
+
+def _extract_pretty_json(lines: list[str]) -> dict | None:
+    """Try to find multi-line JSON (pretty format) in reversed lines."""
     json_str = ""
     started = False
     for line in reversed(lines):
@@ -235,6 +232,26 @@ def extract_hyperopt_params(output: str) -> dict:
                         return params
                 except json.JSONDecodeError:
                     continue
+    return None
+
+
+def extract_hyperopt_params(output: str) -> dict:
+    """
+    Extracts the JSON parameters from the hyperopt output.
+    Finds the last JSON object in the output which typically contains the best parameters.
+    """
+    lines = output.splitlines()
+
+    # 1. Try to find single-line JSON (compact format)
+    params = _extract_compact_json(lines)
+    if params:
+        return params
+
+    # 2. Try to find multi-line JSON (pretty format)
+    params = _extract_pretty_json(lines)
+    if params:
+        return params
+
     return {}
 
 
