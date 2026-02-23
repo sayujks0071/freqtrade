@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,19 +24,17 @@ class TestSentinel(unittest.TestCase):
         self.mock_client.status.return_value = []
 
         # Reset state file path to a test file
+        self.test_dir = tempfile.TemporaryDirectory()
         self.original_state_file = sentinel.STATE_FILE
-        sentinel.STATE_FILE = Path("test_sentinel_state.json")
-        if sentinel.STATE_FILE.exists():
-            sentinel.STATE_FILE.unlink()
+        sentinel.STATE_FILE = Path(self.test_dir.name) / "test_sentinel_state.json"
 
         # Redirect logging to avoid clutter
         self.original_logger = sentinel.logger
         sentinel.logger = MagicMock()
 
     def tearDown(self):
-        if sentinel.STATE_FILE.exists():
-            sentinel.STATE_FILE.unlink()
         sentinel.STATE_FILE = self.original_state_file
+        self.test_dir.cleanup()
         sentinel.logger = self.original_logger
 
     def test_load_state_empty(self):
@@ -146,10 +145,10 @@ class TestSentinel(unittest.TestCase):
 
             # Check order: forceexit (liquidation) must be called BEFORE stop
             forceexit_indices = [
-                i for i, call in enumerate(self.mock_client.mock_calls) if call[0] == 'forceexit'
+                i for i, call in enumerate(self.mock_client.mock_calls) if call[0] == "forceexit"
             ]
             stop_indices = [
-                i for i, call in enumerate(self.mock_client.mock_calls) if call[0] == 'stop'
+                i for i, call in enumerate(self.mock_client.mock_calls) if call[0] == "stop"
             ]
 
             self.assertTrue(forceexit_indices, "Forceexit should have been called")
