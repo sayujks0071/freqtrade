@@ -7,8 +7,9 @@ Analyzes BTC/USDT market regime and updates strategy configuration.
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 
 # Ensure dependencies are available
 try:
@@ -96,9 +97,7 @@ def analyze_market(df: pd.DataFrame) -> dict:
 
     if close > ema_200 and adx > 25:
         regime = "Bull"
-        reason.append(
-            f"Price ({close:.2f}) > EMA200 ({ema_200:.2f}) and ADX ({adx:.2f}) > 25"
-        )
+        reason.append(f"Price ({close:.2f}) > EMA200 ({ema_200:.2f}) and ADX ({adx:.2f}) > 25")
     elif adx < 20:
         regime = "Sideways"
         reason.append(f"ADX ({adx:.2f}) < 20")
@@ -107,9 +106,7 @@ def analyze_market(df: pd.DataFrame) -> dict:
         reason.append(f"Price ({close:.2f}) < EMA200 ({ema_200:.2f}) (Bear/Crash)")
     else:
         regime = "Sideways"
-        reason.append(
-            f"Fallback: ADX {adx:.2f}, Price {close:.2f} vs EMA {ema_200:.2f}"
-        )
+        reason.append(f"Fallback: ADX {adx:.2f}, Price {close:.2f} vs EMA {ema_200:.2f}")
 
     return {
         "regime": regime,
@@ -130,19 +127,17 @@ def update_config(strategy_name: str):
         return
 
     try:
-        with open(CONFIG_PATH, "r") as f:
+        with CONFIG_PATH.open() as f:
             config = json.load(f)
 
         current_strategy = config.get("strategy")
         if current_strategy == strategy_name:
-            logger.info(
-                f"Strategy is already set to {strategy_name}. No change needed."
-            )
+            logger.info(f"Strategy is already set to {strategy_name}. No change needed.")
             return
 
         config["strategy"] = strategy_name
 
-        with open(CONFIG_PATH, "w") as f:
+        with CONFIG_PATH.open("w") as f:
             json.dump(config, f, indent=4)
 
         logger.info(f"Updated config with strategy: {strategy_name}")
@@ -152,7 +147,7 @@ def update_config(strategy_name: str):
 
 
 def log_decision(analysis: dict):
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     entry = (
         f"## {timestamp}\n"
         f"- **Regime:** {analysis['regime']}\n"
@@ -165,7 +160,7 @@ def log_decision(analysis: dict):
     )
 
     try:
-        with open(LOG_FILE, "a") as f:
+        with LOG_FILE.open("a") as f:
             f.write(entry)
         logger.info(f"Logged decision to {LOG_FILE}")
     except Exception as e:

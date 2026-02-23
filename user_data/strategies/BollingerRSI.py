@@ -14,7 +14,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class BollingerRSI(IStrategy, AuditedStrategyMixin):
@@ -79,10 +79,7 @@ class BollingerRSI(IStrategy, AuditedStrategyMixin):
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            (
-                (dataframe["rsi"] > 70)
-                | (dataframe["close"] > dataframe["bb_upperband"])
-            ),
+            ((dataframe["rsi"] > 70) | (dataframe["close"] > dataframe["bb_upperband"])),
             "exit_long",
         ] = 1
         return dataframe

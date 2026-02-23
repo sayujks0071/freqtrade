@@ -15,7 +15,7 @@ from freqtrade.strategy import IStrategy
 
 # Add _base to path to allow import
 sys.path.append(str(Path(__file__).parent / "_base"))
-from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402
+from AuditedStrategyMixin import AuditedStrategyMixin
 
 
 class VolatilityBreakout(IStrategy, AuditedStrategyMixin):
@@ -70,10 +70,7 @@ class VolatilityBreakout(IStrategy, AuditedStrategyMixin):
 
         # Short entry logic: Price below EMA200 (Bearish)
         dataframe.loc[
-            (
-                (dataframe["close"] < dataframe["ema_200"])
-                & (dataframe["volume"] > 0)
-            ),
+            ((dataframe["close"] < dataframe["ema_200"]) & (dataframe["volume"] > 0)),
             "enter_short",
         ] = 1
 
@@ -82,9 +79,7 @@ class VolatilityBreakout(IStrategy, AuditedStrategyMixin):
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # Exit Short if Price recovers above EMA200
         dataframe.loc[
-            (
-                (dataframe["close"] > dataframe["ema_200"])
-            ),
+            (dataframe["close"] > dataframe["ema_200"]),
             "exit_short",
         ] = 1
         return dataframe
