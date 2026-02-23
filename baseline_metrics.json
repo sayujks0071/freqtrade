@@ -1,12 +1,9 @@
 [
   {
     "strategy": "DeltaSafeStrategy",
-    "roi": -0.31,
-    "max_drawdown": 0.36,
-    "days": 30,
-    "timeframe": "1h",
-    "pairs_tested": ["BTC/USDT"],
-    "date_range": "2024-01-01 to 2024-01-30",
-    "known_issues": "Baseline backtest shows significant loss and high drawdown; parameters may be unoptimized and market conditions unusually volatile during the tested period."
+    "roi": "-15.59%",
+    "max_drawdown": "17.26%",
+    "start_date": "2026-01-25 06:00:00",
+    "end_date": "2026-02-23 10:00:00"
   }
 ]
