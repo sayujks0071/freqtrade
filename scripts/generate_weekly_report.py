@@ -164,8 +164,8 @@ def generate_report(start_date, end_date, git_changes, strategy_stats):
         if stats["FAILED"] > 0 and stats["PASSED"] == 0:
             stuck_strategies.append(strat)
 
-    start_str = start_date.strftime('%Y-%m-%d')
-    end_str = end_date.strftime('%Y-%m-%d')
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
     report = "# Weekly Strategy Report\n\n"
     report += f"**Period:** {start_str} to {end_str}\n\n"
 
