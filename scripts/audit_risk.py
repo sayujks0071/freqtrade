@@ -26,16 +26,32 @@ def audit_config(filepath: Path) -> bool:
 
 def get_stoploss_from_node(node: ast.Assign) -> float | None:
     val = None
-    if isinstance(node.value, (ast.Constant, ast.Num)):
-        val = getattr(node.value, "value", getattr(node.value, "n", None))
+    # Use ast.Constant for literals (Python 3.8+)
+    if isinstance(node.value, ast.Constant):
+        val = node.value.value
     elif isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub):
-        if isinstance(node.value.operand, (ast.Constant, ast.Num)):
-            operand_val = getattr(
-                node.value.operand, "value", getattr(node.value.operand, "n", None)
-            )
+        if isinstance(node.value.operand, ast.Constant):
+            operand_val = node.value.operand.value
             if isinstance(operand_val, (int, float)):
                 val = -operand_val
     return val
+
+
+def check_stoploss_in_class(class_node: ast.ClassDef, filepath: Path) -> bool:
+    for item in class_node.body:
+        if isinstance(item, ast.Assign):
+            for target in item.targets:
+                if isinstance(target, ast.Name) and target.id == "stoploss":
+                    val = get_stoploss_from_node(item)
+
+                    if val is not None and isinstance(val, (int, float)):
+                        if val < -0.10:
+                            print(
+                                f"ERROR: {filepath} has stoploss={val} "
+                                "which is strictly looser than -0.10"
+                            )
+                            return False
+    return True
 
 
 def audit_strategy(filepath: Path) -> bool:
@@ -49,19 +65,8 @@ def audit_strategy(filepath: Path) -> bool:
 
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                for item in node.body:
-                    if isinstance(item, ast.Assign):
-                        for target in item.targets:
-                            if isinstance(target, ast.Name) and target.id == "stoploss":
-                                val = get_stoploss_from_node(item)
-
-                                if val is not None and isinstance(val, (int, float)):
-                                    if val < -0.10:
-                                        print(
-                                            f"ERROR: {filepath} has stoploss={val} "
-                                            "which is strictly looser than -0.10"
-                                        )
-                                        return False
+                if not check_stoploss_in_class(node, filepath):
+                    return False
     except Exception as e:
         print(f"WARNING: Error auditing {filepath}: {e}")
         return False
