@@ -42,7 +42,7 @@
         "jwt_secret_key": "somethingrandom",
         "CORS_origins": [],
         "username": "freqtrader",
-        "password": "SuperSecurePassword123!"
+        "password": ""
     },
     "protections": [
         {
