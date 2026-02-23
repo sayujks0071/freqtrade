@@ -475,6 +475,9 @@ def test_api_run(default_conf, mocker, caplog):
         caplog,
     )
     assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
+    assert apiserver._config["api_server"]["jwt_secret_key"] != "super-secret"
+    assert apiserver._config["api_server"]["jwt_secret_key"] != "somethingrandom"
+    assert len(apiserver._config["api_server"]["jwt_secret_key"]) >= 32
 
     server_mock.reset_mock()
     apiserver._standalone = True
