@@ -5,14 +5,16 @@ Monitors account drawdown and BTC price drops.
 Triggers emergency stop and liquidation if thresholds are breached.
 """
 
-import sys
-import os
-import time
 import json
 import logging
-import requests
+import os
+import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+
+import requests
+
 
 # Add ft_client to path
 # Assuming the script is in scripts/ and ft_client is in ft_client/ (sibling of scripts/ parent)
@@ -51,6 +53,7 @@ CONFIG_FILES = [
 
 STATE_FILE = Path("user_data/sentinel_state.json")
 
+
 def load_config():
     for config_path in CONFIG_FILES:
         path = Path(config_path)
@@ -59,12 +62,17 @@ def load_config():
                 with path.open("r") as f:
                     try:
                         import rapidjson
-                        return rapidjson.load(f, parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS)
+
+                        return rapidjson.load(
+                            f,
+                            parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
+                        )
                     except ImportError:
                         return json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load config {path}: {e}")
     return None
+
 
 def get_client(config):
     if not config:
@@ -80,6 +88,7 @@ def get_client(config):
     server_url = f"http://{url}:{port}"
     return FtRestClient(server_url, username, password)
 
+
 def load_state():
     if STATE_FILE.exists():
         try:
@@ -89,6 +98,7 @@ def load_state():
             logger.error(f"Failed to load state: {e}")
     return {"history": []}
 
+
 def save_state(state):
     try:
         with STATE_FILE.open("w") as f:
@@ -96,13 +106,18 @@ def save_state(state):
     except Exception as e:
         logger.error(f"Failed to save state: {e}")
 
+
 def send_alert(message):
     logger.critical(f"ALERT: {message}")
 
     # Send to OpenClaw
     openclaw_url = os.environ.get("OPENCLAW_URL", "http://localhost:5000/send")
     try:
-        response = requests.post(openclaw_url, json={"message": message, "priority": "critical"}, timeout=5)
+        response = requests.post(
+            openclaw_url,
+            json={"message": message, "priority": "critical"},
+            timeout=5
+        )
         if response.status_code == 200:
             logger.info("Alert sent to OpenClaw.")
         else:
@@ -112,10 +127,11 @@ def send_alert(message):
 
     # Also write to a specific alert file
     try:
-        with open("user_data/sentinel_alert.log", "a") as f:
-            f.write(f"{datetime.now(timezone.utc)} - {message}\n")
+        with Path("user_data/sentinel_alert.log").open("a") as f:
+            f.write(f"{datetime.now(timezone.utc)} - {message}\n")  # noqa: UP017
     except Exception as e:
         logger.error(f"Failed to write alert log: {e}")
+
 
 def check_drawdown(client, state):
     try:
@@ -125,10 +141,10 @@ def check_drawdown(client, state):
         current_balance = balance_data.get("total")
 
         if current_balance is None:
-             logger.warning("Could not find 'total' in balance response. Skipping drawdown check.")
-             return False
+            logger.warning("Could not find 'total' in balance response. Skipping drawdown check.")
+            return False
 
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(timezone.utc).timestamp()  # noqa: UP017
         history = state.get("history", [])
 
         # Append current
@@ -153,13 +169,17 @@ def check_drawdown(client, state):
         drawdown = (current_balance - max_balance) / max_balance
 
         if drawdown < -0.05:
-            logger.info(f"Drawdown triggered: Current {current_balance}, Max {max_balance}, DD {drawdown:.2%}")
+            logger.info(
+                f"Drawdown triggered: Current {current_balance}, Max {max_balance}, "
+                f"DD {drawdown:.2%}"
+            )
             return True
 
     except Exception as e:
         logger.error(f"Error checking drawdown: {e}")
 
     return False
+
 
 def check_btc_drop():
     try:
@@ -176,18 +196,22 @@ def check_btc_drop():
         highs = [candle[2] for candle in ohlcv]
         max_high = max(highs)
 
-        current_price = ohlcv[-1][4] # Last close
+        current_price = ohlcv[-1][4]  # Last close
 
         drop = (current_price - max_high) / max_high
 
         if drop < -0.10:
-             logger.info(f"BTC Drop triggered: Current {current_price}, Max {max_high}, Drop {drop:.2%}")
-             return True
+            logger.info(
+                f"BTC Drop triggered: Current {current_price}, Max {max_high}, "
+                f"Drop {drop:.2%}"
+            )
+            return True
 
     except Exception as e:
         logger.error(f"Error checking BTC drop: {e}")
 
     return False
+
 
 def trigger_emergency(client, reason):
     logger.critical(f"EMERGENCY TRIGGERED: {reason}")
@@ -215,6 +239,7 @@ def trigger_emergency(client, reason):
     logger.info("Sentinel actions complete. Exiting.")
     sys.exit(0)
 
+
 def main():
     logger.info("Sentinel started.")
     config = load_config()
@@ -239,8 +264,8 @@ def main():
             try:
                 if check_drawdown(client, state):
                     trigger_emergency(client, "Drawdown > 5% in 1 hour")
-            except Exception:
-                pass # Already logged in check_drawdown
+            except Exception as e:
+                logger.debug(f"Drawdown check failed: {e}")
 
             # Check BTC drop (independent)
             if check_btc_drop():
@@ -252,6 +277,7 @@ def main():
             logger.error(f"Unexpected error in main loop: {e}")
 
         time.sleep(300)
+
 
 if __name__ == "__main__":
     main()

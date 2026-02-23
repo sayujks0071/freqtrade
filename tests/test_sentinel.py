@@ -1,10 +1,9 @@
 import sys
 import unittest
-from unittest.mock import MagicMock, patch, mock_open
-import json
-from pathlib import Path
-import os
 from datetime import datetime, timezone
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
+
 
 # --- Setup mocks BEFORE importing sentinel ---
 # We need to mock 'ccxt', 'requests', 'freqtrade_client' and its submodules
@@ -25,7 +24,8 @@ sys.modules["freqtrade_client.ft_rest_client"] = mock_ft_rest_client_module
 # Now we can import sentinel
 # Add scripts to path to import sentinel as a module
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
-import sentinel
+import sentinel  # noqa: E402
+
 
 class TestSentinel(unittest.TestCase):
     def setUp(self):
@@ -67,7 +67,14 @@ class TestSentinel(unittest.TestCase):
         self.assertEqual(state["history"][0]["balance"], 1000.0)
 
     def test_check_drawdown_accumulates_history(self):
-        state = {"history": [{"timestamp": datetime.now(timezone.utc).timestamp() - 100, "balance": 1000.0}]}
+        state = {
+            "history": [
+                {
+                    "timestamp": datetime.now(timezone.utc).timestamp() - 100,  # noqa: UP017
+                    "balance": 1000.0
+                }
+            ]
+        }
         self.mock_client.balance.return_value = {"total": 1010.0}
 
         triggered = sentinel.check_drawdown(self.mock_client, state)
@@ -76,8 +83,8 @@ class TestSentinel(unittest.TestCase):
         self.assertEqual(state["history"][-1]["balance"], 1010.0)
 
     def test_check_drawdown_prunes_old_history(self):
-        old_ts = datetime.now(timezone.utc).timestamp() - 4000 # > 1 hour ago
-        state = {"history": [{"timestamp": old_ts, "balance": 2000.0}]} # Old high balance
+        old_ts = datetime.now(timezone.utc).timestamp() - 4000  # noqa: UP017 # > 1 hour ago
+        state = {"history": [{"timestamp": old_ts, "balance": 2000.0}]}  # Old high balance
 
         triggered = sentinel.check_drawdown(self.mock_client, state)
         # Old entry should be removed, so max balance is current (1000). No drawdown.
@@ -87,7 +94,7 @@ class TestSentinel(unittest.TestCase):
 
     def test_check_drawdown_trigger(self):
         # High balance 1 hour ago
-        recent_ts = datetime.now(timezone.utc).timestamp() - 100
+        recent_ts = datetime.now(timezone.utc).timestamp() - 100  # noqa: UP017
         state = {"history": [{"timestamp": recent_ts, "balance": 1000.0}]}
 
         # Current balance 940 (6% drop)
@@ -98,7 +105,7 @@ class TestSentinel(unittest.TestCase):
 
     def test_check_drawdown_no_trigger_small_drop(self):
         # High balance 1 hour ago
-        recent_ts = datetime.now(timezone.utc).timestamp() - 100
+        recent_ts = datetime.now(timezone.utc).timestamp() - 100  # noqa: UP017
         state = {"history": [{"timestamp": recent_ts, "balance": 1000.0}]}
 
         # Current balance 960 (4% drop)
@@ -130,8 +137,8 @@ class TestSentinel(unittest.TestCase):
         mock_exchange = MagicMock()
         # Max high 100, current 85 (15% drop)
         mock_exchange.fetch_ohlcv.return_value = [
-            [0, 100, 100, 90, 95, 100], # High 100
-            [1, 95, 85, 80, 85, 100],   # Current 85
+            [0, 100, 100, 90, 95, 100],  # High 100
+            [1, 95, 85, 80, 85, 100],    # Current 85
         ]
         with patch("sentinel.ccxt.binance", return_value=mock_exchange):
             triggered = sentinel.check_btc_drop()
@@ -159,9 +166,10 @@ class TestSentinel(unittest.TestCase):
         with patch("builtins.open", mock_open()):
             sentinel.send_alert("Test message")
             mock_post.assert_called_once()
-            args, kwargs = mock_post.call_args
+            _args, kwargs = mock_post.call_args
             self.assertIn("message", kwargs["json"])
             self.assertEqual(kwargs["json"]["message"], "Test message")
+
 
 if __name__ == "__main__":
     unittest.main()
