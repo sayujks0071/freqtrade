@@ -28,12 +28,13 @@ def get_stoploss_from_node(node: ast.Assign) -> float | None:
     val = None
     # Use ast.Constant for literals (Python 3.8+)
     if isinstance(node.value, ast.Constant):
-        val = node.value.value
+        if isinstance(node.value.value, (int, float)):
+            val = float(node.value.value)
     elif isinstance(node.value, ast.UnaryOp) and isinstance(node.value.op, ast.USub):
         if isinstance(node.value.operand, ast.Constant):
             operand_val = node.value.operand.value
             if isinstance(operand_val, (int, float)):
-                val = -operand_val
+                val = -float(operand_val)
     return val
 
 
