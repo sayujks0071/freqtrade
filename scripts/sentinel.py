@@ -64,8 +64,7 @@ def load_config():
                         import rapidjson
 
                         return rapidjson.load(
-                            f,
-                            parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
+                            f, parse_mode=rapidjson.PM_COMMENTS | rapidjson.PM_TRAILING_COMMAS
                         )
                     except ImportError:
                         return json.load(f)
@@ -114,9 +113,7 @@ def send_alert(message):
     openclaw_url = os.environ.get("OPENCLAW_URL", "http://localhost:5000/send")
     try:
         response = requests.post(
-            openclaw_url,
-            json={"message": message, "priority": "critical"},
-            timeout=5
+            openclaw_url, json={"message": message, "priority": "critical"}, timeout=5
         )
         if response.status_code == 200:
             logger.info("Alert sent to OpenClaw.")
@@ -202,8 +199,7 @@ def check_btc_drop():
 
         if drop < -0.10:
             logger.info(
-                f"BTC Drop triggered: Current {current_price}, Max {max_high}, "
-                f"Drop {drop:.2%}"
+                f"BTC Drop triggered: Current {current_price}, Max {max_high}, Drop {drop:.2%}"
             )
             return True
 
@@ -217,24 +213,24 @@ def trigger_emergency(client, reason):
     logger.critical(f"EMERGENCY TRIGGERED: {reason}")
     send_alert(f"EMERGENCY TRIGGERED: {reason}")
 
-    # Kill Switch
-    try:
-        logger.info("Stopping bot...")
-        client.stop()
-    except Exception as e:
-        logger.error(f"Failed to stop bot: {e}")
-
     # Liquidation
     try:
         logger.info("Liquidating positions...")
         trades = client.status()
         if trades:
             for trade in trades:
-                trade_id = trade['trade_id']
+                trade_id = trade["trade_id"]
                 logger.info(f"Force exiting trade {trade_id}")
                 client.forceexit(trade_id)
     except Exception as e:
         logger.error(f"Failed to liquidate: {e}")
+
+    # Kill Switch
+    try:
+        logger.info("Stopping bot...")
+        client.stop()
+    except Exception as e:
+        logger.error(f"Failed to stop bot: {e}")
 
     logger.info("Sentinel actions complete. Exiting.")
     sys.exit(0)

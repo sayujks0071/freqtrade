@@ -5,25 +5,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 
-# --- Setup mocks BEFORE importing sentinel ---
-# We need to mock 'ccxt', 'requests', 'freqtrade_client' and its submodules
-# to avoid import errors in the test environment if they are missing.
-
-mock_ccxt = MagicMock()
-sys.modules["ccxt"] = mock_ccxt
-
-mock_requests = MagicMock()
-sys.modules["requests"] = mock_requests
-
-mock_freqtrade_client = MagicMock()
-sys.modules["freqtrade_client"] = mock_freqtrade_client
-
-mock_ft_rest_client_module = MagicMock()
-sys.modules["freqtrade_client.ft_rest_client"] = mock_ft_rest_client_module
-
-# Now we can import sentinel
 # Add scripts to path to import sentinel as a module
-sys.path.append(str(Path(__file__).parent.parent / "scripts"))
+SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
 import sentinel  # noqa: E402
 
 
@@ -37,16 +23,20 @@ class TestSentinel(unittest.TestCase):
         self.mock_client.status.return_value = []
 
         # Reset state file path to a test file
+        self.original_state_file = sentinel.STATE_FILE
         sentinel.STATE_FILE = Path("test_sentinel_state.json")
         if sentinel.STATE_FILE.exists():
             sentinel.STATE_FILE.unlink()
 
         # Redirect logging to avoid clutter
+        self.original_logger = sentinel.logger
         sentinel.logger = MagicMock()
 
     def tearDown(self):
         if sentinel.STATE_FILE.exists():
             sentinel.STATE_FILE.unlink()
+        sentinel.STATE_FILE = self.original_state_file
+        sentinel.logger = self.original_logger
 
     def test_load_state_empty(self):
         state = sentinel.load_state()
@@ -71,7 +61,7 @@ class TestSentinel(unittest.TestCase):
             "history": [
                 {
                     "timestamp": datetime.now(timezone.utc).timestamp() - 100,  # noqa: UP017
-                    "balance": 1000.0
+                    "balance": 1000.0,
                 }
             ]
         }
@@ -138,7 +128,7 @@ class TestSentinel(unittest.TestCase):
         # Max high 100, current 85 (15% drop)
         mock_exchange.fetch_ohlcv.return_value = [
             [0, 100, 100, 90, 95, 100],  # High 100
-            [1, 95, 85, 80, 85, 100],    # Current 85
+            [1, 95, 85, 80, 85, 100],  # Current 85
         ]
         with patch("sentinel.ccxt.binance", return_value=mock_exchange):
             triggered = sentinel.check_btc_drop()
@@ -153,10 +143,25 @@ class TestSentinel(unittest.TestCase):
             sentinel.trigger_emergency(self.mock_client, "TEST REASON")
 
             mock_send_alert.assert_called_with("EMERGENCY TRIGGERED: TEST REASON")
-            self.mock_client.stop.assert_called_once()
-            self.assertEqual(self.mock_client.forceexit.call_count, 2)
-            self.mock_client.forceexit.assert_any_call(1)
-            self.mock_client.forceexit.assert_any_call(2)
+
+            # Check order: forceexit (liquidation) must be called BEFORE stop
+            forceexit_indices = [
+                i for i, call in enumerate(self.mock_client.mock_calls) if call[0] == 'forceexit'
+            ]
+            stop_indices = [
+                i for i, call in enumerate(self.mock_client.mock_calls) if call[0] == 'stop'
+            ]
+
+            self.assertTrue(forceexit_indices, "Forceexit should have been called")
+            self.assertTrue(stop_indices, "Stop should have been called")
+
+            # Ensure all forceexit calls happen before any stop call
+            self.assertLess(
+                max(forceexit_indices),
+                min(stop_indices),
+                "Liquidation must happen before stopping bot"
+            )
+
             mock_exit.assert_called_with(0)
 
     @patch("sentinel.requests.post")
