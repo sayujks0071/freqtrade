@@ -542,6 +542,18 @@ def test_reduce_dataframe_footprint():
     assert df2["close_copy"].dtype == np.float32
 
 
+def test_reduce_dataframe_footprint_idempotency():
+    data = generate_test_data("15m", 40)
+    # Ensure data is already float32 (except OHLCV)
+    data["open_copy"] = data["open"].astype(np.float32)
+
+    df2 = reduce_dataframe_footprint(data)
+
+    # Should return the same object if no changes are needed
+    assert df2 is data
+    pd.testing.assert_frame_equal(df2, data)
+
+
 def test_convert_trades_to_ohlcv(testdatadir, tmp_path, caplog):
     pair = "XRP/ETH"
     file1 = tmp_path / "XRP_ETH-1m.feather"
