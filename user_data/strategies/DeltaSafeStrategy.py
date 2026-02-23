@@ -9,7 +9,7 @@ from pathlib import Path
 import talib.abstract as ta
 from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy
+from freqtrade.strategy import IStrategy, IntParameter
 
 
 # Add _base to path to allow import
@@ -19,6 +19,9 @@ from AuditedStrategyMixin import AuditedStrategyMixin  # noqa: E402, RUF100
 
 class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     INTERFACE_VERSION = 3
+
+    # Hyperopt parameters
+    buy_rsi = IntParameter(10, 40, default=30, space="buy")
 
     # Minimal ROI
     minimal_roi = {"60": 0.01, "30": 0.02, "0": 0.04}
@@ -61,7 +64,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        dataframe.loc[
+            ((dataframe["rsi"] < self.buy_rsi.value) & (dataframe["volume"] > 0)), "enter_long"
+        ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.

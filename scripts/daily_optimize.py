@@ -27,10 +27,33 @@ HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=capture, text=True)
+    if capture:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    else:
+        result = subprocess.run(cmd, text=True)
+
     if result.returncode != 0:
-        print(f"Error running command: {result.stderr}")
+        if capture:
+            print(f"Error running command: {result.stderr}")
+        else:
+            print("Error running command")
     return result
+
+
+def download_data():
+    """Downloads the latest market data."""
+    print("Downloading market data...")
+    cmd = [
+        "freqtrade",
+        "download-data",
+        "--config",
+        str(CONFIG_FILE),
+        "--days",
+        "35",
+        "--timeframe",
+        "1h",
+    ]
+    run_command(cmd, capture=False)
 
 
 def get_timerange():
@@ -113,7 +136,7 @@ def find_available_strategies():
     return strategies
 
 
-def run_backtest_job(strategy_name_or_list, extra_config=None):
+def run_backtest_job(strategy_name_or_list):
     """Runs a backtest job for a single strategy or a list of strategies."""
     timerange = get_timerange()
 
@@ -129,9 +152,6 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
         "--cache",
         "none",
     ]
-
-    if extra_config:
-        cmd.extend(["--config", str(extra_config)])
 
     if isinstance(strategy_name_or_list, list):
         print(f"Running backtest for {len(strategy_name_or_list)} strategies over {timerange}...")
@@ -188,11 +208,21 @@ def extract_hyperopt_params(output: str) -> dict:
     Finds the last JSON object in the output which typically contains the best parameters.
     """
     lines = output.splitlines()
+
+    # 1. Try to find single-line JSON (compact format)
+    for line in reversed(lines):
+        line_clean = line.strip()
+        if line_clean.startswith("{") and line_clean.endswith("}"):
+            try:
+                params = json.loads(line_clean)
+                if "params" in params or "minimal_roi" in params:
+                    return params
+            except json.JSONDecodeError:
+                continue
+
+    # 2. Try to find multi-line JSON (pretty format)
     json_str = ""
     started = False
-
-    # Iterate backwards to find the last JSON block
-    # Freqtrade prints the params in json format at the end when --print-json is used
     for line in reversed(lines):
         if line.strip() == "}":
             started = True
@@ -201,12 +231,10 @@ def extract_hyperopt_params(output: str) -> dict:
             if line.strip() == "{":
                 try:
                     params = json.loads(json_str)
-                    # We want the full config object (containing minimal_roi, params, etc.)
-                    # Verify it has at least 'params' or 'minimal_roi' to be valid
                     if "params" in params or "minimal_roi" in params:
                         return params
                 except json.JSONDecodeError:
-                    continue  # Keep looking if this wasn't valid JSON or not the right one
+                    continue
     return {}
 
 
@@ -250,6 +278,9 @@ Examples:
             print("Or use --dry-run to test without making git changes.")
             sys.exit(1)
 
+    # 0. Download Data
+    download_data()
+
     # 1. Establish Baseline
     latest_file = get_latest_backtest_file()
 
@@ -270,16 +301,28 @@ Examples:
         print("Failed to produce backtest baseline.")
         sys.exit(1)
 
-    worst_strategy, current_sharpe, current_stats = find_worst_strategy(backtest_data)
+    worst_strategy, _, _ = find_worst_strategy(backtest_data)
     if not worst_strategy:
         print("No strategy found in backtest results.")
         sys.exit(1)
 
+    print(f"Selected Strategy (Candidate): {worst_strategy}")
+
+    # Re-establish baseline for the current timerange to ensure fair comparison
+    print(f"Establishing current baseline for {worst_strategy}...")
+    current_backtest_data = run_backtest_job(worst_strategy)
+    if not current_backtest_data:
+        print("Failed to run baseline backtest.")
+        sys.exit(1)
+
+    current_stats = current_backtest_data["strategy"][worst_strategy]
+    current_sharpe = current_stats.get("sharpe", -float("inf"))
+    if current_sharpe is None:
+        current_sharpe = -float("inf")
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
 
-    print(f"Selected Strategy: {worst_strategy}")
-    print(f"Current Sharpe: {current_sharpe}")
-    print(f"Current Drawdown: {current_drawdown}")
+    print(f"Current Sharpe (Fresh): {current_sharpe}")
+    print(f"Current Drawdown (Fresh): {current_drawdown}")
 
     # 2. Hyperopt Execution
     strategy_json = STRATEGIES_DIR / f"{worst_strategy}.json"
@@ -330,6 +373,8 @@ Examples:
     # Apply new parameters
     new_params = extract_hyperopt_params(result_hyperopt.stdout)
     if new_params:
+        # Inject strategy_name to ensure validity
+        new_params["strategy_name"] = worst_strategy
         print(f"Applying new parameters to {strategy_json}")
         with strategy_json.open("w") as f:
             json.dump(new_params, f, indent=4)
@@ -348,7 +393,8 @@ Examples:
 
     # 3. Evaluation (Verification Backtest)
     print("Running verification backtest with new parameters...")
-    new_backtest_data = run_backtest_job(worst_strategy, extra_config=strategy_json)
+    # Freqtrade will automatically load the new parameters from the JSON file
+    new_backtest_data = run_backtest_job(worst_strategy)
 
     if not new_backtest_data:
         print("Failed to run verification backtest.")

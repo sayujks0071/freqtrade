@@ -1,9 +1,5 @@
-# Include all requirements to run the bot.
--r requirements.txt
-
-# Required for hyperopt
-scipy==1.17.0
-scikit-learn==1.8.0
-filelock==3.20.3
-optuna==4.6.0
-cmaes==0.12.0
+filelock
+optuna
+scikit-learn
+scikit-optimize
+scipy
