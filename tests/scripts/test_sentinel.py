@@ -12,7 +12,7 @@ sys.path.append(str(scripts_dir))
 # We can't easily mock C-extension modules at sys.modules level if they are already loaded
 # But patch works fine.
 
-import sentinel
+import sentinel  # noqa: E402
 
 
 class TestSentinel(unittest.TestCase):

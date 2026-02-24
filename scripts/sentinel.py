@@ -19,7 +19,7 @@ current_dir = Path(__file__).resolve().parent
 ft_client_dir = current_dir.parent / "ft_client"
 sys.path.append(str(ft_client_dir))
 
-from freqtrade_client.ft_rest_client import FtRestClient
+from freqtrade_client.ft_rest_client import FtRestClient  # noqa: E402
 
 
 logger = logging.getLogger("sentinel")
