@@ -1,0 +1,13 @@
+LICENSE
+MANIFEST.in
+README.md
+pyproject.toml
+freqtrade_client/__init__.py
+freqtrade_client/ft_client.py
+freqtrade_client/ft_rest_client.py
+freqtrade_client.egg-info/PKG-INFO
+freqtrade_client.egg-info/SOURCES.txt
+freqtrade_client.egg-info/dependency_links.txt
+freqtrade_client.egg-info/entry_points.txt
+freqtrade_client.egg-info/requires.txt
+freqtrade_client.egg-info/top_level.txt
