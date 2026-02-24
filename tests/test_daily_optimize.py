@@ -1,8 +1,8 @@
-# Add scripts directory to path to import daily_optimize
 import sys
 from pathlib import Path
 
 
+# Add scripts directory to path to import daily_optimize
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 import daily_optimize
 
