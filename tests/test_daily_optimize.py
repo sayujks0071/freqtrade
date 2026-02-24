@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Add scripts directory to path to import daily_optimize
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
-import daily_optimize
+import daily_optimize  # noqa: E402, RUF100
 
 
 def test_find_worst_strategy():
