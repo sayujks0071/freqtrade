@@ -1,4 +1,5 @@
 import logging
+import secrets
 from ipaddress import ip_address
 from typing import Any
 
@@ -130,6 +131,7 @@ class ApiServer(RPCHandler):
         ApiServer.__initialized = True
 
         api_config = self._config["api_server"]
+        self._check_and_secure_jwt_secret(api_config)
 
         self.app = FastAPI(
             title="Freqtrade API",
@@ -140,6 +142,18 @@ class ApiServer(RPCHandler):
         )
         self.configure_app(self.app, self._config)
         self.start_api()
+
+    def _check_and_secure_jwt_secret(self, api_config: dict[str, Any]) -> None:
+        jwt_secret_key = api_config.get("jwt_secret_key", "super-secret")
+        if jwt_secret_key in ("super-secret", "somethingrandom"):
+            new_secret = secrets.token_urlsafe(32)
+            api_config["jwt_secret_key"] = new_secret
+            logger.warning(
+                "SECURITY WARNING - `jwt_secret_key` found to be default '%s'. "
+                "Generating a random key for this session. "
+                "To persist sessions across restarts, set a unique `jwt_secret_key` in your config.",
+                jwt_secret_key,
+            )
 
     def add_rpc_handler(self, rpc: RPC):
         """
@@ -299,14 +313,6 @@ class ApiServer(RPCHandler):
             logger.warning(
                 "SECURITY WARNING - No password for local REST Server defined. "
                 "Please make sure that this is intentional!"
-            )
-
-        if self._config["api_server"].get("jwt_secret_key", "super-secret") in (
-            "super-secret, somethingrandom"
-        ):
-            logger.warning(
-                "SECURITY WARNING - `jwt_secret_key` seems to be default."
-                "Others may be able to log into your bot."
             )
 
         logger.info("Starting Local Rest Server.")
