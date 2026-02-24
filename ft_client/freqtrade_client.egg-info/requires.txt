@@ -1,0 +1,2 @@
+requests>=2.26.0
+python-rapidjson>=1.0
