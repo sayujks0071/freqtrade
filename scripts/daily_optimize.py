@@ -475,6 +475,7 @@ Examples:
         raise
     except Exception:
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:
@@ -489,13 +490,11 @@ Examples:
 
             # Only commit if there are changes to the log (which there should be if we wrote to it)
             # Use diff-index to check for changes
-            diff_res = subprocess.run(
-                ["git", "diff-index", "--quiet", "HEAD", "--", str(log_path)]
-            )
+            diff_res = subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--", str(log_path)])
             if diff_res.returncode != 0:
-                run_command([
-                    "git", "commit", "-m", "chore: update optimization log (failed attempt)"
-                ])
+                run_command(
+                    ["git", "commit", "-m", "chore: update optimization log (failed attempt)"]
+                )
 
                 # Push log commit
                 target_branch = args.branch if args.branch else "main"

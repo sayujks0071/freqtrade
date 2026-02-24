@@ -13,11 +13,13 @@ USER_DATA_DIR = Path("user_data")
 LOG_FILE = USER_DATA_DIR / "optimization_log.txt"
 REPORT_FILE = Path("WEEKLY_REPORT.md")
 
+
 def run_command(cmd, capture=True):
     result = subprocess.run(cmd, capture_output=capture, text=True)
     if result.returncode != 0:
         print(f"Error running command: {result.stderr}")
     return result
+
 
 def get_last_sunday():
     today = datetime.now()
@@ -25,12 +27,14 @@ def get_last_sunday():
     start_date = today - timedelta(days=7)
     return start_date
 
+
 def parse_git_log(since_date):
     cmd = [
-        "git", "log",
+        "git",
+        "log",
         f"--since={since_date.isoformat()}",
         "--pretty=format:%h|%s|%ad",
-        "--date=iso"
+        "--date=iso",
     ]
     result = run_command(cmd)
     commits = []
@@ -38,12 +42,9 @@ def parse_git_log(since_date):
         for line in result.stdout.splitlines():
             parts = line.split("|")
             if len(parts) >= 3:
-                commits.append({
-                    "hash": parts[0],
-                    "subject": parts[1],
-                    "date": parts[2]
-                })
+                commits.append({"hash": parts[0], "subject": parts[1], "date": parts[2]})
     return commits
+
 
 def parse_optimization_log(since_date):
     if not LOG_FILE.exists():
@@ -61,7 +62,7 @@ def parse_optimization_log(since_date):
                     current_run_start = datetime.fromisoformat(match_start.group(1))
                 except ValueError:
                     current_run_start = None
-                current_strategy = None # Reset strategy for new run
+                current_strategy = None  # Reset strategy for new run
                 continue
 
             if current_run_start and current_run_start >= since_date:
@@ -70,13 +71,13 @@ def parse_optimization_log(since_date):
                     current_strategy = match_strat.group(1).strip()
 
                 if "Evaluation FAILED" in line and current_strategy:
-                    failed_strategies.append({
-                        "strategy": current_strategy,
-                        "date": current_run_start
-                    })
+                    failed_strategies.append(
+                        {"strategy": current_strategy, "date": current_run_start}
+                    )
                     current_strategy = None
 
     return failed_strategies
+
 
 def generate_report():
     since_date = get_last_sunday()
@@ -95,12 +96,9 @@ def generate_report():
         if match:
             strategy = match.group(1)
             roi = float(match.group(2))
-            updated_strategies.append({
-                "strategy": strategy,
-                "roi": roi,
-                "hash": commit["hash"],
-                "date": commit["date"]
-            })
+            updated_strategies.append(
+                {"strategy": strategy, "roi": roi, "hash": commit["hash"], "date": commit["date"]}
+            )
             total_roi_improvement += roi
 
     # Filter stuck strategies
@@ -143,6 +141,7 @@ def generate_report():
 
     return report
 
+
 def main():
     report_content = generate_report()
 
@@ -169,13 +168,14 @@ def main():
         print(f"Pushing to {current_branch}...")
         push_cmd = ["git", "push", "origin"]
         if current_branch == "main":
-             push_cmd.append("HEAD:main")
+            push_cmd.append("HEAD:main")
         else:
-             push_cmd.append(current_branch)
+            push_cmd.append(current_branch)
 
         run_command(push_cmd)
     else:
         print("No changes in report.")
+
 
 if __name__ == "__main__":
     main()
