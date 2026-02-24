@@ -151,7 +151,8 @@ class ApiServer(RPCHandler):
             logger.warning(
                 "SECURITY WARNING - `jwt_secret_key` found to be default '%s'. "
                 "Generating a random key for this session. "
-                "To persist sessions across restarts, set a unique `jwt_secret_key` in your config.",
+                "To persist sessions across restarts, "
+                "set a unique `jwt_secret_key` in your config.",
                 jwt_secret_key,
             )
 
