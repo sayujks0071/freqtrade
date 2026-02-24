@@ -229,7 +229,7 @@ def test_api_ws_auth(botclient):
     with client.websocket_connect(url(good_token)):
         pass
 
-    jwt_secret = ftbot.config["api_server"].get("jwt_secret_key", "super-secret")
+    jwt_secret = ftbot.config["api_server"]["jwt_secret_key"]
     jwt_token = create_token({"identity": {"u": "Freqtrade"}}, jwt_secret)
     with client.websocket_connect(url(jwt_token)):
         pass
@@ -439,6 +439,7 @@ def test_api_run(default_conf, mocker, caplog):
 
     assert log_has("Starting HTTP Server at 127.0.0.1:8080", caplog)
     assert log_has("Starting Local Rest Server.", caplog)
+    assert log_has_re("SECURITY WARNING - `jwt_secret_key` found to be default.*", caplog)
 
     # Test binding to public
     caplog.clear()
@@ -474,7 +475,6 @@ def test_api_run(default_conf, mocker, caplog):
         "Please make sure that this is intentional!",
         caplog,
     )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
 
     server_mock.reset_mock()
     apiserver._standalone = True
