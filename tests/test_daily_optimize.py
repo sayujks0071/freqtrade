@@ -1,11 +1,8 @@
-import json
+# Add scripts directory to path to import daily_optimize
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
-import pytest
 
-# Add scripts directory to path to import daily_optimize
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 import daily_optimize
 
@@ -24,16 +21,19 @@ def test_find_worst_strategy():
     assert sharpe == 0.5
     assert stats["max_drawdown_account"] == 0.2
 
+
 def test_find_worst_strategy_empty():
     worst, sharpe, stats = daily_optimize.find_worst_strategy({})
     assert worst is None
     assert sharpe is None
     assert stats is None
 
+
 def test_extract_hyperopt_params_single_line():
     output = 'Best result:\n{"params": {"a": 1}, "minimal_roi": {}}\n'
     params = daily_optimize.extract_hyperopt_params(output)
     assert params["params"]["a"] == 1
+
 
 def test_extract_hyperopt_params_multi_line():
     output = """
@@ -49,6 +49,7 @@ Some logs after
     params = daily_optimize.extract_hyperopt_params(output)
     assert params["params"]["b"] == 2
 
+
 def test_extract_hyperopt_params_nested_braces():
     output = """
 Best result:
@@ -62,6 +63,7 @@ Best result:
     params = daily_optimize.extract_hyperopt_params(output)
     assert params["params"]["c"]["d"] == 3
 
+
 def test_extract_hyperopt_params_mixed_logs():
     output = """
 Best result:
@@ -71,13 +73,16 @@ Best result:
     params = daily_optimize.extract_hyperopt_params(output)
     assert params["params"]["e"] == 5
 
+
 def test_strategy_has_parameters(tmp_path):
     # Mock STRATEGIES_DIR
     original_strategies_dir = daily_optimize.STRATEGIES_DIR
     daily_optimize.STRATEGIES_DIR = tmp_path
 
     try:
-        (tmp_path / "TestStrat.py").write_text("class TestStrat(IStrategy):\n    buy_params = IntParameter(1, 10)")
+        (tmp_path / "TestStrat.py").write_text(
+            "class TestStrat(IStrategy):\n    buy_params = IntParameter(1, 10)"
+        )
         assert daily_optimize.strategy_has_parameters("TestStrat") is True
 
         (tmp_path / "NoParamStrat.py").write_text("class NoParamStrat(IStrategy):\n    pass")

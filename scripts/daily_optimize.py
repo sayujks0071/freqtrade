@@ -5,7 +5,6 @@ Daily Optimization Routine
 
 import argparse
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -218,7 +217,11 @@ def strategy_has_parameters(strategy_name: str) -> bool:
 
     with strategy_file.open() as f:
         content = f.read()
-        if "IntParameter" in content or "DecimalParameter" in content or "CategoricalParameter" in content:
+        if (
+            "IntParameter" in content
+            or "DecimalParameter" in content
+            or "CategoricalParameter" in content
+        ):
             return True
         if "RealParameter" in content or "BooleanParameter" in content:
             return True
@@ -284,7 +287,7 @@ def main():  # noqa: C901
         sys.exit(1)
 
     current_drawdown = current_stats.get("max_drawdown_account", 1.0)
-    current_profit_pct = current_stats.get("profit_total_pct", 0.0) * 100
+    # Removed unused variable: current_profit_pct
 
     print(f"Selected Strategy: {worst_strategy}")
     print(f"Current Sharpe: {current_sharpe}")
