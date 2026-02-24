@@ -1,4 +1,4 @@
-name: Daily Strategy Optimization
+name: Daily Optimization
 
 on:
   schedule:
@@ -13,33 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install TA-Lib
-        run: |
-          wget https://downloads.sourceforge.net/project/ta-lib/ta-lib/0.4.0/ta-lib-0.4.0-src.tar.gz
-          tar -xzf ta-lib-0.4.0-src.tar.gz
-          cd ta-lib
-          ./configure --prefix=/usr
-          make
-          sudo make install
-          cd ..
-          rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
-
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5.1.0
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Re-install ta-lib python wrapper to ensure it links against the installed C lib
-          pip install --force-reinstall --no-cache-dir ta-lib
+          pip install freqtrade
 
       - name: Configure Git
         run: |
@@ -48,5 +37,14 @@ jobs:
 
       - name: Run Daily Optimization
         run: |
-          # Use --yes to skip prompts and auto-commit/push
-          python scripts/daily_optimize.py --yes
+          # Ensure we have data for the backtest
+          # Assuming data exists or script handles downloading.
+          # The script runs freqtrade backtesting, which needs data.
+          # Freqtrade usually downloads data if not present? No, download-data command is needed.
+
+          # We'll run download-data first to be safe, for the last 30 days.
+          freqtrade download-data --config user_data/configs/config_daily_opt.json --days 30 -t 1h
+
+          python3 scripts/daily_optimize.py --yes --branch main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
