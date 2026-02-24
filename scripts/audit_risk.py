@@ -41,7 +41,7 @@ def check_configs() -> bool:
     """
     Check all JSON config files in user_data/configs/ and config.json for max_open_trades <= 5.
     """
-    config_files = []
+    config_files: list[Path] = []
     config_dir = Path("user_data/configs")
     if config_dir.exists():
         config_files.extend(config_dir.glob("*.json"))
