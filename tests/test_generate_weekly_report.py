@@ -9,7 +9,7 @@ import pytest
 # Add scripts directory to path to import the module
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
-import generate_weekly_report
+import generate_weekly_report  # noqa: E402, RUF100
 
 
 @pytest.fixture
