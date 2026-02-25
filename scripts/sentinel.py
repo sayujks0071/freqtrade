@@ -38,8 +38,8 @@ class Sentinel:
         ip = self.config["api_server"].get("listen_ip_address", "127.0.0.1")
         port = self.config["api_server"].get("listen_port", 8080)
         self.api_url = f"http://{ip}:{port}/api/v1"
-        self.username = self.config['api_server'].get('username')
-        self.password = self.config['api_server'].get('password')
+        self.username = self.config["api_server"].get("username")
+        self.password = self.config["api_server"].get("password")
 
         if not self.username or not self.password:
             raise ValueError("API username or password missing in config.")
@@ -249,10 +249,11 @@ class Sentinel:
 def main():
     parser = argparse.ArgumentParser(description="Freqtrade Sentinel (Circuit Breaker)")
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         type=Path,
         default=Path("user_data/configs/config.delta.live.json"),
-        help="Path to config file"
+        help="Path to config file",
     )
     args = parser.parse_args()
 

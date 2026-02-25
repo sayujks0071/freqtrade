@@ -8,7 +8,7 @@ import pytest
 
 # Add scripts directory to path to import sentinel
 sys.path.append(str(Path(__file__).parent.parent.parent / "scripts"))
-from sentinel import Sentinel
+from sentinel import Sentinel  # noqa: E402, RUF100
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def mock_config(tmp_path):
             "listen_ip_address": "127.0.0.1",
             "listen_port": 8080,
             "username": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
     }
     with config_path.open("w") as f:
@@ -43,7 +43,7 @@ def test_login(sentinel):
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "access_token": "access123",
-            "refresh_token": "refresh123"
+            "refresh_token": "refresh123",
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
@@ -60,9 +60,10 @@ def test_api_request_refresh(sentinel):
     sentinel.access_token = "old_token"
     sentinel.refresh_token = "refresh_token"
 
-    with patch("requests.request") as mock_request, \
-         patch("requests.post") as mock_post:
-
+    with (
+        patch("requests.request") as mock_request,
+        patch("requests.post") as mock_post,
+    ):
         # First request fails with 401
         response_401 = MagicMock()
         response_401.status_code = 401
@@ -96,8 +97,10 @@ def test_check_drawdown_trigger(sentinel):
     base_time = 1000000.0
 
     # 1. First check: Balance 100
-    with patch("sentinel.Sentinel.get_total_balance", return_value=100.0), \
-         patch("time.time", return_value=base_time):
+    with (
+        patch("sentinel.Sentinel.get_total_balance", return_value=100.0),
+        patch("time.time", return_value=base_time),
+    ):
         sentinel.check_drawdown()
 
     assert not sentinel.trigger_emergency.called
@@ -105,15 +108,19 @@ def test_check_drawdown_trigger(sentinel):
     assert sentinel.balance_history[0][1] == 100.0
 
     # 2. Second check: Balance 96 (4% drop) - No trigger
-    with patch("sentinel.Sentinel.get_total_balance", return_value=96.0), \
-         patch("time.time", return_value=base_time + 300):
+    with (
+        patch("sentinel.Sentinel.get_total_balance", return_value=96.0),
+        patch("time.time", return_value=base_time + 300),
+    ):
         sentinel.check_drawdown()
 
     assert not sentinel.trigger_emergency.called
 
     # 3. Third check: Balance 94 (6% drop from max 100) - Trigger
-    with patch("sentinel.Sentinel.get_total_balance", return_value=94.0), \
-         patch("time.time", return_value=base_time + 600):
+    with (
+        patch("sentinel.Sentinel.get_total_balance", return_value=94.0),
+        patch("time.time", return_value=base_time + 600),
+    ):
         sentinel.check_drawdown()
 
     assert sentinel.trigger_emergency.called
@@ -129,11 +136,11 @@ def test_check_btc_crash_trigger(sentinel):
         # Max high = 100
         # Current close (last candle) = 89 (11% drop)
         candles = [
-            [0, 100, 100, 99, 99, 10], # T-4
-            [0, 99, 99, 98, 98, 10],   # T-3
-            [0, 98, 98, 97, 97, 10],   # T-2
-            [0, 97, 97, 95, 95, 10],   # T-1
-            [0, 95, 95, 89, 89, 10],   # T-0 (Current)
+            [0, 100, 100, 99, 99, 10],  # T-4
+            [0, 99, 99, 98, 98, 10],  # T-3
+            [0, 98, 98, 97, 97, 10],  # T-2
+            [0, 97, 97, 95, 95, 10],  # T-1
+            [0, 95, 95, 89, 89, 10],  # T-0 (Current)
         ]
         mock_exchange.fetch_ohlcv.return_value = candles
 
