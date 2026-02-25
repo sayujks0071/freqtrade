@@ -1,3 +1,4 @@
+import importlib.util
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -6,10 +7,15 @@ from unittest.mock import patch
 import pytest
 
 
-# Add scripts directory to path to import the module
-sys.path.append(str(Path(__file__).parent.parent / "scripts"))
-
-import generate_weekly_report  # noqa: E402, RUF100
+@pytest.fixture
+def weekly_report_module():
+    """Dynamically import the weekly report script."""
+    script_path = Path(__file__).parent.parent / "scripts/generate_weekly_report.py"
+    spec = importlib.util.spec_from_file_location("generate_weekly_report", script_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["generate_weekly_report"] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture
@@ -59,13 +65,15 @@ Evaluation FAILED
 """
 
 
-def test_generate_report_end_to_end(tmp_path, mock_git_log, mock_optimization_log):
+def test_generate_report_end_to_end(
+    tmp_path, mock_git_log, mock_optimization_log, weekly_report_module
+):
     # Setup temporary report file
     report_file = tmp_path / "WEEKLY_REPORT.md"
 
     with (
-        patch("generate_weekly_report.REPORT_FILE", report_file),
-        patch("generate_weekly_report.OPTIMIZATION_LOG") as mock_opt_log_path,
+        patch.object(weekly_report_module, "REPORT_FILE", report_file),
+        patch.object(weekly_report_module, "OPTIMIZATION_LOG") as mock_opt_log_path,
         patch("subprocess.run") as mock_run,
     ):
         # Mock git log output
@@ -77,7 +85,7 @@ def test_generate_report_end_to_end(tmp_path, mock_git_log, mock_optimization_lo
         mock_opt_log_path.read_text.return_value = mock_optimization_log
 
         # Run report generation
-        generate_weekly_report.generate_report()
+        weekly_report_module.generate_report()
 
         # Verify Report Content
         assert report_file.exists()
