@@ -25,6 +25,21 @@ SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
 
 
+class Logger:
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = Path(filename).open("a", encoding="utf-8")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+        self.log.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
+
+
 def run_command(cmd, capture=True):
     print(f"Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=capture, text=True)
@@ -243,6 +258,13 @@ Examples:
 
     args = parser.parse_args()
 
+    # Setup logging
+    log_file = USER_DATA_DIR / "optimization_log.txt"
+    sys.stdout = Logger(log_file)
+    sys.stderr = sys.stdout  # Redirect stderr to the same log file
+
+    print(f"--- Optimization Run Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+
     # Check git status before starting (unless in dry-run mode)
     if not args.dry_run:
         if not check_git_status():
@@ -394,7 +416,7 @@ Examples:
             target_branch = args.branch if args.branch else "main"
 
             # Use -f to force add in case user_data is gitignored
-            run_command(["git", "add", "-f", str(strategy_json)])
+            run_command(["git", "add", "-f", str(strategy_json), str(log_file)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
