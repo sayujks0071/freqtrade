@@ -42,12 +42,14 @@ def _extract_stoploss_value(node: ast.Assign) -> float | None:
                 return -float(operand.value)
             # For older python versions ast.Num
             elif hasattr(ast, "Num") and isinstance(operand, ast.Num):
-                return -float(operand.n)  # type: ignore
+                if isinstance(operand.n, (int, float)):
+                    return -float(operand.n)
         # Handle positive numbers (unlikely for stoploss but possible): stoploss = 0.10
         elif isinstance(node.value, ast.Constant) and isinstance(node.value.value, (int, float)):
             return float(node.value.value)
         elif hasattr(ast, "Num") and isinstance(node.value, ast.Num):
-            return float(node.value.n)  # type: ignore
+            if isinstance(node.value.n, (int, float)):
+                return float(node.value.n)
     return None
 
 
