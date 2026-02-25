@@ -1,48 +1,53 @@
 #!/usr/bin/env python3
 """
 Regime Switcher Script
-Analyzes BTC/USDT market data and updates the trading strategy in config_production.json based on the detected regime.
+Analyzes BTC/USDT market data and updates the trading strategy in config_production.json.
 """
 
 import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 import ccxt
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta  # noqa: F401
+
 
 # Setup Logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("RegimeSwitcher")
 
 CONFIG_PATH = Path("user_data/configs/config_production.json")
 LOG_PATH = Path("regime_log.md")
 
+
 def fetch_data(symbol="BTC/USDT", timeframe="1d", limit=365):
     """Fetch OHLCV data from Kraken (Public API) as fallback."""
     logger.info(f"Fetching {symbol} data ({timeframe})...")
     try:
-        # Try Kraken (uses XBT/USD usually but CCXT handles mapping often, if not we try alternative)
+        # Try Kraken (uses XBT/USD usually but CCXT handles mapping, if not we try alternative)
         exchange = ccxt.kraken()
-        # Kraken might need specific symbol mapping if BTC/USDT not available, usually XBT/USD or BTC/USDT
+        # Kraken might need specific symbol mapping if BTC/USDT not available, usually XBT/USD
         # Let's try to load markets first or just try BTC/USDT
         # If BTC/USDT fails, try BTC/USD
         try:
-             ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        except:
-             ohlcv = exchange.fetch_ohlcv("BTC/USD", timeframe, limit=limit)
+            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        except Exception:
+            ohlcv = exchange.fetch_ohlcv("BTC/USD", timeframe, limit=limit)
 
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df = pd.DataFrame(
+            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
     except Exception as e:
         logger.error(f"Error fetching data from Kraken: {e}")
         return pd.DataFrame()
+
 
 def analyze_market(df):
     """Determine market regime based on indicators."""
@@ -66,26 +71,28 @@ def analyze_market(df):
     # EMA_200, ADX_14
     # Note: ADX usually returns ADX_14, DMP_14, DMN_14. We need ADX_14.
 
-    close = latest['close']
-    ema200 = latest.get('EMA_200')
-    adx = latest.get('ADX_14')
+    close = latest["close"]
+    ema200 = latest.get("EMA_200")
+    adx = latest.get("ADX_14")
 
     if ema200 is None or adx is None:
         logger.warning("Not enough data to calculate indicators (NaN).")
         # Check previous row if current is NaN
         latest = df.iloc[-2]
-        close = latest['close']
-        ema200 = latest.get('EMA_200')
-        adx = latest.get('ADX_14')
+        close = latest["close"]
+        ema200 = latest.get("EMA_200")
+        adx = latest.get("ADX_14")
         if ema200 is None:
             logger.error("Indicators are still NaN.")
             return None
 
-    logger.info(f"Market Data: Price={close:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}")
+    logger.info(
+        f"Market Data: Price={close:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}"
+    )
 
     # Logic
     regime = "Uncertain"
-    strategy = "BollingerRSI" # Default to Sideways/Safe
+    strategy = "BollingerRSI"  # Default to Sideways/Safe
 
     # Bull Market
     if close > ema200 and adx > 25:
@@ -99,8 +106,8 @@ def analyze_market(df):
 
     # Volatile/Bear (Price < EMA200)
     elif close < ema200:
-         regime = "Bear/Volatile"
-         strategy = "VolatilityBreakout"
+        regime = "Bear/Volatile"
+        strategy = "VolatilityBreakout"
 
     # If ADX between 20 and 25 and Price > EMA200?
     # It's a weak bull or transition.
@@ -112,6 +119,7 @@ def analyze_market(df):
 
     return regime, strategy, latest
 
+
 def update_config(strategy_name):
     """Update strategy in config_production.json."""
     if not CONFIG_PATH.exists():
@@ -120,7 +128,7 @@ def update_config(strategy_name):
         return False
 
     try:
-        with open(CONFIG_PATH, 'r') as f:
+        with CONFIG_PATH.open() as f:
             config = json.load(f)
 
         current_strategy = config.get("strategy")
@@ -131,7 +139,7 @@ def update_config(strategy_name):
 
         config["strategy"] = strategy_name
 
-        with open(CONFIG_PATH, 'w') as f:
+        with CONFIG_PATH.open("w") as f:
             json.dump(config, f, indent=4)
 
         logger.info(f"Updated config with strategy: {strategy_name}")
@@ -140,13 +148,14 @@ def update_config(strategy_name):
         logger.error(f"Error updating config: {e}")
         return False
 
+
 def log_decision(regime, strategy, market_data):
     """Log decision to regime_log.md."""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    close = market_data['close']
-    ema200 = market_data.get('EMA_200', 0)
-    adx = market_data.get('ADX_14', 0)
+    close = market_data["close"]
+    ema200 = market_data.get("EMA_200", 0)
+    adx = market_data.get("ADX_14", 0)
 
     message = (
         f"## {timestamp}\n"
@@ -157,22 +166,15 @@ def log_decision(regime, strategy, market_data):
     )
 
     try:
-        with open(LOG_PATH, 'a') as f:
+        with LOG_PATH.open("a") as f:
             f.write(message)
         logger.info(f"Logged decision: {regime} -> {strategy}")
     except Exception as e:
         logger.error(f"Error writing to log: {e}")
 
+
 def main():
     logger.info("Starting Regime Switcher...")
-
-    # Ensure dependencies
-    try:
-        import ccxt
-        import pandas_ta
-    except ImportError as e:
-        logger.error(f"Missing dependency: {e}")
-        return
 
     df = fetch_data()
     if df.empty:
@@ -190,6 +192,7 @@ def main():
     log_decision(regime, strategy, market_data)
 
     logger.info("Regime Switcher completed.")
+
 
 if __name__ == "__main__":
     main()
