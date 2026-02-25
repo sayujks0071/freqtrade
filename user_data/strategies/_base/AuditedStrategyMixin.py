@@ -20,12 +20,7 @@ class AuditedStrategyMixin:
     config: dict[str, Any]
 
     def log_signal(
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime,
+        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
     ) -> None:
         """
         Log entry/exit signals to audit log.
@@ -48,9 +43,3 @@ class AuditedStrategyMixin:
                 logger.warning(f"AUDIT_WARNING | Pair {pair} not in whitelist but processing!")
                 return False
         return True
-
-    def normalize_pair(self, pair: str) -> str:
-        """
-        Normalize pair to uppercase.
-        """
-        return pair.upper()
