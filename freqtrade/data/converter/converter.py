@@ -41,9 +41,8 @@ def ohlcv_to_dataframe(
     # Floor date to seconds to account for exchange imprecisions
     if df["date"].dtype == "int64":
         # Optimized: integer division is much faster than datetime floor
-        df["date"] = (
-            to_datetime(df["date"] // 1000, unit="s", utc=True)
-            .astype("datetime64[ns, UTC]")
+        df["date"] = to_datetime(df["date"] // 1000, unit="s", utc=True).astype(
+            "datetime64[ns, UTC]"
         )
     else:
         # Fallback for existing datetime columns (e.g. in tests)
