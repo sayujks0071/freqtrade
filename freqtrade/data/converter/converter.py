@@ -39,7 +39,15 @@ def ohlcv_to_dataframe(
     df = DataFrame(ohlcv, columns=cols)
 
     # Floor date to seconds to account for exchange imprecisions
-    df["date"] = to_datetime(df["date"], unit="ms", utc=True).dt.floor("s")
+    if df["date"].dtype == "int64":
+        # Optimized: integer division is much faster than datetime floor
+        df["date"] = (
+            to_datetime(df["date"] // 1000, unit="s", utc=True)
+            .astype("datetime64[ns, UTC]")
+        )
+    else:
+        # Fallback for existing datetime columns (e.g. in tests)
+        df["date"] = to_datetime(df["date"], unit="ms", utc=True).dt.floor("s")
 
     # Some exchanges return int values for Volume and even for OHLC.
     # Convert them since TA-LIB indicators used in the strategy assume floats
