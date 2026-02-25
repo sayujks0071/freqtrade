@@ -2,9 +2,11 @@
 AuditedStrategyMixin
 Mixin class for strategies to enforce audit logging and safety checks.
 """
+
 import logging
 from datetime import UTC, datetime
 from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,16 +15,12 @@ class AuditedStrategyMixin:
     """
     Mixin for strategies to enforce audit logging and safety checks.
     """
+
     # Type hint for the config attribute expected from IStrategy
     config: dict[str, Any]
 
     def log_signal(
-        self,
-        pair: str,
-        timeframe: str,
-        direction: str,
-        reason: str,
-        candle_date: datetime
+        self, pair: str, timeframe: str, direction: str, reason: str, candle_date: datetime
     ) -> None:
         """
         Log entry/exit signals to audit log.

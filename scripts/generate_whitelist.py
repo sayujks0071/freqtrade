@@ -1,26 +1,34 @@
 import json
 import sys
+from pathlib import Path
 
 
-def generate_whitelist(markets_file, config_file):
-    print(f"Loading markets from {markets_file}...")
+def load_json_file(filepath):
     try:
-        with open(markets_file) as f:
-            markets_data = json.load(f)
+        with Path(filepath).open() as f:
+            return json.load(f)
     except Exception as e:
-        print(f"Error loading markets file: {e}")
+        print(f"Error loading file {filepath}: {e}")
         sys.exit(1)
 
+
+def save_json_file(filepath, data):
+    try:
+        with Path(filepath).open("w") as f:
+            json.dump(data, f, indent=4)
+        print("Config updated successfully.")
+    except Exception as e:
+        print(f"Error updating file {filepath}: {e}")
+        sys.exit(1)
+
+
+def extract_valid_pairs(markets_data):
     # Convert to list of dicts if needed
     markets = []
     if isinstance(markets_data, dict):
         markets = list(markets_data.values())
     elif isinstance(markets_data, list):
         markets = markets_data
-
-    # Filter for active futures
-    # Delta futures usually have 'linear' in type or info.
-    # Or just rely on what freqtrade list-markets returned (if it was called with --trading-mode futures, it should be futures)
 
     valid_pairs = []
     for m in markets:
@@ -29,21 +37,23 @@ def generate_whitelist(markets_file, config_file):
             continue
         if "symbol" in m:
             valid_pairs.append(m["symbol"])
+    return valid_pairs
 
-    print(f"Found {len(valid_pairs)} active pairs.")
 
+def select_pairs(valid_pairs):
     if not valid_pairs:
         print("No valid pairs found.")
         sys.exit(1)
 
-    # Strategy for selection:
-    # 1. Look for BTC and ETH first (standard base pairs)
-    # 2. Then others.
-
     selected_pairs = []
-
     # Priority list
-    priority = ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT", "XRP/USDT:USDT", "BNB/USDT:USDT"]
+    priority = [
+        "BTC/USDT:USDT",
+        "ETH/USDT:USDT",
+        "SOL/USDT:USDT",
+        "XRP/USDT:USDT",
+        "BNB/USDT:USDT",
+    ]
 
     for p in priority:
         if p in valid_pairs:
@@ -54,26 +64,27 @@ def generate_whitelist(markets_file, config_file):
         print("Priority pairs not found. Selecting top 5 available pairs.")
         selected_pairs = valid_pairs[:5]
 
+    return selected_pairs
+
+
+def generate_whitelist(markets_file, config_file):
+    print(f"Loading markets from {markets_file}...")
+    markets_data = load_json_file(markets_file)
+    valid_pairs = extract_valid_pairs(markets_data)
+    print(f"Found {len(valid_pairs)} active pairs.")
+
+    selected_pairs = select_pairs(valid_pairs)
     print(f"Selected whitelist: {selected_pairs}")
 
     print(f"Updating config {config_file}...")
-    try:
-        with open(config_file) as f:
-            config_data = json.load(f)
+    config_data = load_json_file(config_file)
 
-        # Ensure structure exists
-        if "exchange" not in config_data:
-            config_data["exchange"] = {}
+    # Ensure structure exists
+    if "exchange" not in config_data:
+        config_data["exchange"] = {}
 
-        config_data["exchange"]["pair_whitelist"] = selected_pairs
-
-        with open(config_file, "w") as f:
-            json.dump(config_data, f, indent=4)
-
-        print("Config updated successfully.")
-    except Exception as e:
-        print(f"Error updating config file: {e}")
-        sys.exit(1)
+    config_data["exchange"]["pair_whitelist"] = selected_pairs
+    save_json_file(config_file, config_data)
 
 
 if __name__ == "__main__":
