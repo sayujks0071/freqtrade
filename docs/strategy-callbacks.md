@@ -1137,7 +1137,8 @@ class AwesomeStrategy(IStrategy):
         :return float or None: New entry price value if provided
         """
 
-        # Limit entry orders to use and follow SMA200 as price target for the first 10 minutes since entry trigger for BTC/USDT pair.
+        # Limit entry orders to use and follow SMA200 as price target for the first 10 minutes
+        # since entry trigger for BTC/USDT pair.
         if (
             is_entry
             and pair == "BTC/USDT" 
@@ -1224,7 +1225,7 @@ Assuming that your strategy needs to store the high value of the candle at trade
 class AwesomeStrategy(IStrategy):
     def order_filled(self, pair: str, trade: Trade, order: Order, current_time: datetime, **kwargs) -> None:
         """
-        Called right after an order fills. 
+        Called right after an order fills.
         Will be called for all order types (entry, exit, stoploss, position adjustment).
         :param pair: Pair for trade
         :param trade: trade object.
@@ -1341,7 +1342,8 @@ class AwesomeStrategy(IStrategy):
                         "label": "Trade open and close hours",
                         "start": start_dt,
                         "end": start_dt + timedelta(hours=1),
-                        # Omitting y_start and y_end will result in a vertical area spanning the whole height of the main Chart
+                        # Omitting y_start and y_end will result in a vertical area spanning
+                        # the whole height of the main Chart
                         "color": "rgba(133, 133, 133, 0.4)",
                     }
                 )

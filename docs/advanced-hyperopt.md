@@ -13,7 +13,7 @@ A sample of this can be found below, which is identical to the Default Hyperopt 
 
 ``` python
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 from pandas import DataFrame
 
@@ -105,7 +105,7 @@ class MyAwesomeStrategy(IStrategy):
                 SKDecimal(0.01, 0.20, decimals=3, name='roi_p3'),
             ]
 
-        def generate_roi_table(params: Dict) -> dict[int, float]:
+        def generate_roi_table(params: dict) -> dict[int, float]:
 
             roi_table = {}
             roi_table[0] = params['roi_p1'] + params['roi_p2'] + params['roi_p3']

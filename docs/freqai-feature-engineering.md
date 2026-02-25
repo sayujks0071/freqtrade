@@ -248,7 +248,7 @@ class MyFreqaiModel(BaseRegressionModel):
     """
     Some cool custom model
     """
-    def fit(self, data_dictionary: Dict, dk: FreqaiDataKitchen, **kwargs) -> Any:
+    def fit(self, data_dictionary: dict, dk: FreqaiDataKitchen, **kwargs) -> Any:
         """
         My custom fit function
         """

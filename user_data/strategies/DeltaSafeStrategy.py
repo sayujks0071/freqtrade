@@ -64,11 +64,7 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
             return dataframe
 
         dataframe.loc[
-            (
-                (dataframe["rsi"] < 30)
-                & (dataframe["volume"] > 0)
-                & (dataframe["cci"] < -100)
-            ),
+            ((dataframe["rsi"] < 30) & (dataframe["volume"] > 0) & (dataframe["cci"] < -100)),
             "enter_long",
         ] = 1
 
