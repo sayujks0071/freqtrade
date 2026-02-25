@@ -1,14 +1,15 @@
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+
 
 # Add scripts directory to path to import the module
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
-import generate_weekly_report  # noqa: E402
+import generate_weekly_report
 
 
 @pytest.fixture
@@ -57,14 +58,16 @@ Selected Strategy: StrategyC
 Evaluation FAILED
 """
 
+
 def test_generate_report_end_to_end(tmp_path, mock_git_log, mock_optimization_log):
     # Setup temporary report file
     report_file = tmp_path / "WEEKLY_REPORT.md"
 
-    with patch("generate_weekly_report.REPORT_FILE", report_file), \
-         patch("generate_weekly_report.OPTIMIZATION_LOG") as mock_opt_log_path, \
-         patch("subprocess.run") as mock_run:
-
+    with (
+        patch("generate_weekly_report.REPORT_FILE", report_file),
+        patch("generate_weekly_report.OPTIMIZATION_LOG") as mock_opt_log_path,
+        patch("subprocess.run") as mock_run,
+    ):
         # Mock git log output
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = mock_git_log

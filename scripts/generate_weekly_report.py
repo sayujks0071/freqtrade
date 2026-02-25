@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
 # Configuration
 USER_DATA_DIR = Path("user_data")
 OPTIMIZATION_LOG = USER_DATA_DIR / "optimization_log.txt"
@@ -29,7 +30,7 @@ def parse_git_log(days=7):
     Parses git log for the last `days` days.
     Returns a list of commit messages.
     """
-    since_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+    since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     cmd = ["git", "log", f"--since={since_date}", "--pretty=format:%s"]
     result = run_command(cmd)
     if result.returncode == 0:
@@ -49,7 +50,9 @@ def parse_optimization_log(days=7):
 
     # Pattern to match the start of a log entry
     # Group 1: Timestamp
-    entry_pattern = re.compile(r"^--- Optimization Run Started: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ---", re.MULTILINE)
+    entry_pattern = re.compile(
+        r"^--- Optimization Run Started: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ---", re.MULTILINE
+    )
 
     matches = list(entry_pattern.finditer(content))
     cutoff_date = datetime.now() - timedelta(days=days)
@@ -70,7 +73,7 @@ def parse_optimization_log(days=7):
         start_idx = match.end()  # Start after the matched header
 
         if i + 1 < len(matches):
-            end_idx = matches[i+1].start()
+            end_idx = matches[i + 1].start()
         else:
             end_idx = len(content)
 
@@ -141,7 +144,10 @@ def generate_report():
 
         f.write("## 3. Stuck Strategies\n")
         if stuck_strategies:
-            f.write("The following strategies have failed optimization repeatedly (>3 times) without success and are candidates for deletion:\n\n")
+            f.write(
+                "The following strategies have failed optimization repeatedly (>3 times) "
+                "without success and are candidates for deletion:\n\n"
+            )
             for strategy in stuck_strategies:
                 f.write(f"- {strategy}\n")
         else:

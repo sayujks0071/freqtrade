@@ -28,7 +28,7 @@ HYPEROPT_LOSS = "SharpeHyperOptLoss"
 class Logger:
     def __init__(self, filename):
         self.terminal = sys.stdout
-        self.log = open(filename, "a", encoding="utf-8")
+        self.log = Path(filename).open("a", encoding="utf-8")
 
     def write(self, message):
         self.terminal.write(message)
