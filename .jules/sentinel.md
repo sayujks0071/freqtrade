@@ -1,0 +1,4 @@
+## 2026-02-17 - Hardcoded JWT Secret Default
+**Vulnerability:** The application used a hardcoded default value ("super-secret") for `jwt_secret_key` if the user did not provide one. This would allow an attacker to forge session tokens if they knew the username (often default).
+**Learning:** Default configuration values for secrets in open source projects can be dangerous if the application silently accepts them without enforcing a change or generating a secure alternative. Relying on users to read warnings is insufficient for critical security.
+**Prevention:** Implement "secure by default" logic. If a critical secret is missing or default, auto-generate a secure random value at runtime, even if it means sacrificing persistence (which is a safe failure mode). Warn the user explicitly about this behavior.

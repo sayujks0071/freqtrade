@@ -474,7 +474,6 @@ def test_api_run(default_conf, mocker, caplog):
         "Please make sure that this is intentional!",
         caplog,
     )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
 
     server_mock.reset_mock()
     apiserver._standalone = True
@@ -3435,3 +3434,31 @@ def test_api_markets_webserver(botclient):
 
     assert "hyperliquid_spot" in ApiBG.exchanges
     assert "binance_spot" in ApiBG.exchanges
+
+
+def test_api_jwt_secret_randomization(default_conf, mocker, caplog):
+    default_conf.update(
+        {
+            "api_server": {
+                "enabled": True,
+                "listen_ip_address": "127.0.0.1",
+                "listen_port": 8080,
+                "username": "TestUser",
+                "password": "testPass",
+                "jwt_secret_key": "super-secret",
+            }
+        }
+    )
+    mocker.patch("freqtrade.rpc.api_server.webserver.ApiServer.start_api", MagicMock())
+
+    # Force re-initialization
+    ApiServer.shutdown()
+
+    apiserver = ApiServer(default_conf)
+
+    assert apiserver._config["api_server"]["jwt_secret_key"] != "super-secret"
+    assert len(apiserver._config["api_server"]["jwt_secret_key"]) == 64  # 32 bytes hex
+
+    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
+
+    ApiServer.shutdown()
