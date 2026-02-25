@@ -39,9 +39,7 @@ def fetch_data(symbol="BTC/USDT", timeframe="1d", limit=365):
         except Exception:
             ohlcv = exchange.fetch_ohlcv("BTC/USD", timeframe, limit=limit)
 
-        df = pd.DataFrame(
-            ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
-        )
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
     except Exception as e:
@@ -86,9 +84,7 @@ def analyze_market(df):
             logger.error("Indicators are still NaN.")
             return None
 
-    logger.info(
-        f"Market Data: Price={close:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}"
-    )
+    logger.info(f"Market Data: Price={close:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}")
 
     # Logic
     regime = "Uncertain"
