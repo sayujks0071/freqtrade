@@ -118,6 +118,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        "python3",
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -210,6 +212,28 @@ def extract_hyperopt_params(output: str) -> dict:
     return {}
 
 
+def get_strategy_from_baseline():
+    """
+    Reads baseline_metrics.json to find the worst performing strategy.
+    Expects a list of objects.
+    """
+    baseline_file = Path("baseline_metrics.json")
+    if baseline_file.exists():
+        try:
+            with baseline_file.open() as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    # Assuming we want the first one or the one with worst ROI
+                    # If multiple, sort by ROI
+                    worst = min(data, key=lambda x: x.get("roi", 0))
+                    strategy_name = worst.get("strategy")
+                    if strategy_name:
+                        return strategy_name
+        except (json.JSONDecodeError, ValueError):
+            print("Warning: Could not parse baseline_metrics.json")
+    return None
+
+
 def main():  # noqa: C901
     parser = argparse.ArgumentParser(
         description="Daily Optimization Routine for Freqtrade strategies",
@@ -251,20 +275,29 @@ Examples:
             sys.exit(1)
 
     # 1. Establish Baseline
-    latest_file = get_latest_backtest_file()
-
+    worst_strategy = None
     backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
 
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
-        strategies = find_available_strategies()
-        if not strategies:
-            print("No strategy file found.")
-            sys.exit(1)
-        backtest_data = run_backtest_job(strategies)
+    # First, try to get strategy from baseline_metrics.json
+    baseline_strategy = get_strategy_from_baseline()
+    if baseline_strategy:
+        print(f"Found strategy in baseline_metrics.json: {baseline_strategy}")
+        print("Running initial backtest to establish baseline metrics...")
+        backtest_data = run_backtest_job(baseline_strategy)
+    else:
+        # Fallback to finding latest backtest file or running full backtest
+        latest_file = get_latest_backtest_file()
+        if latest_file:
+            print(f"Using latest backtest file: {latest_file}")
+            backtest_data = read_backtest_result(latest_file)
+
+        if not backtest_data:
+            print("No valid baseline found. Running initial backtest on all strategies...")
+            strategies = find_available_strategies()
+            if not strategies:
+                print("No strategy file found.")
+                sys.exit(1)
+            backtest_data = run_backtest_job(strategies)
 
     if not backtest_data:
         print("Failed to produce backtest baseline.")
@@ -294,6 +327,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        "python3",
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -335,10 +370,6 @@ Examples:
             json.dump(new_params, f, indent=4)
     else:
         print("Could not extract new parameters from hyperopt output.")
-        # We might want to fail here, or just continue and let the verification fail
-        # if no file was written
-        # But if no file written, verification will use default/old params.
-
         # If capture failed to get json, we should probably revert and exit
         if strategy_json.exists() and not created_new:
             shutil.move(backup_json, strategy_json)
