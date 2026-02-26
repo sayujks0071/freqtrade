@@ -4,7 +4,6 @@ Regime Switcher Script
 """
 import argparse
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,12 +26,12 @@ def get_market_data():
 
         # Load markets to check available symbols
         exchange.load_markets()
-        symbol = 'BTC/USDT'
+        symbol = "BTC/USDT"
         if symbol not in exchange.markets:
-            if 'XBT/USDT' in exchange.markets:
-                symbol = 'XBT/USDT'
-            elif 'BTC/USD' in exchange.markets:
-                symbol = 'BTC/USD'
+            if "XBT/USDT" in exchange.markets:
+                symbol = "XBT/USDT"
+            elif "BTC/USD" in exchange.markets:
+                symbol = "BTC/USD"
 
         print(f"Fetching {TIMEFRAME} data for {symbol} from Kraken...")
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe=TIMEFRAME, limit=LIMIT)
@@ -41,8 +40,8 @@ def get_market_data():
             print("Error: No data returned.")
             return None
 
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
     except Exception as e:
         print(f"Error fetching data: {e}")
@@ -52,16 +51,16 @@ def get_market_data():
 def calculate_metrics(df):
     """Calculate EMA200, ADX(14), ATR(14)."""
     # EMA 200
-    df['ema200'] = ta.ema(df['close'], length=200)
+    df["ema200"] = ta.ema(df["close"], length=200)
 
     # ADX 14
     # pandas-ta returns a DataFrame with ADX_14, DMP_14, DMN_14
-    adx_df = ta.adx(df['high'], df['low'], df['close'], length=14)
+    adx_df = ta.adx(df["high"], df["low"], df["close"], length=14)
     if adx_df is not None:
         df = pd.concat([df, adx_df], axis=1)
 
     # ATR 14
-    df['atr'] = ta.atr(df['high'], df['low'], df['close'], length=14)
+    df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
 
     return df
 
@@ -71,10 +70,10 @@ def detect_regime(row):
     Determine market regime based on indicators.
     Returns: (regime_name, strategy_name)
     """
-    price = row['close']
-    ema200 = row['ema200']
+    price = row["close"]
+    ema200 = row["ema200"]
     # Use standard ADX column name from pandas-ta default
-    adx = row.get('ADX_14', 0)
+    adx = row.get("ADX_14", 0)
 
     if pd.isna(ema200):
         return "Insufficient Data", "DeltaSafeStrategy"
@@ -103,14 +102,14 @@ def update_config(strategy_name):
         return False
 
     try:
-        with open(CONFIG_FILE, 'r') as f:
+        with CONFIG_FILE.open() as f:
             config = json.load(f)
 
         current_strategy = config.get("strategy")
         if current_strategy != strategy_name:
             print(f"Switching Strategy: {current_strategy} -> {strategy_name}")
             config["strategy"] = strategy_name
-            with open(CONFIG_FILE, 'w') as f:
+            with CONFIG_FILE.open("w") as f:
                 json.dump(config, f, indent=4)
             return True
         else:
@@ -124,10 +123,18 @@ def update_config(strategy_name):
 
 def log_regime(regime, strategy, row):
     """Log decision to regime_log.md."""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    price = row['close']
-    ema200 = row['ema200']
-    adx = row.get('ADX_14', 0)
+    # Use timezone.utc as compatible fallback if datetime.UTC is not available in environment
+    # but CI log says UP017 which implies it wants datetime.UTC.
+    # However, Python < 3.11 doesn't have datetime.UTC.
+    # The project requires python >= 3.11, so we should use datetime.UTC.
+    try:
+        timestamp = datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    except AttributeError:
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    price = row["close"]
+    ema200 = row["ema200"]
+    adx = row.get("ADX_14", 0)
 
     log_entry = f"""
 ## {timestamp}
@@ -139,7 +146,7 @@ def log_regime(regime, strategy, row):
   - ADX: {adx:.2f}
 """
     try:
-        with open(REGIME_LOG, 'a') as f:
+        with REGIME_LOG.open("a") as f:
             f.write(log_entry)
         print(f"Logged to {REGIME_LOG}")
     except Exception as e:
