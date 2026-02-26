@@ -1,22 +1,25 @@
 import sys
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import os
-from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 # Add scripts directory to path
-sys.path.append(os.path.abspath("scripts"))
-from generate_weekly_report import parse_git_commits, parse_optimization_log, generate_report_content, OPTIMIZATION_LOG_FILE
+sys.path.append(str(Path("scripts").resolve()))
+from generate_weekly_report import (
+    generate_report_content,
+    parse_git_commits,
+    parse_optimization_log,
+)
+
 
 class TestWeeklyReport(unittest.TestCase):
-
     def test_parse_git_commits(self):
         commits = [
             "perf: optimized StrategyA (+1.50% ROI)",
             "chore: update log",
             "perf: optimized StrategyB (+0.50% ROI)",
-            "perf: optimized StrategyA (+2.00% ROI)"
+            "perf: optimized StrategyA (+2.00% ROI)",
         ]
 
         strategies, roi = parse_git_commits(commits)
@@ -24,14 +27,14 @@ class TestWeeklyReport(unittest.TestCase):
         self.assertEqual(strategies, ["StrategyA", "StrategyB", "StrategyA"])
         self.assertAlmostEqual(roi, 4.0)
 
-    @patch("builtins.open")
+    @patch("pathlib.Path.open")
     @patch("pathlib.Path.exists")
     def test_parse_optimization_log(self, mock_exists, mock_open):
         mock_exists.return_value = True
 
         # Mock file content
-        now = datetime.now(timezone.utc)
-        ts_str = now.strftime('%Y-%m-%d %H:%M:%S')
+        now = datetime.now(UTC)
+        ts_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
         log_content = f"""
 [{ts_str}] Selected Strategy: StrategyStuck
@@ -70,6 +73,7 @@ class TestWeeklyReport(unittest.TestCase):
         self.assertIn("**Total Estimated Improvement:** +2.50%", content)
         self.assertIn("## 3. Stuck Strategies", content)
         self.assertIn("- StrategyC", content)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 
 
@@ -29,13 +29,13 @@ HYPEROPT_LOSS = "SharpeHyperOptLoss"
 class Logger:
     def __init__(self, filepath):
         self.terminal = sys.stdout
-        self.log = open(filepath, "a")
+        self.log = Path(filepath).open("a")
 
     def write(self, message):
         self.terminal.write(message)
         # Add timestamp if it's a new line or start of message
         if message.strip():
-            timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')
             self.log.write(f"[{timestamp}] {message}")
         else:
             self.log.write(message)

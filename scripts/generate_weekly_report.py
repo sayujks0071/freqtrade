@@ -6,8 +6,7 @@ Aggregates optimization logs and git commits to generate a weekly report.
 
 import re
 import subprocess
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 USER_DATA_DIR = Path("user_data")
@@ -27,13 +26,13 @@ def get_git_log(days=7):
     Returns a list of commit messages.
     """
     # Calculate date
-    since_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
+    since_date = (datetime.now(UTC) - timedelta(days=days)).strftime('%Y-%m-%d')
 
     cmd = [
         "git",
         "log",
         f"--since={since_date}",
-        "--pretty=format:%s" # Subject only
+        "--pretty=format:%s",  # Subject only
     ]
 
     result = run_command(cmd)
@@ -78,7 +77,7 @@ def parse_optimization_log(days=7):
         return []
 
     stuck_strategies = set()
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
     # Format in log: [YYYY-MM-DD HH:MM:SS] Selected Strategy: {strategy}
     # Followed eventually by: [YYYY-MM-DD HH:MM:SS] Evaluation FAILED.
@@ -86,7 +85,7 @@ def parse_optimization_log(days=7):
     # We need to track the current strategy being processed in the log
     current_strategy = None
 
-    with open(OPTIMIZATION_LOG_FILE, 'r') as f:
+    with OPTIMIZATION_LOG_FILE.open() as f:
         for line in f:
             # Parse timestamp
             # [2024-05-20 12:00:00] ...
@@ -94,7 +93,7 @@ def parse_optimization_log(days=7):
             if match_ts:
                 ts_str = match_ts.group(1)
                 try:
-                    ts = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                    ts = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').replace(tzinfo=UTC)
                 except ValueError:
                     continue
 
@@ -123,14 +122,14 @@ def parse_optimization_log(days=7):
                 if "Evaluation PASSED" in line and current_strategy:
                     if current_strategy in stuck_strategies:
                         stuck_strategies.remove(current_strategy)
-                    current_strategy = None # Reset after success
+                    current_strategy = None  # Reset after success
 
     return list(stuck_strategies)
 
 
 def generate_report_content(updated_strategies, total_roi, stuck_strategies):
     lines = []
-    lines.append(f"# Weekly Strategy Report - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
+    lines.append(f"# Weekly Strategy Report - {datetime.now(UTC).strftime('%Y-%m-%d')}")
     lines.append("")
 
     lines.append("## 1. Updated Strategies")
@@ -182,7 +181,7 @@ def main():
     content = generate_report_content(updated_strategies, total_roi, stuck_strategies)
 
     # 4. Write File
-    with open(REPORT_FILE, 'w') as f:
+    with REPORT_FILE.open('w') as f:
         f.write(content)
 
     print(f"Report generated at {REPORT_FILE}")
