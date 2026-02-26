@@ -424,78 +424,87 @@ def test_api_run(default_conf, mocker, caplog):
     server_mock = MagicMock(return_value=server_inst_mock)
     mocker.patch("freqtrade.rpc.api_server.webserver.UvicornServer", server_mock)
 
-    apiserver = ApiServer(default_conf)
-    apiserver.add_rpc_handler(RPC(get_patched_freqtradebot(mocker, default_conf)))
+    apiserver = None
+    try:
+        apiserver = ApiServer(default_conf)
+        apiserver.add_rpc_handler(RPC(get_patched_freqtradebot(mocker, default_conf)))
 
-    assert server_mock.call_count == 1
-    assert apiserver._config == default_conf
-    apiserver.start_api()
-    assert server_mock.call_count == 2
-    assert server_inst_mock.run_in_thread.call_count == 2
-    assert server_inst_mock.run.call_count == 0
-    assert server_mock.call_args_list[0][0][0].host == "127.0.0.1"
-    assert server_mock.call_args_list[0][0][0].port == 8080
-    assert isinstance(server_mock.call_args_list[0][0][0].app, FastAPI)
+        assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
 
-    assert log_has("Starting HTTP Server at 127.0.0.1:8080", caplog)
-    assert log_has("Starting Local Rest Server.", caplog)
+        assert server_mock.call_count == 1
+        assert apiserver._config == default_conf
+        apiserver.start_api()
+        assert server_mock.call_count == 2
+        assert server_inst_mock.run_in_thread.call_count == 2
+        assert server_inst_mock.run.call_count == 0
+        assert server_mock.call_args_list[0][0][0].host == "127.0.0.1"
+        assert server_mock.call_args_list[0][0][0].port == 8080
+        assert isinstance(server_mock.call_args_list[0][0][0].app, FastAPI)
 
-    # Test binding to public
-    caplog.clear()
-    server_mock.reset_mock()
-    apiserver._config.update(
-        {
-            "api_server": {
-                "enabled": True,
-                "listen_ip_address": "0.0.0.0",
-                "listen_port": 8089,
-                "password": "",
+        assert log_has("Starting HTTP Server at 127.0.0.1:8080", caplog)
+        assert log_has("Starting Local Rest Server.", caplog)
+
+        # Test binding to public
+        caplog.clear()
+        server_mock.reset_mock()
+        apiserver._config.update(
+            {
+                "api_server": {
+                    "enabled": True,
+                    "listen_ip_address": "0.0.0.0",
+                    "listen_port": 8089,
+                    "password": "",
+                }
             }
-        }
-    )
-    apiserver.start_api()
+        )
+        apiserver.start_api()
 
-    assert server_mock.call_count == 1
-    assert server_inst_mock.run_in_thread.call_count == 1
-    assert server_inst_mock.run.call_count == 0
-    assert server_mock.call_args_list[0][0][0].host == "0.0.0.0"
-    assert server_mock.call_args_list[0][0][0].port == 8089
-    assert isinstance(server_mock.call_args_list[0][0][0].app, FastAPI)
-    assert log_has("Starting HTTP Server at 0.0.0.0:8089", caplog)
-    assert log_has("Starting Local Rest Server.", caplog)
-    assert log_has("SECURITY WARNING - Local Rest Server listening to external connections", caplog)
-    assert log_has(
-        "SECURITY WARNING - This is insecure please set to your loopback,"
-        "e.g 127.0.0.1 in config.json",
-        caplog,
-    )
-    assert log_has(
-        "SECURITY WARNING - No password for local REST Server defined. "
-        "Please make sure that this is intentional!",
-        caplog,
-    )
-    assert log_has_re("SECURITY WARNING - `jwt_secret_key` seems to be default.*", caplog)
+        assert server_mock.call_count == 1
+        assert server_inst_mock.run_in_thread.call_count == 1
+        assert server_inst_mock.run.call_count == 0
+        assert server_mock.call_args_list[0][0][0].host == "0.0.0.0"
+        assert server_mock.call_args_list[0][0][0].port == 8089
+        assert isinstance(server_mock.call_args_list[0][0][0].app, FastAPI)
+        assert log_has("Starting HTTP Server at 0.0.0.0:8089", caplog)
+        assert log_has("Starting Local Rest Server.", caplog)
+        assert log_has(
+            "SECURITY WARNING - Local Rest Server listening to external connections",
+            caplog,
+        )
+        assert log_has(
+            "SECURITY WARNING - This is insecure please set to your loopback,"
+            "e.g 127.0.0.1 in config.json",
+            caplog,
+        )
+        assert log_has(
+            "SECURITY WARNING - No password for local REST Server defined. "
+            "Please make sure that this is intentional!",
+            caplog,
+        )
 
-    server_mock.reset_mock()
-    apiserver._standalone = True
-    apiserver.start_api()
-    assert server_inst_mock.run_in_thread.call_count == 0
-    assert server_inst_mock.run.call_count == 1
+        server_mock.reset_mock()
+        apiserver._standalone = True
+        apiserver.start_api()
+        assert server_inst_mock.run_in_thread.call_count == 0
+        assert server_inst_mock.run.call_count == 1
 
-    apiserver1 = ApiServer(default_conf)
-    assert id(apiserver1) == id(apiserver)
+        apiserver1 = ApiServer(default_conf)
+        assert id(apiserver1) == id(apiserver)
 
-    apiserver._standalone = False
+        apiserver._standalone = False
 
-    # Test crashing API server
-    caplog.clear()
-    mocker.patch(
-        "freqtrade.rpc.api_server.webserver.UvicornServer", MagicMock(side_effect=Exception)
-    )
-    apiserver.start_api()
-    assert log_has("Api server failed to start.", caplog)
-    apiserver.cleanup()
-    ApiServer.shutdown()
+        # Test crashing API server
+        caplog.clear()
+        mocker.patch(
+            "freqtrade.rpc.api_server.webserver.UvicornServer", MagicMock(side_effect=Exception)
+        )
+        apiserver.start_api()
+        assert log_has("Api server failed to start.", caplog)
+
+    finally:
+        if apiserver:
+            apiserver.cleanup()
+        ApiServer.shutdown()
 
 
 def test_api_cleanup(default_conf, mocker, caplog):
