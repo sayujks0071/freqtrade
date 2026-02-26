@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -18,11 +18,32 @@ USER_DATA_DIR = Path("user_data")
 BACKTEST_RESULTS_DIR = USER_DATA_DIR / "backtest_results"
 STRATEGIES_DIR = USER_DATA_DIR / "strategies"
 CONFIG_FILE = USER_DATA_DIR / "configs/config_daily_opt.json"
+OPTIMIZATION_LOG_FILE = USER_DATA_DIR / "optimization_log.txt"
 
 # Optimization Parameters
 EPOCHS = 200
 SPACES = ["buy", "roi", "stoploss", "trailing"]
 HYPEROPT_LOSS = "SharpeHyperOptLoss"
+
+
+class Logger:
+    def __init__(self, filepath):
+        self.terminal = sys.stdout
+        self.log = open(filepath, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        # Add timestamp if it's a new line or start of message
+        if message.strip():
+            timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+            self.log.write(f"[{timestamp}] {message}")
+        else:
+            self.log.write(message)
+        self.log.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
 
 
 def run_command(cmd, capture=True):
@@ -243,6 +264,13 @@ Examples:
 
     args = parser.parse_args()
 
+    # Setup Logger
+    if not args.dry_run:
+        # Create user_data directory if it doesn't exist
+        USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        sys.stdout = Logger(OPTIMIZATION_LOG_FILE)
+        # sys.stderr = Logger(OPTIMIZATION_LOG_FILE)
+
     # Check git status before starting (unless in dry-run mode)
     if not args.dry_run:
         if not check_git_status():
@@ -395,6 +423,8 @@ Examples:
 
             # Use -f to force add in case user_data is gitignored
             run_command(["git", "add", "-f", str(strategy_json)])
+            # Also add the log file
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
             run_command(["git", "commit", "-m", msg])
 
             # Confirm before pushing
@@ -438,6 +468,25 @@ Examples:
         else:
             if strategy_json.exists():
                 strategy_json.unlink()
+
+        # If not dry-run, commit the log file even if optimization failed
+        if not args.dry_run:
+            print("Committing optimization log...")
+            run_command(["git", "add", "-f", str(OPTIMIZATION_LOG_FILE)])
+            run_command(["git", "commit", "-m", "chore: update optimization log"])
+
+            # Push logic for failed runs
+            target_branch = args.branch if args.branch else "main"
+            push_cmd = ["git", "push", "origin"]
+            if target_branch == "main":
+                push_cmd.append("HEAD:main")
+            else:
+                push_cmd.append(target_branch)
+
+            if args.yes:
+                run_command(push_cmd, capture=True)
+            else:
+                print("Changes to log file committed locally. Push manually or use --yes.")
 
 
 if __name__ == "__main__":
