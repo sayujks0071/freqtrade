@@ -11,6 +11,12 @@ import ccxt
 import pandas as pd
 import pandas_ta as ta
 
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc  # noqa: UP017
+
 # Configuration
 CONFIG_FILE = Path("user_data/configs/config_production.json")
 REGIME_LOG = Path("regime_log.md")
@@ -127,10 +133,7 @@ def log_regime(regime, strategy, row):
     # but CI log says UP017 which implies it wants datetime.UTC.
     # However, Python < 3.11 doesn't have datetime.UTC.
     # The project requires python >= 3.11, so we should use datetime.UTC.
-    try:
-        timestamp = datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-    except AttributeError:
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     price = row["close"]
     ema200 = row["ema200"]

@@ -4,11 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+
 # Add scripts directory to path to import regime_switcher
 sys.path.append(str(Path(__file__).parent.parent / "scripts"))
 
 # Import regime_switcher module
-import regime_switcher  # noqa: E402
+import regime_switcher
 
 
 def test_detect_regime_bull():
