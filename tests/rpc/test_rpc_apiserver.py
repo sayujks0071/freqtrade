@@ -467,7 +467,9 @@ def test_api_run(default_conf, mocker, caplog):
         assert isinstance(server_mock.call_args_list[0][0][0].app, FastAPI)
         assert log_has("Starting HTTP Server at 0.0.0.0:8089", caplog)
         assert log_has("Starting Local Rest Server.", caplog)
-        assert log_has("SECURITY WARNING - Local Rest Server listening to external connections", caplog)
+        assert log_has(
+            "SECURITY WARNING - Local Rest Server listening to external connections", caplog
+        )
         assert log_has(
             "SECURITY WARNING - This is insecure please set to your loopback,"
             "e.g 127.0.0.1 in config.json",
