@@ -1,16 +1,32 @@
+import importlib.util
 import sys
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-# Add scripts directory to path
-sys.path.append(str(Path("scripts").resolve()))
-from generate_weekly_report import (
-    generate_report_content,
-    parse_git_commits,
-    parse_optimization_log,
-)
+
+def load_module_from_path(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys_modules_backup = {**sys.modules}
+    try:
+        spec.loader.exec_module(module)
+    except Exception as e:
+        print(f"Failed to load module {module_name}: {e}")
+        # Restore sys.modules to avoid pollution
+        sys.modules.clear()
+        sys.modules.update(sys_modules_backup)
+        raise
+    return module
+
+
+# Load functions dynamically to avoid import issues
+script_path = Path("scripts/generate_weekly_report.py").resolve()
+report_module = load_module_from_path("generate_weekly_report", script_path)
+parse_git_commits = report_module.parse_git_commits
+parse_optimization_log = report_module.parse_optimization_log
+generate_report_content = report_module.generate_report_content
 
 
 class TestWeeklyReport(unittest.TestCase):

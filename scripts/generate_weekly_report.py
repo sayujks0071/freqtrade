@@ -6,6 +6,7 @@ Aggregates optimization logs and git commits to generate a weekly report.
 
 import re
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 

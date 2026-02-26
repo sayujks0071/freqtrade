@@ -1,14 +1,31 @@
+import importlib.util
 import re
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-# Add scripts directory to path
-sys.path.append(str(Path("scripts").resolve()))
-from daily_optimize import Logger
+
+def load_module_from_path(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys_modules_backup = {**importlib.sys.modules}
+    try:
+        spec.loader.exec_module(module)
+    except Exception as e:
+        print(f"Failed to load module {module_name}: {e}")
+        # Restore sys.modules to avoid pollution
+        importlib.sys.modules.clear()
+        importlib.sys.modules.update(sys_modules_backup)
+        raise
+    return module
+
+
+# Load Logger class dynamically to avoid import issues
+script_path = Path("scripts/daily_optimize.py").resolve()
+daily_optimize = load_module_from_path("daily_optimize", script_path)
+Logger = daily_optimize.Logger
 
 
 class TestLogger(unittest.TestCase):
