@@ -468,7 +468,8 @@ def test_api_run(default_conf, mocker, caplog):
         assert log_has("Starting HTTP Server at 0.0.0.0:8089", caplog)
         assert log_has("Starting Local Rest Server.", caplog)
         assert log_has(
-            "SECURITY WARNING - Local Rest Server listening to external connections", caplog
+            "SECURITY WARNING - Local Rest Server listening to external connections",
+            caplog,
         )
         assert log_has(
             "SECURITY WARNING - This is insecure please set to your loopback,"
