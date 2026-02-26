@@ -1,15 +1,24 @@
+import importlib.util
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 
-# Add scripts directory to path to import regime_switcher
-sys.path.append(str(Path(__file__).parent.parent / "scripts"))
+# Load the script dynamically to avoid sys.path hacks and E402
+# Memory guideline: Tests for standalone scripts must use importlib
+def load_regime_switcher():
+    script_path = Path(__file__).parent.parent / "scripts" / "regime_switcher.py"
+    spec = importlib.util.spec_from_file_location("regime_switcher", script_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["regime_switcher"] = module
+    spec.loader.exec_module(module)
+    return module
 
-# Import regime_switcher module
-import regime_switcher
+
+regime_switcher = load_regime_switcher()
 
 
 def test_detect_regime_bull():

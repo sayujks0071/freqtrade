@@ -148,12 +148,17 @@ def log_regime(regime, strategy, row):
   - EMA200: {ema200:.2f}
   - ADX: {adx:.2f}
 """
-    try:
-        with REGIME_LOG.open("a") as f:
-            f.write(log_entry)
-        print(f"Logged to {REGIME_LOG}")
-    except Exception as e:
-        print(f"Failed to write log: {e}")
+    # Always print to stdout
+    print(f"Regime Log Entry: {timestamp} | {regime} | {strategy} | Price:{price:.2f} | EMA:{ema200:.2f} | ADX:{adx:.2f}")
+
+    # Only append to file if it already exists to avoid CI tracking issues
+    if REGIME_LOG.exists():
+        try:
+            with REGIME_LOG.open("a") as f:
+                f.write(log_entry)
+            print(f"Logged to {REGIME_LOG}")
+        except Exception as e:
+            print(f"Failed to write log: {e}")
 
 
 def main():
