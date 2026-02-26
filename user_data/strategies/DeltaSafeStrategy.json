@@ -1,0 +1,31 @@
+{
+  "strategy_name": "DeltaSafeStrategy",
+  "params": {
+    "max_open_trades": {
+      "max_open_trades": 3
+    },
+    "sell": {
+      "sell_rsi": 70
+    },
+    "buy": {
+      "buy_rsi": 12
+    },
+    "roi": {
+      "0": 0.31,
+      "120": 0.151,
+      "247": 0.064,
+      "531": 0
+    },
+    "stoploss": {
+      "stoploss": -0.198
+    },
+    "trailing": {
+      "trailing_stop": true,
+      "trailing_stop_positive": 0.271,
+      "trailing_stop_positive_offset": 0.316,
+      "trailing_only_offset_is_reached": false
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-02-26 12:08:54.443642+00:00"
+}

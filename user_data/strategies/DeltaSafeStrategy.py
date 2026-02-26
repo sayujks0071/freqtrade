@@ -9,7 +9,7 @@ from pathlib import Path
 import talib.abstract as ta
 from pandas import DataFrame
 
-from freqtrade.strategy import IStrategy
+from freqtrade.strategy import IntParameter, IStrategy
 
 
 # Add _base to path to allow import
@@ -41,6 +41,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Number of candles the strategy requires before producing valid signals
     startup_candle_count: int = 30
 
+    # Hyperopt parameters
+    buy_rsi = IntParameter(10, 40, default=30, space="buy")
+    sell_rsi = IntParameter(60, 90, default=70, space="sell")
+
     # Optional order type mapping.
     order_types = {
         "entry": "limit",
@@ -61,7 +65,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         if not self.check_whitelist(metadata["pair"]):
             return dataframe
 
-        dataframe.loc[((dataframe["rsi"] < 30) & (dataframe["volume"] > 0)), "enter_long"] = 1
+        dataframe.loc[
+            ((dataframe["rsi"] < self.buy_rsi.value) & (dataframe["volume"] > 0)), "enter_long"
+        ] = 1
 
         # Log signal check (manual for now as vectorization is fast)
         # In live mode, we might want to log if a signal is generated for the current candle.
@@ -69,7 +75,9 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[((dataframe["rsi"] > 70) & (dataframe["volume"] > 0)), "exit_long"] = 1
+        dataframe.loc[
+            ((dataframe["rsi"] > self.sell_rsi.value) & (dataframe["volume"] > 0)), "exit_long"
+        ] = 1
         return dataframe
 
     def confirm_trade_entry(
