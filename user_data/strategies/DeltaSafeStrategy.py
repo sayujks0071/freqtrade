@@ -52,6 +52,10 @@ class DeltaSafeStrategy(IStrategy, AuditedStrategyMixin):
     # Order time in force.
     order_time_in_force = {"entry": "GTC", "exit": "GTC"}
 
+    def bot_start(self, **kwargs) -> None:
+        self.validate_risk_limits()
+        super().bot_start(**kwargs)
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # RSI
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
