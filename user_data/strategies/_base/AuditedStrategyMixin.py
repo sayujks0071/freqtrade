@@ -54,3 +54,23 @@ class AuditedStrategyMixin:
         Normalize pair to uppercase.
         """
         return pair.upper()
+
+    def validate_risk_limits(self) -> None:
+        """
+        Enforce strict risk limits at runtime.
+        """
+        # Check max_open_trades from config
+        max_open_trades = self.config.get("max_open_trades", float("inf"))
+        if max_open_trades > 5:
+            msg = f"RISK_VIOLATION: max_open_trades ({max_open_trades}) exceeds limit (5)!"
+            logger.error(msg)
+            raise RuntimeError(msg)
+
+        # Check stoploss from strategy instance
+        # stoploss is negative (e.g. -0.10). Looser means < -0.10 (e.g. -0.15).
+        stoploss = getattr(self, "stoploss", None)
+        if stoploss is not None:
+            if stoploss < -0.10:
+                msg = f"RISK_VIOLATION: stoploss ({stoploss}) is strictly looser than -0.10!"
+                logger.error(msg)
+                raise RuntimeError(msg)
