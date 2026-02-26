@@ -45,7 +45,7 @@ class Sentinel:
         self.state_file = Path("user_data/sentinel_state.json")
         self.rpc_url = None
         self.rpc_token = None
-        self.headers = {}
+        self.headers: dict[str, str] = {}
 
         # Load config
         self.config = self._load_config()
@@ -96,9 +96,7 @@ class Sentinel:
             return False
         return False
 
-    def _api_request(
-        self, method: str, endpoint: str, json_data: dict | None = None
-    ) -> dict:
+    def _api_request(self, method: str, endpoint: str, json_data: dict | None = None) -> dict:
         if self.dry_run and method != "GET":
             logger.info(f"[DRY-RUN] API Request: {method} {endpoint} Payload: {json_data}")
             return {}
@@ -112,9 +110,7 @@ class Sentinel:
             if method == "GET":
                 response = requests.get(url, headers=self.headers, timeout=10)
             elif method == "POST":
-                response = requests.post(
-                    url, headers=self.headers, json=json_data, timeout=10
-                )
+                response = requests.post(url, headers=self.headers, json=json_data, timeout=10)
             else:
                 return {}
 
@@ -295,9 +291,7 @@ class Sentinel:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Sentinel: Crisis Management for Freqtrade"
-    )
+    parser = argparse.ArgumentParser(description="Sentinel: Crisis Management for Freqtrade")
     parser.add_argument(
         "--config",
         type=Path,
@@ -310,9 +304,7 @@ def main():
         default=os.getenv("OPENCLAW_URL"),
         help="OpenClaw Webhook URL",
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Dry run mode (no actual API calls)"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Dry run mode (no actual API calls)")
 
     args = parser.parse_args()
 
