@@ -10,6 +10,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+
 USER_DATA_DIR = Path("user_data")
 OPTIMIZATION_LOG_FILE = USER_DATA_DIR / "optimization_log.txt"
 REPORT_FILE = Path("WEEKLY_REPORT.md")
