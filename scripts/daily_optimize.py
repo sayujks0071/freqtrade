@@ -85,7 +85,7 @@ def read_backtest_result(filepath: Path) -> dict | None:
                     with z.open(target_file) as f:
                         data = json.load(f)
         else:
-            with filepath.open() as f:
+            with filepath.open("rb") as f:
                 data = json.load(f)
     except Exception as e:
         print(f"Error reading backtest result {filepath}: {e}")
@@ -381,7 +381,7 @@ def main() -> None:  # noqa: C901
         # We assume any profit is better than no trades.
         # We also check if drawdown is reasonable (e.g. not 100%)
         sharpe_improved = new_sharpe > 0
-        drawdown_improved = new_drawdown < 1.0 # Reasonable sanity check
+        drawdown_improved = new_drawdown < 1.0  # Reasonable sanity check
         print("Baseline had 0 trades. Using relaxed criteria.")
     else:
         sharpe_improved = new_sharpe > (current_sharpe * 1.05)
@@ -427,7 +427,7 @@ def main() -> None:  # noqa: C901
                     print(result.stderr)
                     print("Changes are committed locally.")
             else:
-                 print("Skipping push (use --yes to push).")
+                print("Skipping push (use --yes to push).")
 
         if backup_json.exists():
             backup_json.unlink()
