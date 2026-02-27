@@ -152,6 +152,11 @@ async def test_exchangews_ohlcv(mocker, time_machine, caplog):
     finally:
         # Cleanup
         exchange_ws.cleanup()
+
+    # Wait for log message
+    await wait_for_condition(
+        lambda: log_has_re("Exception in _unwatch_ohlcv", caplog), timeout_=2.0
+    )
     assert log_has_re("Exception in _unwatch_ohlcv", caplog)
 
 
