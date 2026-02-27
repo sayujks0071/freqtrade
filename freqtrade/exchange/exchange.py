@@ -314,7 +314,7 @@ class Exchange:
             self._exchange_ws.cleanup()
         try:
             logger.debug("Exchange object destroyed, closing async loop")
-        except Exception:
+        except Exception:  # noqa: S110
             # Ignore errors during shutdown (e.g. logging when closed)
             pass
         if (
