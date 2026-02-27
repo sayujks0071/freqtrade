@@ -18,6 +18,7 @@ import requests
 # Configuration
 # ---------------------------------------------------------------------------
 
+
 # Helper to read from env or config
 def get_env_var(name, default=None):
     return os.environ.get(name, default)
@@ -66,39 +67,77 @@ logger = logging.getLogger("Sentinel")
 class FreqtradeClient:
     def __init__(self, url, username, password):
         self.url = url
-        self.auth = (username, password)
+        self.username = username
+        self.password = password
+        self.access_token = None
         self.session = requests.Session()
-        self.session.auth = self.auth
 
-    def _get(self, endpoint):
+    def login(self):
+        """
+        Logs in to Freqtrade API to get an access token.
+        """
+        auth_data = {"username": self.username, "password": self.password}
         try:
-            resp = self.session.get(f"{self.url}/api/v1/{endpoint}", timeout=10)
+            resp = self.session.post(f"{self.url}/api/v1/token/login", data=auth_data, timeout=10)
             resp.raise_for_status()
-            return resp.json()
+            data = resp.json()
+            self.access_token = data.get("access_token")
+            logger.info("Successfully logged in to Freqtrade API.")
+            return True
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error calling Freqtrade API ({endpoint}): {e}")
-            return None
+            logger.error(f"Error logging in to Freqtrade API: {e}")
+            return False
 
-    def _post(self, endpoint, data=None):
+    def _get_headers(self):
+        if not self.access_token:
+            return {}
+        return {"Authorization": f"Bearer {self.access_token}"}
+
+    def _request(self, method, endpoint, **kwargs):
+        """
+        Wrapper for requests to handle token expiration/login.
+        """
+        if not self.access_token:
+            if not self.login():
+                return None
+
+        url = f"{self.url}/api/v1/{endpoint}"
+        headers = self._get_headers()
+
+        # Merge headers if provided in kwargs
+        if "headers" in kwargs:
+            headers.update(kwargs["headers"])
+            del kwargs["headers"]
+
         try:
-            resp = self.session.post(f"{self.url}/api/v1/{endpoint}", json=data, timeout=10)
+            resp = self.session.request(method, url, headers=headers, **kwargs)
+            if resp.status_code == 401:
+                logger.warning("Token expired or invalid. Re-logging in...")
+                if self.login():
+                    # Retry request with new token
+                    headers = self._get_headers()
+                    resp = self.session.request(method, url, headers=headers, **kwargs)
+                else:
+                    return None
+
             resp.raise_for_status()
             return resp.json()
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Error calling Freqtrade API ({endpoint}): {e}")
             return None
 
     def get_balance(self):
-        return self._get("balance")
+        return self._request("GET", "balance")
 
     def get_status(self):
-        return self._get("status")
+        return self._request("GET", "status")
 
     def stop_bot(self):
-        return self._post("stop")
+        return self._request("POST", "stop")
 
     def start_bot(self):
-        return self._post("start")
+        return self._request("POST", "start")
 
     def kill_switch(self):
         """Stops the bot immediately."""

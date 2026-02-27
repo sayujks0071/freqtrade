@@ -1,9 +1,9 @@
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.sentinel import Sentinel
+from scripts.sentinel import FreqtradeClient, Sentinel
 
 
 @pytest.fixture
@@ -29,13 +29,7 @@ def sentinel(mock_freqtrade_client, mock_market_data):
     with patch("scripts.sentinel.STATE_FILE") as mock_file:
         mock_file.exists.return_value = False
 
-        # Instantiate Sentinel (mocks are injected via patch in __init__ if we did that,
-        # but here we are patching the classes used inside __init__)
-        # Actually, since Sentinel instantiates them in __init__, we need to patch the classes
-        # where they are imported or use dependency injection.
-        # Given the script structure, patching 'scripts.sentinel.FreqtradeClient' and
-        # 'scripts.sentinel.MarketData' before instantiating Sentinel works.
-
+        # Instantiate Sentinel
         s = Sentinel()
         # Ensure our fixtures are the ones used
         s.ft_client = mock_freqtrade_client
@@ -110,3 +104,85 @@ def test_balance_history_update(sentinel):
     history = sentinel.state["balance_history"]
     assert len(history) == 1
     assert history[0]["balance"] == 1050.0
+
+
+# ---------------------------------------------------------------------------
+# FreqtradeClient Tests (JWT Auth)
+# ---------------------------------------------------------------------------
+
+
+def test_freqtrade_client_login():
+    with patch("scripts.sentinel.requests.Session") as MockSession:
+        session_instance = MockSession.return_value
+        # Mock login response
+        login_resp = MagicMock()
+        login_resp.status_code = 200
+        login_resp.json.return_value = {"access_token": "test_token"}
+        session_instance.post.return_value = login_resp
+
+        client = FreqtradeClient("http://test", "user", "pass")
+        assert client.login() is True
+        assert client.access_token == "test_token"
+
+        session_instance.post.assert_called_with(
+            "http://test/api/v1/token/login",
+            data={"username": "user", "password": "pass"},
+            timeout=10,
+        )
+
+
+def test_freqtrade_client_request_with_token():
+    with patch("scripts.sentinel.requests.Session") as MockSession:
+        session_instance = MockSession.return_value
+
+        # Mock successful API response
+        api_resp = MagicMock()
+        api_resp.status_code = 200
+        api_resp.json.return_value = {"result": "ok"}
+        session_instance.request.return_value = api_resp
+
+        client = FreqtradeClient("http://test", "user", "pass")
+        client.access_token = "valid_token"
+
+        res = client._request("GET", "balance")
+        assert res == {"result": "ok"}
+
+        session_instance.request.assert_called_with(
+            "GET",
+            "http://test/api/v1/balance",
+            headers={"Authorization": "Bearer valid_token"},
+        )
+
+
+def test_freqtrade_client_relogin_on_401():
+    with patch("scripts.sentinel.requests.Session") as MockSession:
+        session_instance = MockSession.return_value
+
+        # First request: 401
+        resp_401 = MagicMock()
+        resp_401.status_code = 401
+
+        # Second request: 200
+        resp_200 = MagicMock()
+        resp_200.status_code = 200
+        resp_200.json.return_value = {"result": "ok"}
+
+        session_instance.request.side_effect = [resp_401, resp_200]
+
+        # Login response
+        login_resp = MagicMock()
+        login_resp.status_code = 200
+        login_resp.json.return_value = {"access_token": "new_token"}
+        session_instance.post.return_value = login_resp
+
+        client = FreqtradeClient("http://test", "user", "pass")
+        client.access_token = "expired_token"
+
+        res = client._request("GET", "balance")
+
+        # Should have called login
+        session_instance.post.assert_called()
+        # Should have updated token
+        assert client.access_token == "new_token"
+        # Should have returned success
+        assert res == {"result": "ok"}
