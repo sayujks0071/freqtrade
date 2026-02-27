@@ -14,6 +14,15 @@ import ccxt
 import pandas as pd
 import pandas_ta as ta
 
+
+try:
+    from datetime import UTC
+except ImportError:
+    from datetime import timezone
+
+    UTC = timezone.utc  # noqa: UP017
+
+
 # Constants
 CONFIG_PATH = Path("user_data/configs/config_production.json")
 LOG_FILE = Path("regime_log.md")
@@ -67,7 +76,9 @@ def detect_regime(df):
     adx = last["adx"]
     atr_pct = last["atr_pct"]
 
-    logger.info(f"Indicators: Price={price:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}, ATR%={atr_pct:.4f}")
+    logger.info(
+        f"Indicators: Price={price:.2f}, EMA200={ema200:.2f}, ADX={adx:.2f}, ATR%={atr_pct:.4f}"
+    )
 
     # Logic
     # 1. Volatile/Crashing: Price < EMA200 and High Volatility
@@ -87,11 +98,9 @@ def detect_regime(df):
     # Default fallback (if none match, e.g. ADX between 20-25 or Price < EMA200 but low vol)
     # If Price < EMA200 and low vol, it's a Bear Market but not crashing.
     # Maybe VolatilityBreakout is still safer if enabled for shorts, or keep current.
-    # For now, let's default to BollingerRSI for "uncertain/ranging" or MomentumVolumeTrend if trending?
+    # For now, let's default to BollingerRSI for "uncertain/ranging"
+    # or MomentumVolumeTrend if trending?
     # Let's default to DeltaSafeStrategy (the original one) or stick to BollingerRSI as safe haven.
-    # Prompt says: "Is it a Bull Market? ... Is it Sideways? ... Is it Volatile?".
-    # It doesn't cover "Bear Market (Low Vol)".
-    # Let's map "Bear Market (Low Vol)" to BollingerRSI (Sideways) as it handles ranges well.
     return "BollingerRSI", "Uncertain/Bearish (Low Vol)"
 
 
@@ -101,7 +110,7 @@ def update_config(strategy_name, regime_name):
         logger.error(f"Config file not found: {CONFIG_PATH}")
         sys.exit(1)
 
-    with open(CONFIG_PATH, "r") as f:
+    with CONFIG_PATH.open() as f:
         config = json.load(f)
 
     current_strategy = config.get("strategy")
@@ -122,7 +131,7 @@ def update_config(strategy_name, regime_name):
         config["unidirectional_only"] = True
         logger.info("Disabled Shorting (unidirectional_only=True)")
 
-    with open(CONFIG_PATH, "w") as f:
+    with CONFIG_PATH.open("w") as f:
         json.dump(config, f, indent=4)
 
     logger.info(f"Switched strategy to {strategy_name}")
@@ -131,17 +140,17 @@ def update_config(strategy_name, regime_name):
 
 def log_decision(strategy_name, regime_name):
     """Appends the decision to the regime_log.md file."""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     message = f"| {timestamp} | {regime_name} | Switched to `{strategy_name}` |"
 
     # Check if header exists
     header = "| Timestamp | Regime | Action |\n|---|---|---|\n"
 
     if not LOG_FILE.exists():
-        with open(LOG_FILE, "w") as f:
+        with LOG_FILE.open("w") as f:
             f.write("# Regime Switch Log\n\n" + header)
 
-    with open(LOG_FILE, "a") as f:
+    with LOG_FILE.open("a") as f:
         f.write(message + "\n")
 
 
