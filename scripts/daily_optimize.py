@@ -118,6 +118,8 @@ def run_backtest_job(strategy_name_or_list, extra_config=None):
     timerange = get_timerange()
 
     cmd = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "backtesting",
         "--config",
@@ -251,20 +253,14 @@ Examples:
             sys.exit(1)
 
     # 1. Establish Baseline
-    latest_file = get_latest_backtest_file()
+    # Always run a fresh backtest to establish a valid baseline for comparison
+    print("Running initial backtest to establish baseline...")
+    strategies = find_available_strategies()
+    if not strategies:
+        print("No strategy file found.")
+        sys.exit(1)
 
-    backtest_data = None
-    if latest_file:
-        print(f"Using latest backtest file: {latest_file}")
-        backtest_data = read_backtest_result(latest_file)
-
-    if not backtest_data:
-        print("No valid baseline found. Running initial backtest...")
-        strategies = find_available_strategies()
-        if not strategies:
-            print("No strategy file found.")
-            sys.exit(1)
-        backtest_data = run_backtest_job(strategies)
+    backtest_data = run_backtest_job(strategies)
 
     if not backtest_data:
         print("Failed to produce backtest baseline.")
@@ -294,6 +290,8 @@ Examples:
 
     print(f"Running Hyperopt for {worst_strategy}...")
     cmd_hyperopt = [
+        sys.executable,
+        "-m",
         "freqtrade",
         "hyperopt",
         "--config",
@@ -370,11 +368,14 @@ Examples:
     print(f"New Sharpe: {new_sharpe}")
     print(f"New Drawdown: {new_drawdown}")
 
+    # Gatekeeper Logic:
+    # 1. New Sharpe must be > 1.05 * Current Sharpe
+    # 2. New Drawdown must be STRICTLY LESS than Current Drawdown
     sharpe_improved = new_sharpe > (current_sharpe * 1.05)
     drawdown_improved = new_drawdown < current_drawdown
 
-    print(f"Sharpe Improved: {sharpe_improved}")
-    print(f"Drawdown Improved: {drawdown_improved}")
+    print(f"Sharpe Improved (> {current_sharpe * 1.05:.4f}): {sharpe_improved}")
+    print(f"Drawdown Improved (< {current_drawdown}): {drawdown_improved}")
 
     if sharpe_improved and drawdown_improved:
         print("Evaluation PASSED. Committing changes.")

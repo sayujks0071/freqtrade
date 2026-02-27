@@ -312,7 +312,11 @@ class Exchange:
     def close(self):
         if self._exchange_ws:
             self._exchange_ws.cleanup()
-        logger.debug("Exchange object destroyed, closing async loop")
+        try:
+            logger.debug("Exchange object destroyed, closing async loop")
+        except Exception:  # noqa: S110
+            # Ignore errors during shutdown (e.g. logging when closed)
+            pass
         if (
             getattr(self, "_api_async", None)
             and inspect.iscoroutinefunction(self._api_async.close)
