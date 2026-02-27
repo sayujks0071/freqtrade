@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from scripts.sentinel import FreqtradeClient, Sentinel
+from scripts.sentinel import Sentinel
 
 
 @pytest.fixture
