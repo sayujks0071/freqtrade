@@ -22,19 +22,20 @@ import requests
 def get_env_var(name, default=None):
     return os.environ.get(name, default)
 
+
 # Freqtrade API Connection
 FREQTRADE_API_URL = get_env_var("FREQTRADE_API_URL", "http://127.0.0.1:8080")
 FREQTRADE_API_USERNAME = get_env_var("FREQTRADE_API_USERNAME", "freqtrader")
 FREQTRADE_API_PASSWORD = get_env_var("FREQTRADE_API_PASSWORD", "SuperSecurePassword123!")
 
 # OpenClaw / Alerting
-OPENCLAW_URL = get_env_var("OPENCLAW_URL", "https://api.openclaw.com/v1/send") # Example URL
+OPENCLAW_URL = get_env_var("OPENCLAW_URL", "https://api.openclaw.com/v1/send")  # Example URL
 OPENCLAW_TOKEN = get_env_var("OPENCLAW_TOKEN", "")
 WHATSAPP_NUMBER = get_env_var("WHATSAPP_NUMBER", "")
 
 # Thresholds
 DRAWDOWN_THRESHOLD_PCT = 5.0  # 5%
-BTC_DROP_THRESHOLD_PCT = 10.0 # 10%
+BTC_DROP_THRESHOLD_PCT = 10.0  # 10%
 BTC_DROP_TIMEFRAME_HOURS = 4
 
 # Exchange for Market Data (BTC check)
@@ -60,6 +61,7 @@ logger = logging.getLogger("Sentinel")
 # ---------------------------------------------------------------------------
 # Freqtrade API Client
 # ---------------------------------------------------------------------------
+
 
 class FreqtradeClient:
     def __init__(self, url, username, password):
@@ -103,9 +105,11 @@ class FreqtradeClient:
         logger.warning("Executing KILL SWITCH...")
         return self.stop_bot()
 
+
 # ---------------------------------------------------------------------------
 # Market Data Client
 # ---------------------------------------------------------------------------
+
 
 class MarketData:
     def __init__(self, exchange_id="gate"):
@@ -148,7 +152,7 @@ class MarketData:
             if len(ohlcv) >= hours + 1:
                 # Use -(hours + 1) to get the candle starting 'hours' ago
                 past_candle = ohlcv[-(hours + 1)]
-                past_open = past_candle[1] # Open price
+                past_open = past_candle[1]  # Open price
 
                 if past_open == 0:
                     return 0.0
@@ -162,16 +166,16 @@ class MarketData:
             logger.error(f"Error fetching market data: {e}")
             return 0.0
 
+
 # ---------------------------------------------------------------------------
 # Sentinel Logic
 # ---------------------------------------------------------------------------
 
+
 class Sentinel:
     def __init__(self):
         self.ft_client = FreqtradeClient(
-            FREQTRADE_API_URL,
-            FREQTRADE_API_USERNAME,
-            FREQTRADE_API_PASSWORD
+            FREQTRADE_API_URL, FREQTRADE_API_USERNAME, FREQTRADE_API_PASSWORD
         )
         self.market = MarketData(EXCHANGE_ID)
         self.state = self.load_state()
@@ -181,7 +185,7 @@ class Sentinel:
             try:
                 with STATE_FILE.open("r") as f:
                     return json.load(f)
-            except Exception: # noqa: S110
+            except Exception:  # noqa: S110
                 pass
         return {"balance_history": [], "triggered": False}
 
@@ -198,7 +202,7 @@ class Sentinel:
         history.append({"ts": now, "balance": current_balance})
 
         # Prune old records (older than 1 hour + buffer)
-        cutoff = now - 3600 - 600 # 1h 10m
+        cutoff = now - 3600 - 600  # 1h 10m
         history = [x for x in history if x["ts"] > cutoff]
 
         self.state["balance_history"] = history
@@ -219,7 +223,7 @@ class Sentinel:
             return 0.0
 
         max_balance = max(x["balance"] for x in relevant_history)
-        max_balance = max(max_balance, current_balance) # Compare with current too
+        max_balance = max(max_balance, current_balance)  # Compare with current too
 
         if max_balance == 0:
             return 0.0
@@ -232,14 +236,10 @@ class Sentinel:
         print(f"--> SENT ALERT TO WHATSAPP: {message}")
 
         if not OPENCLAW_URL or not WHATSAPP_NUMBER:
-             logger.warning("OpenClaw URL or WhatsApp number not configured. Skipping alert.")
-             return
+            logger.warning("OpenClaw URL or WhatsApp number not configured. Skipping alert.")
+            return
 
-        payload = {
-            "token": OPENCLAW_TOKEN,
-            "to": WHATSAPP_NUMBER,
-            "message": message
-        }
+        payload = {"token": OPENCLAW_TOKEN, "to": WHATSAPP_NUMBER, "message": message}
         try:
             resp = requests.post(OPENCLAW_URL, json=payload, timeout=10)
             if resp.status_code == 200:
@@ -264,12 +264,14 @@ class Sentinel:
             if isinstance(total_balance, (int, float)):
                 current_balance = float(total_balance)
             elif isinstance(balance_data, dict) and "currencies" in balance_data:
-                 # Fallback logic if needed, but 'total' should be there for overall balance
-                 # If we can't determine balance, we MUST skip to avoid false positives.
-                 pass
+                # Fallback logic if needed, but 'total' should be there for overall balance
+                # If we can't determine balance, we MUST skip to avoid false positives.
+                pass
 
         if current_balance is None:
-             logger.error("Could not determine current balance from Freqtrade API. Skipping drawdown check.")
+            logger.error(
+                "Could not determine current balance from Freqtrade API. Skipping drawdown check."
+            )
         else:
             self.update_balance_history(current_balance)
             drawdown = self.calculate_drawdown(current_balance)
@@ -303,10 +305,12 @@ class Sentinel:
         self.state["triggered"] = True
         self.save_state()
 
+
 def main():
     logger.info("Starting Sentinel...")
     sentinel = Sentinel()
     sentinel.run_check()
+
 
 if __name__ == "__main__":
     main()
