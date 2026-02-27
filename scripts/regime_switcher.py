@@ -18,7 +18,7 @@ import pandas_ta as ta
 try:
     from datetime import UTC
 except ImportError:
-    UTC = timezone.utc  # type: ignore[attr-defined] # noqa: UP017
+    UTC = timezone.utc  # noqa: UP017
 
 
 # Constants
