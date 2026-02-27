@@ -149,10 +149,21 @@ async def test_exchangews_ohlcv(mocker, time_machine, caplog):
             ("ETH/BTC", "1m", CandleType.SPOT),
         }
 
+        # Cancel tasks explicitly to trigger the cancellation path and log
+        # This is needed because exchange_ws.cleanup() stops the loop
+        # potentially before the task callback (which logs the error) runs.
+        for task in exchange_ws._background_tasks:
+            task.cancel()
+
+        # Wait for log message - should be available before cleanup stops the loop
+        await wait_for_condition(
+            lambda: log_has_re("Exception in _unwatch_ohlcv", caplog), timeout_=2.0
+        )
+        assert log_has_re("Exception in _unwatch_ohlcv", caplog)
+
     finally:
         # Cleanup
         exchange_ws.cleanup()
-    assert log_has_re("Exception in _unwatch_ohlcv", caplog)
 
 
 async def test_exchangews_get_ohlcv(mocker, caplog):
